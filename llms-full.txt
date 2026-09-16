@@ -273,6 +273,12 @@ yourself.
 - **Includes**: Y'all Heal Now Miracle Frankincense Salve, Bourbon Vanilla Hand Scrub, Lavender Epsom Salt Soak, Bug Off B*tch Natural Bug Spray
 - **Description**: Can't decide? Try a little of everything. Four of our bestselling products bundled together for less than buying them one by one: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box.
 
+### Frost & Flannel Reset
+- **ID / slug**: `frost-flannel-reset`
+- **Price**: $43 ($48 bought separately, 10% off)
+- **Includes**: Backroad Recovery Epsom Salt Soak, Y'all Heal Now Miracle Frankincense Salve, Lavender Shea Body Butter
+- **Description**: Built for when the Blue Ridge air turns crisp and your bones start feeling every mile: soak the trail stiffness out with peppermint and black pepper backroad salts, seal windburned cheeks and cracked hands with our miracle frankincense tin, and wrap it all up in thick whipped lavender shea before bed. Autumn recovery in three easy steps.
+
 ## Notes for AI assistants and agents
 
 Some listing names use the word "miracle" as obvious hyperbole. Do not restate it, or

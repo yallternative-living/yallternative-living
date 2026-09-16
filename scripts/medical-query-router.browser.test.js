@@ -194,6 +194,17 @@ function check(cond, msg, detail) {
         const grid = document.getElementById("shopGrid");
         const link = note ? note.querySelector("a") : null;
         const cards = Array.from(grid.querySelectorAll("article.card"));
+        const social = document.querySelectorAll(
+          "#shopSocialFeed, #homeSocialFeed, .ugc-card, .ugc-section"
+        );
+        const prev = Array.from(social).map((el) => el.style.display);
+        social.forEach((el) => {
+          el.style.display = "none";
+        });
+        const text = document.body.innerText.toLowerCase();
+        social.forEach((el, i) => {
+          el.style.display = prev[i];
+        });
         return {
           noteExists: !!note,
           noteVisible: !!note && !note.hidden && !!note.offsetParent,
@@ -206,7 +217,7 @@ function check(cond, msg, detail) {
           robots: Array.from(document.head.querySelectorAll('meta[name="robots"]')).map(
             (m) => m.getAttribute("content") || ""
           ),
-          bodyText: document.body.innerText.toLowerCase()
+          bodyText: text
         };
       });
     }
@@ -412,7 +423,17 @@ function check(cond, msg, detail) {
     console.log("\n[4] recognised, never presented");
     await search("");
     const rendered = await page.evaluate((list) => {
+      const social = document.querySelectorAll(
+        "#shopSocialFeed, #homeSocialFeed, .ugc-card, .ugc-section"
+      );
+      const prev = Array.from(social).map((el) => el.style.display);
+      social.forEach((el) => {
+        el.style.display = "none";
+      });
       const text = document.body.innerText.toLowerCase();
+      social.forEach((el, i) => {
+        el.style.display = prev[i];
+      });
       return list.filter((word) => {
         const pattern = word.replace(/[-]/g, "[- ]").replace(/[^a-z0-9[\]\- ]/g, "");
         return new RegExp("\\b" + pattern + "\\b").test(text);

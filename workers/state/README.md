@@ -5,9 +5,9 @@ cannot provide on their own: a gift-card balance that cannot be spent twice, a
 webhook that runs exactly once, a points ledger the customer does not own, a
 rate limiter, single-use email tokens, and a real order lookup.
 
-Nothing here is wired into `checkout.js` yet — that is phase B. See
-[`docs/STATE-LAYER.md`](../../docs/STATE-LAYER.md) for the architecture, the
-free-plan budget and the wiring plan. This file is the module contract.
+All state modules are fully wired into `checkout.js` and active in production.
+See [`docs/STATE-LAYER.md`](../../docs/STATE-LAYER.md) for the architecture, the
+free-plan budget and operational details. This file is the module contract.
 
 Run the tests with `node scripts/worker-state.test.js` (no network, no
 `wrangler`; D1 and Durable Object SQLite are emulated on `node:sqlite`).

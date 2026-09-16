@@ -19,7 +19,7 @@ window.YL_SOCIAL_FEED = {
     {
       "id": "ugc-2",
       "image": "assets/img/backroad-soak.jpg",
-      "caption": "Soak your troubles away. Landrum farmers market starts at 9am tomorrow, see y'all there!",
+      "caption": "Soak your troubles away. Pure Epsom salt, eucalyptus, and peppermint for tired muscles.",
       "author": "Savanna",
       "handle": "@yallternativeliving",
       "productId": "backroad-soak",

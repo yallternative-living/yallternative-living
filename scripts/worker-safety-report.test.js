@@ -230,11 +230,38 @@ async function testWiring() {
 }
 
 /* ==========================================================================
-   2. Validation
+   2. Reference Generation
+   ========================================================================== */
+
+async function testSafetyReference() {
+  console.log("\n2. Reference generation (safetyReference)");
+  const { safetyReference } = await import("../workers/routes/safety-report.js");
+
+  const ref1 = safetyReference();
+  assert(
+    /^YL-AE-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(ref1),
+    "the reference uses the expected prefix and base32 Crockford alphabet (no I, L, O, U)"
+  );
+
+  const mockRng = (bytes) => {
+    // Fill the 8 bytes with indices 0..7
+    for (let i = 0; i < bytes.length; i++) bytes[i] = i;
+  };
+  const expectedChars = "01234567"; // Since CODE_ALPHABET is "0123456789ABCDEFGHJKMNPQRSTVWXYZ", indices 0-7 are '0'-'7'
+  const deterministic = safetyReference(mockRng);
+  eq(
+    deterministic,
+    `YL-AE-${expectedChars.slice(0, 4)}-${expectedChars.slice(4, 8)}`,
+    "the reference generation accepts an injected RNG (dependency injection works)"
+  );
+}
+
+/* ==========================================================================
+   3. Validation
    ========================================================================== */
 
 async function testValidation() {
-  console.log("\n2. Validation and field bounds");
+  console.log("\n3. Validation and field bounds");
   const workerModule = await import("../workers/checkout.js");
   const worker = workerModule.default || workerModule;
   const env = await makeEnv();
@@ -902,6 +929,7 @@ async function testSchema() {
 (async function run() {
   console.log("workers/routes/safety-report.js -- MoCRA adverse-event intake");
   await testWiring();
+  await testSafetyReference();
   await testValidation();
   await testHoneypot();
   await testRateLimit();

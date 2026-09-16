@@ -25,7 +25,7 @@
    - change a price
    - add/edit a page and want it in the sitemap
    This ALSO now runs automatically as part of every real deploy (see
-   netlify.toml / vercel.json) --
+   netlify.toml) --
    see DEVELOPMENT.md section 20 for why that became necessary once a CMS
    commit could update products.json without a human remembering to
    run this script by hand first.
@@ -181,6 +181,102 @@ function listJournalFiles() {
       return JOURNAL_DIR + "/" + f;
     });
 }
+const PRODUCTS_DATA_DIR = "assets/data/products";
+/* A product id becomes a file name (products/<id>.html), a URL and a cart
+   key, so it is restricted to a lowercase slug. Anything else -- a slash, a
+   dot segment, a space, upper case -- fails the build with the file named: a
+   committed id of "../admin/index" would otherwise be written straight over
+   admin/index.html by the product-page pass. */
+const PRODUCT_ID_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
+function validateProductId(id, source) {
+  if (typeof id !== "string" || !PRODUCT_ID_RE.test(id)) {
+    throw new Error(
+      "[build] " +
+        source +
+        ": product id " +
+        JSON.stringify(id) +
+        " is not a valid slug. Ids may only contain lowercase letters, digits and dashes " +
+        "(1-81 characters, starting with a letter or digit) because the id becomes the " +
+        "products/<id>.html file name."
+    );
+  }
+  return id;
+}
+function listProductFiles() {
+  const dir = path.join(ROOT, PRODUCTS_DATA_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter(function (f) {
+      return f.endsWith(".json");
+    })
+    .sort()
+    .map(function (f) {
+      return PRODUCTS_DATA_DIR + "/" + f;
+    });
+}
+function loadCatalog() {
+  const productFiles = listProductFiles();
+  const catalogConfigPath = path.join(ROOT, "assets/data/catalog-config.json");
+  if (!productFiles.length || !fs.existsSync(catalogConfigPath)) {
+    return readJson("assets/data/products.json");
+  }
+  const config = readJson("assets/data/catalog-config.json");
+  const products = productFiles.map(function (rel) {
+    const p = readJson(rel);
+    const fileId = path.basename(rel, ".json");
+    if (!p.id) p.id = fileId;
+    validateProductId(p.id, rel);
+    /* The file name is the id the CMS wrote; a JSON body that claims another
+       id would publish a page under a name the catalog config, cart and
+       inventory ledger cannot see. */
+    if (p.id !== fileId) {
+      throw new Error(
+        "[build] " +
+          rel +
+          ": product id " +
+          JSON.stringify(p.id) +
+          " must match the file name (" +
+          fileId +
+          "). Rename the file or fix the id."
+      );
+    }
+    return p;
+  });
+  const order = Array.isArray(config.productOrder) ? config.productOrder : [];
+  if (order.length) {
+    products.sort(function (a, b) {
+      const idxA = order.indexOf(a.id);
+      const idxB = order.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.id.localeCompare(b.id);
+    });
+  }
+  const catalog = {
+    products: products,
+    volumePricing: config.volumePricing || [],
+    sales: config.sales || [],
+    bundles: config.bundles || [],
+    faq: config.faq || [],
+    concerns: config.concerns || [],
+    categories: config.categories || [],
+    shop: config.shop || {}
+  };
+  const compiledJson = JSON.stringify(catalog, null, 2) + "\n";
+  const existing = fs.existsSync(path.join(ROOT, "assets/data/products.json"))
+    ? fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8")
+    : "";
+  if (compiledJson !== existing) {
+    fs.writeFileSync(path.join(ROOT, "assets/data/products.json"), compiledJson, "utf8");
+    console.log(
+      "[build] compiled assets/data/products.json from " + products.length + " product files"
+    );
+  }
+  return catalog;
+}
+
 function loadJournal(content) {
   const wording = (content && content.journal) || {};
   const posts = listJournalFiles().map(function (rel) {
@@ -195,7 +291,7 @@ function loadJournal(content) {
     );
   });
   return {
-    title: wording.title || "Apothecary Journal",
+    title: wording.title || "Root & Ritual",
     lede: wording.lede || "Stories, science, and small-batch updates straight from the kitchen.",
     /* The static post pages' owner-facing labels (Back link, newer/older
        pager); content.json's `journal` key, edited under "Site Images & Page
@@ -244,6 +340,14 @@ function formatMoney(n) {
   if (!isFinite(v)) return "$0";
   const cents = Math.round(v * 100);
   return cents % 100 === 0 ? "$" + cents / 100 : "$" + (cents / 100).toFixed(2);
+}
+
+function resolveIngredientsLabel(p) {
+  if (p && typeof p.ingredientsLabel === "string" && p.ingredientsLabel.trim()) {
+    return p.ingredientsLabel.trim();
+  }
+  const cat = (p && p.category) || "";
+  return cat === "apparel" || cat === "potions" ? "Materials" : "Ingredients";
 }
 
 /* ---------- JSON embedded in HTML ----------
@@ -947,13 +1051,18 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
   function readSource(rel) {
     if (!Object.prototype.hasOwnProperty.call(sourceCache, rel)) {
       const p = path.join(ROOT, rel);
-      sourceCache[rel] = fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null;
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, "utf8");
+        sourceCache[rel] = { raw: raw, decoded: decodeHtmlEntities(raw) };
+      } else {
+        sourceCache[rel] = null;
+      }
     }
     return sourceCache[rel];
   }
   manifestStrings.forEach(function (entry) {
-    const src = entry.source ? readSource(entry.source) : null;
-    if (src === null) {
+    const cached = entry.source ? readSource(entry.source) : null;
+    if (cached === null) {
       problems.push(
         "runtime manifest entry '" +
           entry.key +
@@ -962,7 +1071,8 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
       );
       return;
     }
-    const decoded = decodeHtmlEntities(src);
+    const src = cached.raw;
+    const decoded = cached.decoded;
     const fragments =
       Array.isArray(entry.verify) && entry.verify.length ? entry.verify : [entry.text];
     const missing = fragments.filter(function (frag) {
@@ -1400,6 +1510,141 @@ function assertBundlePricesSane(bundles, productsMap) {
   });
 }
 
+function formatEventMapDestination(ev) {
+  if (!ev) return "Landrum, SC";
+  if (ev.coordinates) {
+    if (typeof ev.coordinates === "string" && ev.coordinates.trim()) {
+      return ev.coordinates.trim();
+    }
+    if (typeof ev.coordinates === "object" && ev.coordinates !== null) {
+      var lat = ev.coordinates.lat != null ? ev.coordinates.lat : ev.coordinates.latitude;
+      var lng =
+        ev.coordinates.lng != null
+          ? ev.coordinates.lng
+          : ev.coordinates.lon != null
+            ? ev.coordinates.lon
+            : ev.coordinates.longitude;
+      if (lat != null && lng != null) {
+        return lat + "," + lng;
+      }
+    }
+  }
+  if (ev.address) {
+    var addr = String(ev.address).trim();
+    var addrParts = [];
+    if (ev.venue && addr.indexOf(ev.venue) === -1) {
+      addrParts.push(String(ev.venue).trim());
+    }
+    addrParts.push(addr);
+    if (ev.location && addr.indexOf(ev.location) === -1) {
+      addrParts.push(ev.location);
+    }
+    if (
+      ev.zip &&
+      addr.indexOf(ev.zip) === -1 &&
+      (!ev.location || ev.location.indexOf(ev.zip) === -1)
+    ) {
+      addrParts.push(ev.zip);
+    }
+    return addrParts.join(", ");
+  }
+  if (ev.note && ev.zip && ev.note.indexOf(ev.zip) !== -1) {
+    var match = ev.note.match(/^([^.]+?\b\d{5}\b)/);
+    if (match) return match[1].trim();
+  }
+  var parts = [];
+  if (ev.venue) {
+    parts.push(ev.venue);
+  } else if (ev.name) {
+    parts.push(ev.name);
+  }
+  if (ev.location) parts.push(ev.location);
+  if (ev.zip && (!ev.location || ev.location.indexOf(ev.zip) === -1)) parts.push(ev.zip);
+  return parts.length ? parts.join(", ") : "Landrum, SC";
+}
+
+/* Escapes a string for literal use inside `new RegExp(...)`. Needed wherever
+   CMS-supplied text is compiled into a pattern: an event location such as
+   "Asheville (NC" is an unbalanced group and would otherwise throw a
+   SyntaxError and fail the whole build. */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/* Works out an event's venue / street / note from whichever of the CMS
+   fields are filled in. Older entries carried the whole address inside
+   `note`, so when venue or address is blank the note is parsed for a
+   street-and-zip prefix. Module-level (not inside buildSiteData) so the
+   unit suite can feed it hostile locations directly. */
+function resolveEventDetails(ev) {
+  let venue = ev && ev.venue ? String(ev.venue).trim() : "";
+  let street = ev && ev.address ? String(ev.address).trim() : "";
+  const rawNote = ev && ev.note ? String(ev.note).trim() : "";
+  let note = rawNote;
+
+  if ((!venue || !street) && rawNote) {
+    const m = rawNote.match(/^([^.]+?\b(?:[A-Z]{2}\s+\d{5}|\d{5})\b)\.?\s*(.*)$/);
+    if (m) {
+      const addrPart = m[1].trim();
+      const rest = m[2] ? m[2].trim() : "";
+      const chunks = addrPart.split(/\s*,\s*/);
+      const locStr = ev && ev.location ? ev.location.toLowerCase() : "";
+      const zipStr = ev && ev.zip ? String(ev.zip).trim() : "";
+      const remaining = [];
+      for (let i = 0; i < chunks.length; i++) {
+        const c = chunks[i].trim();
+        const cLower = c.toLowerCase();
+        if (zipStr && c === zipStr) continue;
+        if (/^[A-Z]{2}\s+\d{5}$/i.test(c)) continue;
+        if (locStr && (locStr.indexOf(cLower) !== -1 || cLower.indexOf(locStr) !== -1)) continue;
+        if (/^(?:NC|SC|GA|TN|VA)\b/i.test(c) && /\d{5}/.test(c)) continue;
+        remaining.push(c);
+      }
+      if (!venue && !street) {
+        if (remaining.length >= 2) {
+          venue = remaining[0];
+          street = remaining.slice(1).join(", ");
+        } else if (remaining.length === 1) {
+          if (/\d/.test(remaining[0])) {
+            street = remaining[0];
+          } else {
+            venue = remaining[0];
+          }
+        }
+      } else if (!street && remaining.length) {
+        street = remaining.join(", ");
+      }
+      note = rest;
+    }
+  }
+
+  if (street && ev && ev.location) {
+    const locParts = ev.location.split(/\s*,\s*/);
+    for (let j = 0; j < locParts.length; j++) {
+      const lp = locParts[j].trim();
+      if (lp && street.indexOf(lp) !== -1) {
+        street = street.replace(new RegExp(",?\\s*" + escapeRegExp(lp) + "\\b", "gi"), "").trim();
+      }
+    }
+  }
+
+  return {
+    venue: venue,
+    street: street,
+    note: note
+  };
+}
+
+function generateGoogleMapsDirUrl(ev) {
+  var dest = formatEventMapDestination(ev);
+  return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
+}
+
+function generateAppleMapsDirUrl(ev) {
+  var dest = formatEventMapDestination(ev);
+  return "https://maps.apple.com/?daddr=" + encodeURIComponent(dest);
+}
+
 function validatePairsWith(products, productsMap) {
   const map = productsMap || PRODUCTS_BY_ID || {};
   (products || []).forEach(function (p) {
@@ -1496,7 +1741,7 @@ function getActiveSocialUrls(social) {
   return urls;
 }
 
-function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap) {
+function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap, concernsMap) {
   if (!quiz) return true;
   const questions = quiz.questions || quiz.steps || [];
   if (!Array.isArray(questions)) {
@@ -1506,6 +1751,7 @@ function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap) {
   const pMap = productsMap || {};
   const cMap = categoriesMap || {};
   const bMap = bundlesMap || {};
+  const vMap = concernsMap || {};
 
   questions.forEach(function (q, qIdx) {
     if (!q || typeof q !== "object") {
@@ -1551,9 +1797,102 @@ function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap) {
           }
         });
       }
+      if (Array.isArray(opt.concerns)) {
+        opt.concerns.forEach(function (con) {
+          if (vMap && Object.keys(vMap).length && !vMap[con]) {
+            throw new Error(
+              "Quiz option '" +
+                (opt.value || optIdx) +
+                "' in question '" +
+                (q.id || qIdx) +
+                "' references unknown concern/vibe ID: '" +
+                con +
+                "'"
+            );
+          }
+        });
+      }
     });
   });
   return true;
+}
+
+function buildQuizFlowHtml(quiz) {
+  if (!quiz || !Array.isArray(quiz.questions) || !quiz.questions.length) return "";
+  const questions = quiz.questions;
+  const total = questions.length;
+  let out = "";
+  questions.forEach(function (q, qIdx) {
+    const stepNum = qIdx + 1;
+    const paramName = q.name || "quiz-" + (q.id || "step" + stepNum);
+    const rawTitle = (q.title || "").replace(/^Step\s+\d+\s+of\s+\d+:\s*/i, "");
+    const cleanTitle = "Step " + stepNum + " of " + total + ": " + rawTitle;
+    const stepDisplay = qIdx === 0 ? "" : ' style="display: none;"';
+    out += "            <!-- Step " + stepNum + " -->\n";
+    out +=
+      '            <div id="quiz-step-' + stepNum + '" class="quiz-step"' + stepDisplay + ">\n";
+    out +=
+      '              <h3 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--whiskey);">' +
+      escapeHtml(cleanTitle) +
+      "</h3>\n";
+    if (q.subtitle) {
+      out +=
+        '              <p style="font-size: 0.85rem; color: var(--paper-muted); margin: -0.5rem 0 1rem;">' +
+        escapeHtml(q.subtitle) +
+        "</p>\n";
+    }
+    out +=
+      '              <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">\n';
+    (q.options || []).forEach(function (opt, optIdx) {
+      const val = opt.value || slugify(opt.label) || "opt-" + optIdx;
+      const checked = optIdx === 0 ? " checked" : "";
+      out +=
+        '                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">\n';
+      out +=
+        '                  <input type="radio" name="' +
+        escapeHtml(paramName) +
+        '" value="' +
+        escapeHtml(val) +
+        '"' +
+        checked +
+        ' style="margin-right: 0.5rem; accent-color: var(--whiskey);">\n';
+      out += "                  <strong>" + escapeHtml(opt.label || "") + "</strong>\n";
+      if (opt.description) {
+        out +=
+          '                  <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">' +
+          escapeHtml(opt.description) +
+          "</p>\n";
+      }
+      out += "                </label>\n";
+    });
+    out += "              </div>\n";
+    if (qIdx === 0) {
+      out +=
+        '              <button type="button" id="quiz-next-btn-1" class="btn btn-primary quiz-next-step" data-next="2">Next Step &rarr;</button>\n';
+    } else if (qIdx < total - 1) {
+      out += '              <div style="display: flex; gap: 0.5rem;">\n';
+      out +=
+        '                <button type="button" class="btn btn-outline quiz-prev-step" data-prev="' +
+        (stepNum - 1) +
+        '">&larr; Back</button>\n';
+      out +=
+        '                <button type="button" id="quiz-next-btn" class="btn btn-primary quiz-next-step" data-next="' +
+        (stepNum + 1) +
+        '">Next Step &rarr;</button>\n';
+      out += "              </div>\n";
+    } else {
+      out += '              <div style="display: flex; gap: 0.5rem;">\n';
+      out +=
+        '                <button type="button" class="btn btn-outline quiz-prev-step" data-prev="' +
+        (stepNum - 1) +
+        '">&larr; Back</button>\n';
+      out +=
+        '                <button type="button" id="quiz-submit-btn" class="btn btn-primary">Find My Match &rarr;</button>\n';
+      out += "              </div>\n";
+    }
+    out += "            </div>\n";
+  });
+  return out;
 }
 
 function readText(relPath, label) {
@@ -1581,8 +1920,26 @@ function stripMarkersInsideAttributes(html) {
   });
 }
 
+/* Resolves a build output path and refuses anything that lands outside the
+   repository root. Every writer in this file goes through it, so an id or
+   slug that smuggles in "../" (or an absolute path) throws instead of
+   clobbering a file elsewhere in the tree. */
+function resolveOutputPath(relPath) {
+  const rootAbs = path.resolve(ROOT);
+  const full = path.resolve(rootAbs, String(relPath));
+  if (full === rootAbs || full.indexOf(rootAbs + path.sep) !== 0) {
+    throw new Error(
+      "[build] Refusing to write outside the repository: " +
+        JSON.stringify(relPath) +
+        " resolves to " +
+        full
+    );
+  }
+  return full;
+}
+
 function writeFile(relPath, contents) {
-  const full = path.join(ROOT, relPath);
+  const full = resolveOutputPath(relPath);
   const dir = path.dirname(full);
   try {
     if (!fs.existsSync(dir)) {
@@ -1838,7 +2195,7 @@ function umamiPreconnectHtml() {
 
 function buildSiteData() {
   PRODUCTS_BY_ID = {};
-  const CATALOG = readJson("assets/data/products.json");
+  const CATALOG = loadCatalog();
   const PRODUCTS = CATALOG.products;
   const BUNDLES = CATALOG.bundles || [];
   const FAQ = CATALOG.faq || [];
@@ -1949,6 +2306,9 @@ function buildSiteData() {
       }
       p.id = generateUniqueId(USED_PRODUCT_IDS, p.name, "product", idx);
     } else {
+      // products.json may be hand-written (no per-file catalog): the same
+      // slug rule applies before the id is ever used as a path.
+      validateProductId(p.id, "products.json product #" + (idx + 1));
       if (USED_PRODUCT_IDS.has(p.id)) {
         console.error(
           "\n[build] Duplicate product ID found: '" + p.id + "' on product '" + p.name + "'."
@@ -2148,11 +2508,15 @@ function buildSiteData() {
   (CATALOG.categories || []).forEach(function (c) {
     if (c.id) CATEGORIES_BY_ID[c.id] = c;
   });
+  const CONCERNS_BY_ID = {};
+  (CATALOG.concerns || []).forEach(function (con) {
+    if (con.id) CONCERNS_BY_ID[con.id] = con;
+  });
   /* Before any derived file is written: a bad bundle price must not leave
      products-data.js rewritten while the HTML, sitemap and feed are stale. */
   assertBundlePricesSane(BUNDLES, PRODUCTS_BY_ID);
   try {
-    validateQuizData(CONTENT.quiz, PRODUCTS_BY_ID, CATEGORIES_BY_ID, BUNDLES_BY_ID);
+    validateQuizData(CONTENT.quiz, PRODUCTS_BY_ID, CATEGORIES_BY_ID, BUNDLES_BY_ID, CONCERNS_BY_ID);
   } catch (e) {
     console.error("\n[build] Quiz data validation failed: " + e.message);
     process.exit(1);
@@ -2235,7 +2599,12 @@ function buildSiteData() {
   });
 
   /* 7. Auto-Archive Past Events & Sort Upcoming Events Chronologically */
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
   if (EVENTS && Array.isArray(EVENTS.upcoming)) {
     const stillUpcoming = [];
     EVENTS.upcoming.forEach(function (evt) {
@@ -2262,6 +2631,8 @@ function buildSiteData() {
           name: evt.name,
           type: evt.type,
           location: evt.location,
+          venue: evt.venue,
+          address: evt.address,
           zip: evt.zip,
           emoji: evt.emoji,
           url: evt.url,
@@ -2522,7 +2893,7 @@ function buildSiteData() {
       featured: !!p.featured,
       blurb: p.blurb || p.description || "",
       ingredients: Array.isArray(p.ingredients) ? p.ingredients : [],
-      ingredientsLabel: p.ingredientsLabel || "Ingredients",
+      ingredientsLabel: resolveIngredientsLabel(p),
       scent: p.scent || "",
       tags: Array.isArray(p.tags) ? p.tags : [],
       concerns: Array.isArray(p.concerns) ? p.concerns : [],
@@ -3654,9 +4025,10 @@ function buildSiteData() {
 
    Why a copy and not a require(): main.js is a browser IIFE that needs a full
    DOM mock before Node will even load it (see the top of scripts/main.test.js);
-   pulling that into the build to reach two pure functions would be a far
-   bigger liability than a mirrored pair the test pins together. */
+    pulling that into the build to reach two pure functions would be a far
+    bigger liability than a mirrored pair the test pins together. */
   function getEventStreetAddress(ev) {
+    if (ev && ev.address) return String(ev.address).trim();
     if (!ev || !ev.note || !ev.zip) return "";
     const note = String(ev.note);
     if (!/^\d/.test(note.trim())) return "";
@@ -3745,7 +4117,7 @@ function buildSiteData() {
 
   const rawUpcoming = eventsJson.upcoming || [];
   const rawPast = eventsJson.past || [];
-  const buildTodayStr = new Date().toISOString().slice(0, 10);
+  const buildTodayStr = todayStr;
 
   const upcoming = [];
   const past = [];
@@ -3781,16 +4153,35 @@ function buildSiteData() {
           const cardCat = ev.type
             ? '              <span class="card-cat">' + escapeHtml(ev.type) + "</span>\n"
             : "";
-          const cardNote = ev.note
-            ? '              <p class="event-desc">' + escapeHtml(ev.note) + "</p>\n"
-            : "";
-          const evUrl = safeUrl(ev.url);
-          const cardUrl = evUrl
-            ? '              <div class="event-cta">\n' +
-              '                <a class="btn btn-primary btn-sm btn-block" href="' +
-              escapeHtml(evUrl) +
-              '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>\n' +
-              "              </div>\n"
+          const details = resolveEventDetails(ev);
+          const venue = details.venue;
+          const street = details.street;
+          const note = details.note;
+
+          let venueAddressHtml = "";
+          if (venue && street) {
+            venueAddressHtml =
+              '              <p class="event-venue-address">' +
+              '<span class="event-place">' +
+              escapeHtml(venue) +
+              '</span> <span class="event-addr-divider" aria-hidden="true">·</span> <span class="event-street">' +
+              escapeHtml(street) +
+              "</span>" +
+              "</p>\n";
+          } else if (venue) {
+            venueAddressHtml =
+              '              <p class="event-venue-address"><span class="event-place">' +
+              escapeHtml(venue) +
+              "</span></p>\n";
+          } else if (street) {
+            venueAddressHtml =
+              '              <p class="event-venue-address"><span class="event-street">' +
+              escapeHtml(street) +
+              "</span></p>\n";
+          }
+
+          const cardNote = note
+            ? '              <p class="event-desc">' + escapeHtml(note) + "</p>\n"
             : "";
           return (
             '          <article class="card event-card ' +
@@ -3806,14 +4197,13 @@ function buildSiteData() {
             '"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
             escapeHtml(ev.dateLabel) +
             "</time></p>\n" +
-            '              <p class="event-location">' +
             (ev.location
-              ? '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
-                escapeHtml(ev.location)
+              ? '              <p class="event-location"><span class="event-venue-name"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
+                escapeHtml(ev.location) +
+                "</span></p>\n"
               : "") +
-            "</p>\n" +
+            venueAddressHtml +
             cardNote +
-            cardUrl +
             "            </div>\n" +
             "          </article>"
           );
@@ -3926,7 +4316,7 @@ function buildSiteData() {
           .join("")
       : "";
     const concernPills = concerns.length
-      ? '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button>' +
+      ? '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Vibes</button>' +
         concerns
           .map(function (c) {
             return (
@@ -4205,7 +4595,7 @@ function buildSiteData() {
     const html = fs.readFileSync(pagePath, "utf8");
     let updated = html;
 
-    const title = escapeHtml(journal.title || "Apothecary Journal");
+    const title = escapeHtml(journal.title || "Root & Ritual");
     const lede = escapeHtml(
       journal.lede || "Stories, science, and small-batch updates straight from the kitchen."
     );
@@ -4277,6 +4667,63 @@ function buildSiteData() {
     }
   }
   injectJournalCopy();
+
+  function injectQuizShopCopy() {
+    const quiz = CONTENT.quiz || {};
+    const pagePath = path.join(ROOT, "shop.html");
+    if (!fs.existsSync(pagePath)) return;
+    let html = fs.readFileSync(pagePath, "utf8");
+
+    const fields = [
+      { key: "quiz.eyebrow", val: quiz.eyebrow || "✦ INTERACTIVE APOTHECARY ✦" },
+      { key: "quiz.title", val: quiz.title || "Find Your Custom Self-Care Match" },
+      {
+        key: "quiz.subtitle",
+        val:
+          quiz.subtitle ||
+          "Answer 3 quick questions in our popup quiz to discover your personalized salve, soak, or potion match."
+      },
+      { key: "quiz.buttonText", val: quiz.buttonText || "Take the Quiz" },
+      { key: "quiz.modalEyebrow", val: "Interactive Apothecary" },
+      { key: "quiz.modalTitle", val: quiz.modalTitle || "Your Three Questions" },
+      {
+        key: "quiz.modalSubtitle",
+        val:
+          quiz.modalSubtitle ||
+          quiz.subtitle ||
+          "Answer 3 quick questions to discover your personalized salve, soak, or potion match."
+      }
+    ];
+
+    fields.forEach(function (f) {
+      const re = new RegExp(
+        "(<!--YL:" +
+          f.key.replace(/\./g, "\\.") +
+          "-->)[\\s\\S]*?(<!--/YL:" +
+          f.key.replace(/\./g, "\\.") +
+          "-->)",
+        "g"
+      );
+      if (re.test(html)) {
+        html = html.replace(re, function (m, p1, p2) {
+          return p1 + escapeHtml(f.val) + p2;
+        });
+      }
+    });
+
+    const reFlow = /(<!--YL:quiz\.flow-->)[\s\S]*?(<!--\/YL:quiz\.flow-->)/;
+    if (reFlow.test(html)) {
+      const flowHtml = buildQuizFlowHtml(quiz);
+      if (flowHtml) {
+        html = html.replace(reFlow, function (m, p1, p2) {
+          return p1 + "\n" + flowHtml + "            " + p2;
+        });
+      }
+    }
+
+    writeFile("shop.html", html);
+  }
+  injectQuizShopCopy();
 
   /* ---------- 4b) shared footer (single source -> all pages) ----------
    The <footer class="site-footer"> block is byte-identical on every
@@ -4769,7 +5216,7 @@ function buildSiteData() {
   const llmsTxt =
     "# Y'allternative Living\n\n" +
     "> Queer-owned, Southern-raised handmade self-care -- small-batch salves, soaks, body care and apparel out of Landrum, SC. Sold directly on this site and on Etsy, plus in person at farmers markets and Pride events around Upstate SC and beyond.\n\n" +
-    "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 33 ratings and 108+ sales on its Etsy shop (a separate, longer-running sales channel from this site).\n\n" +
+    "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 33 ratings on its Etsy shop (a separate sales channel from this site).\n\n" +
     "## Pages\n\n" +
     "- [Shop](" +
     DOMAIN +
@@ -4788,7 +5235,9 @@ function buildSiteData() {
     DOMAIN +
     "/events.html): upcoming and past farmers markets, fairs, and Pride pop-ups where the shop appears in person. Only real, confirmed dates are listed -- if it's empty, no dates are confirmed yet.\n" +
     (SITE_CONFIG.enableJournal
-      ? "- [Apothecary Journal](" +
+      ? "- [" +
+        escapeHtml((JOURNAL && JOURNAL.title) || "Root & Ritual") +
+        "](" +
         DOMAIN +
         "/journal.html): stories, herbal science, and small-batch updates straight from the kitchen.\n"
       : "") +
@@ -4972,7 +5421,7 @@ function buildSiteData() {
    placeholder in 7 HTML files across dozens of JSON-LD fields -- easy
    to miss one and ship inconsistent metadata. Now it's one line: set a
    real DOMAIN above and re-run this script (which every real deploy
-   already does automatically, see netlify.toml/vercel.json). While
+   already does automatically, see netlify.toml). While
    DOMAIN is still the
    placeholder, this whole block is a no-op and every page stays
    exactly as it is today. */
@@ -5427,7 +5876,7 @@ function buildSiteData() {
       htmlPages.push(journalPostPath(post));
     });
     htmlPages.forEach(function (page) {
-      const full = path.join(ROOT, page);
+      const full = resolveOutputPath(page);
       if (!fs.existsSync(full) || fs.statSync(full).isDirectory()) return;
       const html = fs.readFileSync(full, "utf8");
       const cleaned = stripMarkersInsideAttributes(html);
@@ -7155,7 +7604,7 @@ const DEFAULT_SHOP_FILTER_UI = {
   sortButton: "Sort",
   sheetTitle: "Filter & sort",
   categoryHeading: "Category",
-  concernHeading: "Concern",
+  concernHeading: "Vibe",
   applyButton: "Apply",
   clearAll: "Clear all",
   activeFilters: "Active filters",
@@ -7189,7 +7638,7 @@ function renderPdpSafetyHtml(p, safetyOverrides) {
   const isTopical =
     /salve|balm|butter|scrub|oil|soak|tea|spray|salt/i.test(nameAndCat) &&
     !/keychain|talisman|apparel|shirt|tank|gift/i.test(nameAndCat) &&
-    p.ingredientsLabel !== "Materials";
+    resolveIngredientsLabel(p) !== "Materials";
   if (!isTopical) return "";
   // "No essential oils" must not trip the essential-oil caution: test the
   // ingredient list only, and let an explicit "free" statement win.
@@ -7626,7 +8075,7 @@ function renderProductPdpHtml(
 
   let ingredientsHtml = "";
   if (Array.isArray(product.ingredients) && product.ingredients.length) {
-    const ingLabel = escapeHtml(product.ingredientsLabel || "Ingredients");
+    const ingLabel = escapeHtml(resolveIngredientsLabel(product));
     ingredientsHtml =
       '      <div class="pdp-ingredients-block">\n' +
       '        <h2 class="pdp-section-title">' +
@@ -8180,7 +8629,7 @@ function renderJournalPostHtml(post, journalData, domain, ctx) {
   const manifest = c.manifest || {};
   const dom = (domain || SITE_ORIGIN).replace(/\/+$/, "");
   const wording = journalWording(journalData);
-  const journalTitle = (journalData && journalData.title) || "Apothecary Journal";
+  const journalTitle = (journalData && journalData.title) || "Root & Ritual";
   const rawTitle = String(post.title || "Journal Entry");
   const pTitle = escapeHtml(pdpPageTitle(rawTitle));
   const rawDesc = post.excerpt || post.summary || "";
@@ -8392,7 +8841,7 @@ function generateJournalJsonLd(journalData, domainUrl) {
     "@type": "Blog",
     "@id": pageUrl + "#blog",
     url: pageUrl,
-    name: journalData.title || "Apothecary Journal",
+    name: journalData.title || "Root & Ritual",
     description:
       journalData.lede || "Stories, science, and small-batch updates straight from the kitchen.",
     inLanguage: "en-US",
@@ -8408,6 +8857,7 @@ function generateJournalJsonLd(journalData, domainUrl) {
 function generateRssFeed(journalData, domainUrl, options) {
   const DOMAIN_URL = domainUrl || "https://yallternativeliving.com";
   const opts = options || {};
+  const journalTitle = xmlText((journalData && journalData.title) || "Root & Ritual");
   const allPosts = Array.isArray(journalData)
     ? journalData
     : (journalData && journalData.posts) || [];
@@ -8472,7 +8922,9 @@ function generateRssFeed(journalData, domainUrl, options) {
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n' +
     "  <channel>\n" +
-    "    <title>Apothecary Journal | Y'allternative Living</title>\n" +
+    "    <title>" +
+    journalTitle +
+    " | Y'allternative Living</title>\n" +
     "    <link>" +
     DOMAIN_URL +
     "/journal.html</link>\n" +
@@ -8558,6 +9010,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderUsageAccordionsHtml: renderUsageAccordionsHtml,
     validatePairsWith: validatePairsWith,
     validateQuizData: validateQuizData,
+    buildQuizFlowHtml: buildQuizFlowHtml,
     renderSocialRowHtml: renderSocialRowHtml,
     getActiveSocialUrls: getActiveSocialUrls,
     renderRitualSectionHtml: renderRitualSectionHtml,
@@ -8572,6 +9025,16 @@ if (typeof module !== "undefined" && module.exports) {
     collectBuiltHtml: collectBuiltHtml,
     digestEnglish: digestEnglish,
     gitHistoryIsComplete: gitHistoryIsComplete,
+    formatEventMapDestination: formatEventMapDestination,
+    resolveEventDetails: resolveEventDetails,
+    escapeRegExp: escapeRegExp,
+    PRODUCT_ID_RE: PRODUCT_ID_RE,
+    validateProductId: validateProductId,
+    resolveOutputPath: resolveOutputPath,
+    generateGoogleMapsDirUrl: generateGoogleMapsDirUrl,
+    generateAppleMapsDirUrl: generateAppleMapsDirUrl,
+    loadCatalog: loadCatalog,
+    resolveIngredientsLabel: resolveIngredientsLabel,
     buildSiteData: buildSiteData
   };
 }

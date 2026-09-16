@@ -54,3 +54,23 @@ button[aria-label="Collapse"]::after {
   font-size: 0.85em;
   opacity: 0.75;
 }
+
+/* Hide the "Work with Local Repository" button and helper copy on the login screen */
+button[data-label="Work with Local Repository"],
+button[data-label="Work with Local Repository"] + div,
+button[data-label="Work with Local Repository"] + div + .spacer {
+  display: none !important;
+}
+
+/* Promote "Sign In with GitHub" to a primary action button */
+button[data-label*="Sign In with"] {
+  background-color: var(--sui-button-primary-background-color, var(--sui-primary-accent-color)) !important;
+  color: var(--sui-button-primary-foreground-color, var(--sui-primary-accent-color-inverted, #fff)) !important;
+  border-color: var(--sui-button-primary-border-color, var(--sui-primary-accent-color)) !important;
+}
+
+button[data-label*="Sign In with"]:hover,
+button[data-label*="Sign In with"]:focus-visible {
+  background-color: var(--sui-button-primary-background-color-focus, var(--sui-primary-accent-color-light, #1a75ff)) !important;
+  color: var(--sui-button-primary-foreground-color-focus, var(--sui-primary-accent-color-inverted, #fff)) !important;
+}

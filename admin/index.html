@@ -13,8 +13,29 @@
          only makes Sveltia's collapsed-object rows look like the buttons
          they already are. See the file's own comment. -->
     <link rel="stylesheet" href="admin.css" />
+    <style>
+      .fulfillment-link {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 10000;
+        background: #0070f3;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      }
+      .fulfillment-link:hover {
+        background: #0051a8;
+      }
+    </style>
   </head>
   <body>
+    <a href="fulfillment.html" class="fulfillment-link">Fulfillment Dashboard</a>
     <!-- Exact snippet from sveltiacms.app/en/docs/start -- deliberately no
          stylesheet <link> (Sveltia bundles its own CSS; a stray stylesheet
          link is a common copy-paste mistake from older Netlify/Decap CMS
@@ -44,6 +65,8 @@
       integrity="sha384-nJp2Dh7SpuCR2Zy7FKZadG+wayQb0XSkgx8UcxbVG+qCWiY52kKZeaz8Uwy4uWSs"
       crossorigin="anonymous"
     ></script>
+    <!-- Same-origin live preview templates for Sveltia CMS (CSP script-src 'self') -->
+    <script src="preview-templates.js" defer></script>
     <!-- Same-origin helper (allowed by the /admin CSP's script-src 'self'):
          renames Sveltia's hardcoded "Files" wording to the section's own
          label. Safe to remove; the stock UI just says "Files" again. -->

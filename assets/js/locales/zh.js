@@ -60,7 +60,7 @@
     "home.meetTheMaker": "认识主理人 →",
     "home.whatYallAreSaying": "大伙儿怎么说",
     "home.communityTitle": "顾客社区",
-    "home.communityText": "真实的人，真实的照片，以及手工打造的自我护理好物。在 Instagram 或 TikTok 上标记 @yallternativeliving，就有机会入选展示！",
+    "home.communityText": "幕后花絮、新鲜手作批次与市集快报。",
     "home.followHandle": "关注 @yallternativeliving",
     "home.popUpInTheWild": "我们 Pop Up In The Wild",
     "home.followAlong": "关注动态",
@@ -74,6 +74,7 @@
     "home.nextPopUp": "下一场快闪：",
     "home.days": "天，",
     "home.hours": "小时，",
+    "home.hoursUntil": "小时，距离",
     "home.minsUntil": "分钟，距离",
     "footer.tagline": "专为 Black Sheep & Bold Hearts 打造的手工自我护理。小批量混合、浇注与搅拌。",
     "footer.disclaimer": "手工自我护理，不是药。此处售卖的任何产品均不用于诊断、治疗、治愈或预防任何病症。皮肤或健康真有困扰？去看正经医生，看完了再给自己买点好闻的东西犒劳一下。",
@@ -144,8 +145,8 @@
     "shop.giftCards": "礼品卡",
     "shop.giftSets": "礼品套装",
     "shop.giftSet": "礼品套装",
-    "shop.filterByConcern": "按肌肤困扰筛选",
-    "shop.allConcerns": "全部困扰",
+    "shop.filterByConcern": "按氛围筛选",
+    "shop.allConcerns": "全部氛围",
     "shop.concernWindDown": "歇息与放松",
     "shop.concernLongDay": "漫长一天之后",
     "shop.concernOutdoor": "户外防护",
@@ -696,8 +697,6 @@
     "auto.contact.8508af": "/ 联系我们",
     "auto.events.a26238": "/ 活动",
     "auto.journal.2ce617": "/ 日志",
-    "auto.apothecaryJournal.04917a": "草药日志",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "草药日志 | Y'allternative Living",
     "auto.bestseller.df042d": "畅销款",
     "auto.contactYallternativeLiving.2072b3": "联系我们 | Y'allternative Living",
     "auto.festival.9f8f3e": "节庆",
@@ -844,7 +843,12 @@
     "auto.wellEmailOneTime.584e36": "我们会向该地址发送一个一次性链接。该链接仅能打开一次，并在 24 小时后失效。",
     "auto.whenYouClickCheckout.77c899": "当您点击结算时，您的购物车会保留约 30 分钟供您付款。如果倒计时结束，会话将关闭，任何有库存计数的商品都会重新放回货架供下一位客人选购。不要紧，只需返回商店重新加购即可。",
     "auto.yesOrdersOfOr.2a65db": "没错！商品满 $40 或以上（仅限商品本身，税前）全美免运费。低于该金额则统一收取 $10，购物车里的进度条会显示你还差多少。结账时会自动应用。我们目前仅寄送至美国地址，礼品卡通过电子邮件发送，因此永远不需要邮费。",
-    "auto.apothecary.3edecd": "草本铺"
+    "auto.apothecary.3edecd": "草本铺",
+    "auto.copyCode.1589b6": "复制代码",
+    "auto.materials.2402ea": "材质",
+    "auto.yallternativeLivingOnSocial.e86ad9": "社交媒体上的 Y'allternative Living",
+    "auto.freeDowntownArtsMusic.3f38cd": "市中心免费艺术音乐节——欢迎来找我们的摊位。",
+    "auto.twoDayPunkFlea.cd4ed3": "为期两天的朋克跳蚤市场。"
   }
 };
 

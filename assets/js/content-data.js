@@ -54,7 +54,8 @@ window.YL_CONTENT = {
     "enableUsageGuideEmails": true,
     "usageGuideDelayDays": 4,
     "enableJournal": true,
-    "enableSocialFeed": false,
+    "enableSocialFeed": true,
+    "instagramFeedId": "wLcvOTDHfwF50KITgjht",
     "enableRestockAlerts": true,
     "showLiveStock": true,
     "enableSquareSync": true,
@@ -124,8 +125,8 @@ window.YL_CONTENT = {
     },
     "community": {
       "eyebrow": "Customer Community",
-      "title": "Spotted In The Wild",
-      "text": "Real folks, real photos, and handmade self-care. Tag @yallternativeliving on Instagram or TikTok to be featured!"
+      "title": "Y'allternative Living On Social",
+      "text": "Behind the scenes, fresh batches, and market updates."
     },
     "findUs": {
       "eyebrow": "Find Us In Person",
@@ -159,7 +160,7 @@ window.YL_CONTENT = {
       "sortButton": "Sort",
       "sheetTitle": "Filter & sort",
       "categoryHeading": "Category",
-      "concernHeading": "Concern",
+      "concernHeading": "Vibe",
       "applyButton": "Apply",
       "clearAll": "Clear all",
       "activeFilters": "Active filters",
@@ -243,7 +244,7 @@ window.YL_CONTENT = {
     }
   },
   "journal": {
-    "title": "Apothecary Journal",
+    "title": "Root & Ritual",
     "lede": "Stories, science, and small-batch updates straight from the kitchen.",
     "backLabel": "← Back to Journal",
     "newerLabel": "Newer post",
@@ -290,7 +291,7 @@ window.YL_CONTENT = {
     "title": "Find Your Custom Self-Care Match",
     "subtitle": "Answer 3 quick questions in our popup quiz to discover your personalized salve, soak, or potion match.",
     "buttonText": "Take the Quiz",
-    "modalTitle": "Find Your Custom Self-Care Match",
+    "modalTitle": "Your Three Questions",
     "modalSubtitle": "Answer 3 quick questions to discover your personalized salve, soak, or potion match.",
     "questions": [
       {

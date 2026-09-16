@@ -1,8 +1,8 @@
 /* ==========================================================
    Y'ALLTERNATIVE LIVING | thank-you.html page logic
    Loaded `defer`, after main.js and cart.js (both also deferred, so
-   document-order defer execution guarantees window.plausible and
-   window.YLCart already exist by the time this runs).
+   document-order defer execution guarantees window.plausible (Umami adapter)
+   and window.YLCart already exist by the time this runs).
 
    This page is the Stripe Checkout success_url target (see
    workers/checkout.js). Two things happen here:

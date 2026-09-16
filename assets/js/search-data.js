@@ -21,7 +21,7 @@ window.YL_SEARCH_INDEX = {
       "featured": false,
       "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
       "ingredients": [],
-      "ingredientsLabel": "Ingredients",
+      "ingredientsLabel": "Materials",
       "scent": "",
       "tags": [],
       "concerns": [],
@@ -81,7 +81,7 @@ window.YL_SEARCH_INDEX = {
       "featured": true,
       "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production. Wear it to the market, wear it to Pride, wear it everywhere in between.",
       "ingredients": [],
-      "ingredientsLabel": "Ingredients",
+      "ingredientsLabel": "Materials",
       "scent": "",
       "tags": [],
       "concerns": [],
@@ -1444,6 +1444,42 @@ window.YL_SEARCH_INDEX = {
       "variants": null,
       "url": "shop.html#bundle-discovery-flight",
       "shopUrl": "shop.html#bundle-discovery-flight"
+    },
+    {
+      "id": "bundle-frost-flannel-reset",
+      "name": "Frost & Flannel Reset",
+      "category": "gift-sets",
+      "categoryLabel": "Gift Sets & Bundles",
+      "price": 43,
+      "originalPrice": 48,
+      "formattedPrice": "$43",
+      "image": "assets/img/backroad-soak.jpg",
+      "inStock": true,
+      "comingSoon": false,
+      "estimatedBatchDate": null,
+      "featured": false,
+      "blurb": "Built for when the Blue Ridge air turns crisp and your bones start feeling every mile: soak the trail stiffness out with peppermint and black pepper backroad salts, seal windburned cheeks and cracked hands with our miracle frankincense tin, and wrap it all up in thick whipped lavender shea before bed. Autumn recovery in three easy steps.",
+      "ingredients": [],
+      "scent": "",
+      "tags": [
+        "bundle",
+        "gift-set",
+        "bestseller"
+      ],
+      "concerns": [],
+      "keywords": [
+        "bundle",
+        "set",
+        "gift set",
+        "package",
+        "gift",
+        "deal",
+        "discount",
+        "gift box"
+      ],
+      "variants": null,
+      "url": "shop.html#bundle-frost-flannel-reset",
+      "shopUrl": "shop.html#bundle-frost-flannel-reset"
     }
   ],
   "journal": [
@@ -1484,21 +1520,6 @@ window.YL_SEARCH_INDEX = {
   ],
   "events": [
     {
-      "id": "mrb-renaissance-festival-2026-09-12",
-      "name": "MRB Renaissance Festival",
-      "title": "MRB Renaissance Festival",
-      "date": "2026-09-12",
-      "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
-      "endDate": null,
-      "type": "Festival",
-      "location": "Mills River, NC",
-      "zip": "28759",
-      "note": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
-      "description": "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
-      "isUpcoming": true,
-      "url": "events.html#mrb-renaissance-festival-2026-09-12"
-    },
-    {
       "id": "saturday-night-lights-2026-09-19",
       "name": "Saturday Night Lights",
       "title": "Saturday Night Lights",
@@ -1508,8 +1529,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Festival",
       "location": "Mill Spring, NC",
       "zip": "28756",
-      "note": "Tryon International, 25 International Blvd, Mill Spring, NC 28756. Free family fun & live entertainment, followed by Grand Prix show jumping.",
-      "description": "Tryon International, 25 International Blvd, Mill Spring, NC 28756. Free family fun & live entertainment, followed by Grand Prix show jumping.",
+      "note": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
+      "description": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
       "isUpcoming": true,
       "url": "events.html#saturday-night-lights-2026-09-19"
     },
@@ -1523,8 +1544,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Craft Show",
       "location": "Moore, SC",
       "zip": "29369",
-      "note": "The Gathering Farm, 140 Waldon Road, Moore, SC 29369. First-ever fall festival with 40+ craft vendors.",
-      "description": "The Gathering Farm, 140 Waldon Road, Moore, SC 29369. First-ever fall festival with 40+ craft vendors.",
+      "note": "First-ever fall festival with 40+ craft vendors.",
+      "description": "First-ever fall festival with 40+ craft vendors.",
       "isUpcoming": true,
       "url": "events.html#fall-family-festival-market-2026-09-26"
     },
@@ -1544,6 +1565,21 @@ window.YL_SEARCH_INDEX = {
       "url": "events.html#autumn-apothecary-faire"
     },
     {
+      "id": "mrb-renaissance-festival-2026-09-12",
+      "name": "MRB Renaissance Festival",
+      "title": "MRB Renaissance Festival",
+      "date": "2026-09-12",
+      "dateLabel": "September 12, 2026 · Saturday, 11:30am–11pm",
+      "endDate": null,
+      "type": "Festival",
+      "location": "Mills River, NC",
+      "zip": "28759",
+      "note": "Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
+      "description": "Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors.",
+      "isUpcoming": false,
+      "url": "events.html#mrb-renaissance-festival-2026-09-12"
+    },
+    {
       "id": "boomtown-arts-heritage-avl-fest-2026-09-05",
       "name": "Boomtown Arts & Heritage FestAVL",
       "title": "Boomtown Arts & Heritage FestAVL",
@@ -1553,8 +1589,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Arts Festival",
       "location": "Asheville, NC",
       "zip": "28801",
-      "note": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table.",
-      "description": "Pack Square Park, 121 College St, Asheville, NC 28801. Free downtown arts & music festival — come find our table.",
+      "note": "Free downtown arts & music festival — come find our table.",
+      "description": "Free downtown arts & music festival — come find our table.",
       "isUpcoming": false,
       "url": "events.html#boomtown-arts-heritage-avl-fest-2026-09-05"
     },
@@ -1568,8 +1604,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Flea Market",
       "location": "Spartanburg, SC",
       "zip": "29303",
-      "note": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market.",
-      "description": "575 Fairgrounds Rd, Spartanburg, SC 29303. Two-day punk flea market.",
+      "note": "Two-day punk flea market.",
+      "description": "Two-day punk flea market.",
       "isUpcoming": false,
       "url": "events.html#spartanburg-punk-flea-market"
     },
@@ -1583,8 +1619,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Night Market",
       "location": "Charlotte, NC",
       "zip": "28206",
-      "note": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206.",
-      "description": "NoDa Brewing Company, 150 W 32nd St, Charlotte, NC 28206.",
+      "note": "",
+      "description": "",
       "isUpcoming": false,
       "url": "events.html#gothic-punk-night-market"
     },
@@ -1598,8 +1634,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Flea Market",
       "location": "Ladson, SC",
       "zip": "29456",
-      "note": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table.",
-      "description": "9850 Highway 78, Ladson, SC 29456. Two-day punk flea market — come find our table.",
+      "note": "Two-day punk flea market — come find our table.",
+      "description": "Two-day punk flea market — come find our table.",
       "isUpcoming": false,
       "url": "events.html#summerville-punk-flea-market"
     },

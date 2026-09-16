@@ -28,9 +28,11 @@ function req(headers) {
 }
 
 async function runWorkerHttpTests() {
-  const { clientIp, clientErrorBody, ClientError } = await import("../workers/routes/http.js");
+  const { clientIp, stripControlChars, clientErrorBody, ClientError } =
+    await import("../workers/routes/http.js");
 
-  // clientErrorBody: merges error message and optional details
+  // clientErrorBody: the shopper-safe body -- the message, plus any details a
+  // ClientError carried, and never a `details` key that overwrites the message.
   eq(
     clientErrorBody(new Error("Standard error")),
     { error: "Standard error" },
@@ -55,6 +57,40 @@ async function runWorkerHttpTests() {
     clientErrorBody({ message: "Fake error", details: null }),
     { error: "Fake error" },
     "handles null details correctly"
+  );
+
+  // stripControlChars
+  eq(
+    stripControlChars("hello world"),
+    "hello world",
+    "stripControlChars leaves normal string alone"
+  );
+  eq(stripControlChars("  hello world  "), "hello world", "stripControlChars trims whitespace");
+  eq(stripControlChars(null), "", "stripControlChars handles null");
+  eq(stripControlChars(undefined), "", "stripControlChars handles undefined");
+  eq(stripControlChars(""), "", "stripControlChars handles empty string");
+  eq(stripControlChars("hello\x00world"), "helloworld", "stripControlChars strips null byte (x00)");
+  eq(stripControlChars("hello\x08world"), "helloworld", "stripControlChars strips backspace (x08)");
+  eq(
+    stripControlChars("hello\x0Bworld"),
+    "helloworld",
+    "stripControlChars strips vertical tab (x0B)"
+  );
+  eq(
+    stripControlChars("hello\x1Fworld"),
+    "helloworld",
+    "stripControlChars strips unit separator (x1F)"
+  );
+  eq(stripControlChars("hello\x7Fworld"), "helloworld", "stripControlChars strips DEL (x7F)");
+  eq(
+    stripControlChars("a\rb\nc\td"),
+    "a\rb\nc\td",
+    "stripControlChars leaves CR, LF, and tab intact"
+  );
+  eq(
+    stripControlChars("\r\n\t  a  \r\n\t"),
+    "a",
+    "stripControlChars trims leading/trailing whitespace including CR, LF, and tab"
   );
 
   // Through Netlify: Netlify appends the shopper, Cloudflare appends Netlify.

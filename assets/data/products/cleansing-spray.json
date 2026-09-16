@@ -1,0 +1,67 @@
+{
+  "id": "cleansing-spray",
+  "name": "Appalachian Rain Clearing Mist",
+  "comingSoon": true,
+  "category": "ritual",
+  "price": 14,
+  "image": "assets/img/placeholder-coming-soon.svg",
+  "blurb": "White sage, cedar, and sweetgrass in a fine mist: two pumps at the doorway after a hard conversation, a house guest who overstayed, or just a Monday that won't quit. Inspired by Appalachian folk tradition, no smoke, no residue, no landlord complaints. Amber glass, small-batch blended in Landrum, SC.",
+  "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "ingredients": [
+    "Distilled Water",
+    "Witch Hazel",
+    "Essential Oils (White Sage, Cedar, Sweetgrass, Rosemary)",
+    "Vegetable Glycerin",
+    "Preservative"
+  ],
+  "ingredientsNote": "Shake gently before each use. Mist doorways, corners, or yourself: anywhere the energy feels stuck. Keep pets out of the room while you spray and off misted surfaces or fabric until it is fully dry. Not one for a house with cats.",
+  "scent": "Fresh & Clean",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "2 oz",
+        "priceDelta": 0
+      },
+      {
+        "label": "4 oz",
+        "priceDelta": 8
+      }
+    ]
+  },
+  "tags": [
+    "vegan"
+  ],
+  "concerns": [
+    "sleep-relaxation"
+  ],
+  "scentProfile": {
+    "top": "White Sage, Appalachian Sweetgrass",
+    "heart": "Clean Rainwater, Mountain Air",
+    "base": "Smoked Cedar, Sacred Wood",
+    "intensity": "Subtle",
+    "intensityScore": 2
+  },
+  "usageGuide": {
+    "howToApply": "Shake gently and spritz 2–3 pumps into room corners, doorways, entry thresholds, or personal atmosphere to clear stagnant energy.",
+    "storage": "Store upright in a cool, shaded area. Shelf life is 12 months.",
+    "patchTest": "Aromatherapy mist for ambient room and linen clearing. Spray on a hidden fabric corner first to verify colorfastness."
+  },
+  "keywords": [
+    "cleansing spray",
+    "smudge spray",
+    "smoke-free",
+    "energy clearing",
+    "room mist",
+    "appalachian rain",
+    "aura cleanse",
+    "sacred space",
+    "negative energy"
+  ],
+  "ritualTitle": "The Sacred Hearth Clearing Ritual",
+  "pairsWith": [
+    "porch-sweep-spray",
+    "protection-keychain"
+  ],
+  "estimatedBatchDate": "Mid-October 2026"
+}

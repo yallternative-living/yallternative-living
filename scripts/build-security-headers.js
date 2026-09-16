@@ -1,56 +1,56 @@
 #!/usr/bin/env node
 "use strict";
 
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING -- security headers generator
-   ----------------------------------------------------------
-   This is a static site: response headers (CSP, HSTS, etc.) can't be
-   set from HTML alone -- they have to come from whatever actually
-   serves the files. So instead of a single universal fix, this script
-   writes both static-host header config formats for Netlify (the sole
-   static hosting platform):
-
-     _headers      -- Netlify / Cloudflare Pages format
-     netlify.toml  -- Netlify format (Netlify actually honors BOTH this
-                      and _headers for overlapping paths, which used to
-                      mean two hand-maintained files could silently say
-                      two different things -- generating both from the
-                      same csp/otherHeaders below makes that impossible)
-
-   Deploying to something else (GitHub Pages, S3+CloudFront, a plain
-   nginx box, etc.)? Those headers need to be set in that host's own
-   config instead -- the CSP string below is still the one to use,
-   just copy it into whatever your host calls its headers config.
-
-   Why a script instead of hand-written files: the CSP's script-src
-   allows the site's inline <script> blocks (currently just the
-   no-flash theme-init snippet) by SHA-256 hash rather than the much
-   looser 'unsafe-inline' -- because 'unsafe-inline' defeats most of
-   what CSP is actually for. That means every time an inline script's
-   *exact text* changes, its hash changes too, and this needs to be
-   re-run:
-
-     node scripts/build-security-headers.js
-
-   It reads every inline <script> out of every page this site ships --
-   all the top-level HTML files plus every generated products/*.html --
-   hashes them, and rewrites _headers + netlify.toml to
-   match. Safe to run any time; it doesn't touch products, images, or
-   anything else.
-
-   IMPORTANT -- what the hash set is checked against:
-   This script used to hash whatever it found and emit it, which meant a
-   CSP that certified its own input. Anything that reached an inline
-   script -- including a value typed into the CMS at /admin and
-   interpolated into the Tawk.to snippet by build-site-data.js -- was
-   automatically allowlisted on the next deploy, so the policy could
-   never block it (audit findings C-4 and H-13). Every hash is now
-   checked against the committed baseline in
-   scripts/inline-script-hashes.json and an unrecognised one FAILS the
-   build. That is a deliberate speed bump: when you legitimately change
-   an inline script, read the diff, satisfy yourself it is yours, and
-   add the new hash to that file in the same commit.
-   ========================================================== */
+/**
+ * @fileoverview Security headers generator for Netlify _headers and netlify.toml configurations.
+ *
+ * This is a static site: response headers (CSP, HSTS, etc.) can't be
+ * set from HTML alone -- they have to come from whatever actually
+ * serves the files. So instead of a single universal fix, this script
+ * writes both static-host header config formats for Netlify (the sole
+ * static hosting platform):
+ *
+ *   _headers      -- Netlify / Cloudflare Pages format
+ *   netlify.toml  -- Netlify format (Netlify actually honors BOTH this
+ *                    and _headers for overlapping paths, which used to
+ *                    mean two hand-maintained files could silently say
+ *                    two different things -- generating both from the
+ *                    same csp/otherHeaders below makes that impossible)
+ *
+ * Deploying to something else (GitHub Pages, S3+CloudFront, a plain
+ * nginx box, etc.)? Those headers need to be set in that host's own
+ * config instead -- the CSP string below is still the one to use,
+ * just copy it into whatever your host calls its headers config.
+ *
+ * Why a script instead of hand-written files: the CSP's script-src
+ * allows the site's inline <script> blocks (currently just the
+ * no-flash theme-init snippet) by SHA-256 hash rather than the much
+ * looser 'unsafe-inline' -- because 'unsafe-inline' defeats most of
+ * what CSP is actually for. That means every time an inline script's
+ * *exact text* changes, its hash changes too, and this needs to be
+ * re-run:
+ *
+ *   node scripts/build-security-headers.js
+ *
+ * It reads every inline <script> out of every page this site ships --
+ * all the top-level HTML files plus every generated products/*.html --
+ * hashes them, and rewrites _headers + netlify.toml to
+ * match. Safe to run any time; it doesn't touch products, images, or
+ * anything else.
+ *
+ * IMPORTANT -- what the hash set is checked against:
+ * This script used to hash whatever it found and emit it, which meant a
+ * CSP that certified its own input. Anything that reached an inline
+ * script -- including a value typed into the CMS at /admin and
+ * interpolated into the Tawk.to snippet by build-site-data.js -- was
+ * automatically allowlisted on the next deploy, so the policy could
+ * never block it (audit findings C-4 and H-13). Every hash is now
+ * checked against the committed baseline in
+ * scripts/inline-script-hashes.json and an unrecognised one FAILS the
+ * build. That is a deliberate speed bump: when you legitimately change
+ * an inline script, read the diff, satisfy yourself it is yours, and
+ * add the new hash to that file in the same commit.
+ */
 
 var fs = require("fs");
 var path = require("path");
@@ -497,7 +497,7 @@ function run() {
     // font files from that origin; without it the widget renders unstyled
     // (every page logged a style-src violation for min-widget.css).
     "style-src 'self' https://embed.tawk.to 'unsafe-inline'", // main.js/cart.js/gift-card.js/translator.js all set element.style.* directly (display toggles, carousel transforms, etc.); can't pre-hash those, so this directive stays looser on purpose
-    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/",
+    "img-src 'self' data: https://*.tawk.to https://cdn.jsdelivr.net/emojione/ https://*.behold.so https://*.behold.pictures https://behold.pictures https://*.cdninstagram.com",
     "font-src 'self' https://embed.tawk.to",
     // Checkout itself never needs an entry here: cart.js POSTs to the
     // same-origin /api/checkout Worker route (covered by 'self'), then
@@ -529,7 +529,7 @@ function run() {
        UMAMI_SEND_URL in scripts/lib/analytics-proxy.js together. */
     "connect-src 'self' " +
       analyticsProxy.UMAMI_SEND_ORIGIN +
-      " https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com",
+      " https://*.tawk.to wss://*.tawk.to https://formspree.io https://app.kit.com https://feeds.behold.so",
     "frame-src https://*.tawk.to",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -583,7 +583,8 @@ function run() {
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
     "img-src 'self' data: blob: https://*.githubusercontent.com",
     "font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
-    "connect-src 'self' blob: data: https://unpkg.com https://cdn.jsdelivr.net https://api.github.com https://*.githubusercontent.com",
+    "connect-src 'self' blob: data: https://unpkg.com https://cdn.jsdelivr.net https://api.github.com https://*.githubusercontent.com https://www.githubstatus.com",
+    "manifest-src 'self' blob:",
     "media-src blob:",
     "frame-src 'self' blob:",
     "frame-ancestors 'none'",

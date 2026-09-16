@@ -1,0 +1,61 @@
+{
+  "id": "miracle-balm",
+  "name": "Y'allternative Miracle Balm",
+  "description": "",
+  "category": "salves",
+  "price": 8,
+  "originalPrice": null,
+  "image": "assets/img/miracle-balm.jpg",
+  "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
+  "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
+  "stock": null,
+  "ingredients": [
+    "Beeswax (Cera alba)",
+    "Shea Butter (Butyrospermum parkii)",
+    "Castor Seed Oil (Ricinus communis)",
+    "Sweet Almond Oil (Prunus amygdalus dulcis)",
+    "Calendula Infused Oil (Calendula officinalis)",
+    "Lanolin",
+    "Vitamin E (Tocopherol)"
+  ],
+  "ingredientsNote": "No essential oils, no added fragrance.",
+  "scent": "Unscented",
+  "tags": [
+    "bestseller",
+    "unscented",
+    "essential-oil-free",
+    "sensitive-safe"
+  ],
+  "concerns": [
+    "dry-skin",
+    "daily-glow"
+  ],
+  "inStock": true,
+  "scentProfile": {
+    "top": "None",
+    "heart": "None",
+    "base": "None",
+    "intensity": "Unscented",
+    "intensityScore": 0
+  },
+  "usageGuide": {
+    "howToApply": "Smooth a small dab onto lips, cuticles, knuckles, dry elbows, or sensitive skin patches. Safe for daily use on face and body.",
+    "storage": "Store in a cool, dry spot away from direct heat. Shelf life is 12 months.",
+    "patchTest": "Formulated without essential oils or added fragrances for ultra-sensitive skin. As with any botanical balm, test a small dab on inner wrist before first full use."
+  },
+  "keywords": [
+    "tired legs",
+    "unscented",
+    "sensitive skin",
+    "family safe",
+    "lips",
+    "cuticles",
+    "calendula",
+    "lanolin"
+  ],
+  "ritualTitle": "The Gentle Skin Shield Ritual",
+  "pairsWith": [
+    "shea-butter",
+    "lavender-soak"
+  ]
+}

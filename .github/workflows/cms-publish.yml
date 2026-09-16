@@ -1,0 +1,338 @@
+name: CMS Auto-Publisher
+
+# Automatically batches and publishes content changes made in Sveltia CMS (/admin).
+#
+# HOW IT WORKS:
+# 1. When Savanna saves an entry in /admin, Sveltia commits to a branch matching `cms/**`.
+# 2. This workflow starts and waits for a 3-minute quiet window (debounce).
+# 3. If Savanna saves more edits during that window, GitHub cancels the previous run
+#    and restarts the 3-minute timer (via `cancel-in-progress: true`).
+# 4. Once 3 minutes elapse with no further saves, every active `cms/**` branch is
+#    checked against a CONTENT-ONLY ALLOW-LIST (see is_allowed_path below): a branch
+#    may only touch the JSON files and images that Sveltia itself writes per
+#    admin/config.yml, and none of them may be a symlink. A branch that touches
+#    anything else (workflows, scripts, the Worker, admin/, storefront JS/CSS, HTML,
+#    headers, package files...) is SKIPPED: it is not merged and is flagged with an
+#    ::error:: annotation naming it. This is the guard that keeps a pushed `cms/*`
+#    branch (or a stolen CMS OAuth token, which has repo scope) from shipping code to
+#    production without review.
+# 5. Every branch that passes the gate is merged into `main` in one batch. One bad
+#    branch does not hold the others hostage: the owner's legitimate saves still go
+#    live, and the run is failed red at the very end so the rejected branch is noticed.
+# 6. Full data compilation and static QA gates run before pushing to guarantee zero breakage.
+#    They run WITHOUT ambient git credentials (`persist-credentials: false`); the token is
+#    only handed to the push step.
+# 7. Netlify detects the single push to `main` and runs EXACTLY ONE production build.
+# 8. Merged CMS branches are deleted and their PRs closed, marking entries published in
+#    Sveltia. A rejected branch is NOT deleted (it is not an ancestor of main), so it
+#    stays for the owner to review or delete by hand.
+# 9. If any branch was rejected the run then fails with an ::error:: summary.
+
+on:
+  push:
+    branches:
+      - 'cms/**'
+  workflow_dispatch:
+    inputs:
+      immediate:
+        description: "Skip 3-minute debounce window and publish immediately"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: cms-auto-publisher
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  batch-and-publish:
+    name: Batch & Publish CMS Edits
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - name: Debounce Window (Batching Consecutive Saves)
+        if: ${{ !inputs.immediate }}
+        run: |
+          set -euo pipefail
+          echo "CMS edit detected from Sveltia (/admin)."
+          echo "Waiting 180 seconds (3 minutes) to batch consecutive saves into a single production build..."
+          sleep 180
+          echo "Quiet window elapsed. Proceeding to batch and publish."
+
+      - name: Check Out Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          # Do NOT leave the token in .git/config: the merged tree's scripts
+          # (build-site-data.js, smoke-test.js, qa-check.js) run later in this job
+          # and must not be able to push. The final step authenticates explicitly.
+          persist-credentials: false
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Batch Merge CMS Branches
+        id: merge-cms
+        env:
+          # Only git (fetch/merge) runs in this step -- no repository code -- so the
+          # token is safe to scope here. The repository is public, so the fetch would
+          # succeed unauthenticated; the token is passed anyway so the step keeps
+          # working against rate limits or if the repository is ever made private.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "Y'allternative CMS Publisher"
+          git config user.email "bot@yallternativeliving.com"
+
+          # Same header actions/checkout would have persisted, handed to git through
+          # its environment (GIT_CONFIG_COUNT/KEY/VALUE) rather than `git -c ...` on
+          # the command line. GitHub masks secrets.GITHUB_TOKEN in the log but NOT
+          # values derived from it, and an argv credential is visible in /proc and in
+          # any future `set -x`; the base64 form is therefore masked explicitly first.
+          B64=$(printf '%s' "x-access-token:${GITHUB_TOKEN}" | base64 -w0)
+          echo "::add-mask::${B64}"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${B64}"
+          unset B64
+          git fetch origin --prune
+          # The credential is only needed for the fetch above. Each step is its own
+          # shell, so the next step ("Compile Data & Run Sanity Gates", which runs
+          # code from the merged tree) would not inherit it anyway -- but be explicit.
+          unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+
+          # ------------------------------------------------------------------
+          # CONTENT-ONLY ALLOW-LIST
+          # Derived from what Sveltia CMS actually writes per admin/config.yml:
+          #   - Products folder collection  -> assets/data/products/<id>.json
+          #   - Journal folder collection   -> assets/data/journal/<slug>.json
+          #   - Singletons                  -> assets/data/catalog-config.json, events.json,
+          #                                    site-reviews.json, content.json, quiz.json
+          #   - media_folder                -> /assets/img (photo uploads, slugified names)
+          #                                    Every `widget: image` in admin/config.yml
+          #                                    carries `accept: "image/jpeg,image/png"`,
+          #                                    so only .jpg/.jpeg/.png can be uploaded
+          #                                    and only those are allowed here (no svg,
+          #                                    which can carry script, and no webp/avif/
+          #                                    gif -- the optimizer derives those).
+          # Anything else (.github/, scripts/, workers/, admin/, cms-auth/, assets/js/,
+          # assets/css/, _headers, netlify.toml, package*.json, sw.js, *.html, ...) is NOT
+          # content and must go through a reviewed pull request, never this bot.
+          # Extend by adding a `pattern) return 0 ;;` line -- bash `case` globs, `*`
+          # matches `/` too, so `assets/data/*.json` covers the sub-folders above.
+          # ------------------------------------------------------------------
+          is_allowed_path() {
+            case "$1" in
+              assets/data/*.json) return 0 ;;
+              assets/img/*.jpg|assets/img/*.jpeg|assets/img/*.png) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          # The mode of a path in a branch tip as `git ls-tree` reports it (100644,
+          # 100755, 120000 for a symlink, 160000 for a submodule), or empty when the
+          # path is not in the tree (i.e. the branch deleted it).
+          path_mode_in() {
+            git ls-tree -z "$1" -- "$2" | cut -d' ' -f1 | tr -d '\0'
+          }
+
+          # Find all remote branches matching origin/cms/*
+          CMS_BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin/cms/ || true)
+
+          if [ -z "$CMS_BRANCHES" ]; then
+            echo "No CMS branches pending publication."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "rejected=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found pending CMS branches:"
+          echo "$CMS_BRANCHES"
+
+          merged_count=0
+          rejected_branches=""
+
+          for branch in $CMS_BRANCHES; do
+            branch_clean=$(echo "$branch" | tr -d '\r\n ')
+            [ -z "$branch_clean" ] && continue
+
+            echo "::group::Checking $branch_clean"
+
+            # A branch with no common ancestor cannot be three-dot diffed (and is not
+            # something Sveltia produces), so it is rejected rather than treated as empty.
+            if ! git merge-base origin/main "$branch_clean" >/dev/null 2>&1; then
+              echo "::error title=CMS branch shares no history with main::$branch_clean was NOT merged: it has no merge base with main. Other CMS branches still publish; review or delete this one."
+              rejected_branches="${rejected_branches}${branch_clean} "
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Three-dot diff = only the branch's own commits since it forked from main.
+            # --no-renames lists BOTH sides of a rename (a rename out of scripts/ would
+            # otherwise show only its new, allowed name). -z handles odd file names.
+            bad_paths=""
+            path_count=0
+            while IFS= read -r -d '' changed; do
+              path_count=$((path_count + 1))
+              if ! is_allowed_path "$changed"; then
+                echo "  BLOCKED  $changed"
+                bad_paths="${bad_paths}${changed}"$'\n'
+                continue
+              fi
+              # An allowed NAME is not enough: a symlink committed at assets/data/x.json
+              # pointing outside the tree would pass the name check and then be read by
+              # build-site-data.js. A deleted path has no ls-tree entry (empty mode).
+              mode=$(path_mode_in "$branch_clean" "$changed")
+              case "$mode" in
+                ""|100644|100755)
+                  echo "  ok       $changed"
+                  ;;
+                120000)
+                  echo "  BLOCKED  $changed (symlink)"
+                  bad_paths="${bad_paths}${changed} (symlink)"$'\n'
+                  ;;
+                *)
+                  echo "  BLOCKED  $changed (mode $mode is not a regular file)"
+                  bad_paths="${bad_paths}${changed} (mode ${mode})"$'\n'
+                  ;;
+              esac
+            done < <(git diff -z --no-renames --name-only "origin/main...${branch_clean}" --)
+
+            if [ "$path_count" -eq 0 ]; then
+              echo "::notice title=CMS branch has no changes::$branch_clean has no diff against main; skipping merge (it will be cleaned up after publish)."
+              echo "::endgroup::"
+              continue
+            fi
+
+            if [ -n "$bad_paths" ]; then
+              offending=$(printf '%s' "$bad_paths" | tr '\n' ' ')
+              echo "::error title=CMS branch touches non-content files::$branch_clean was NOT merged. It changes paths outside the content allow-list (or commits a symlink): $offending. Sveltia only writes assets/data/*.json and assets/img/ .jpg/.png uploads; anything else must land through a reviewed pull request. Other CMS branches still publish; review or delete this one."
+              rejected_branches="${rejected_branches}${branch_clean} "
+              echo "::endgroup::"
+              continue
+            fi
+
+            echo "Merging $branch_clean into main..."
+            git merge --no-ff "$branch_clean" -m "content(cms): batch merge $branch_clean into main"
+            merged_count=$((merged_count + 1))
+            echo "::endgroup::"
+          done
+
+          # Rejected branches are reported, not fatal here: the branches that passed
+          # still get built, gated and pushed below so the owner's legitimate saves go
+          # live. The final "Fail On Rejected CMS Branches" step turns the run red
+          # once publishing is done. (Trailing space trimmed from the list.)
+          rejected="${rejected_branches% }"
+          echo "rejected=${rejected}" >> "$GITHUB_OUTPUT"
+          if [ -n "$rejected" ]; then
+            echo "Rejected (skipped, not merged): ${rejected}"
+          fi
+
+          if [ "$merged_count" -eq 0 ]; then
+            echo "No CMS branch passed the gate with changes; nothing to publish."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Merged $merged_count CMS branch(es) into main."
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+
+      - name: Compile Data & Run Sanity Gates
+        if: steps.merge-cms.outputs.has_changes == 'true'
+        # No GITHUB_TOKEN / GH_TOKEN here on purpose: this step executes code from the
+        # merged tree and must not be able to push or call the GitHub API.
+        run: |
+          set -euo pipefail
+          echo "Rebuilding site data and product pages..."
+          node scripts/build-site-data.js
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Adding regenerated data files to commit..."
+            git add -A
+            git commit -m "build(data): compile catalog, pages, and sitemap from batched CMS edits"
+          fi
+
+          echo "Running fast smoke gate..."
+          node scripts/smoke-test.js
+
+          echo "Running static QA assertion gate..."
+          node scripts/qa-check.js
+
+      - name: Push to Main & Clean Up CMS Branches
+        if: steps.merge-cms.outputs.has_changes == 'true'
+        env:
+          # Token is scoped to this step only (explicit push auth + `gh pr close`).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Authenticate git explicitly for this step only (checkout ran with
+          # persist-credentials: false, so no token was ever written to .git/config).
+          # The header goes through git's environment, not argv: GitHub masks the raw
+          # token but not the base64 form derived from it, so that is masked here and
+          # kept off the command line (see the merge step for the same pattern).
+          B64=$(printf '%s' "x-access-token:${GITHUB_TOKEN}" | base64 -w0)
+          echo "::add-mask::${B64}"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${B64}"
+          unset B64
+
+          echo "Pushing batched publication to origin/main..."
+          git push origin main
+
+          echo "Cleaning up merged CMS remote branches..."
+          CMS_BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin/cms/ || true)
+          for branch in $CMS_BRANCHES; do
+            branch_clean=$(echo "$branch" | tr -d '\r\n ')
+            [ -z "$branch_clean" ] && continue
+            # Only delete branches that are now fully contained in main (merged or
+            # empty). A branch the merge step rejected was never merged, so it is not
+            # an ancestor of HEAD and survives here for the owner to review.
+            if ! git merge-base --is-ancestor "$branch_clean" HEAD; then
+              echo "Skipping delete of $branch_clean: not merged into main."
+              continue
+            fi
+            remote_name="${branch_clean#origin/}"
+            echo "Deleting remote branch: $remote_name"
+            git push origin --delete "$remote_name" || true
+          done
+
+          echo "Closing open CMS pull requests..."
+          OPEN_PRS=$(gh pr list --base main --state open --json number,headRefName -q '.[] | select(.headRefName | startswith("cms/")) | .number' || true)
+          for pr in $OPEN_PRS; do
+            [ -z "$pr" ] && continue
+            echo "Closing PR #$pr..."
+            gh pr close "$pr" --comment "Automatically batched and published to main by CMS Auto-Publisher." || true
+          done
+
+          echo "Publication complete. Netlify will now build once for this entire editing session."
+
+      - name: Fail On Rejected CMS Branches
+        # Runs after publishing (not `if: always()` -- a failed gate or push above
+        # already fails the run on its own) so the good branches went live first and
+        # the run is still red for the one that did not.
+        if: steps.merge-cms.outputs.rejected != ''
+        env:
+          REJECTED: ${{ steps.merge-cms.outputs.rejected }}
+        run: |
+          set -euo pipefail
+          echo "::error title=CMS branch(es) rejected::Not merged: ${REJECTED}. Each touches files outside the content allow-list, commits a symlink, or shares no history with main (see the merge step log). Everything else that passed was published. Review or delete the rejected branch(es); they were left in place."
+          exit 1

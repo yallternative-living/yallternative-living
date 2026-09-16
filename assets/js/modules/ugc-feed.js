@@ -51,10 +51,16 @@
     var linkHtml = postLink
       ? '<a href="' +
         attrEsc(postLink) +
-        '" target="_blank" rel="noopener" class="ugc-post-link" aria-label="View original post by ' +
+        '" target="_blank" rel="noopener noreferrer" class="ugc-post-link" aria-label="View original post by ' +
         attrEsc(post.handle || '@yallternativeliving') +
         ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
       : '';
+
+    var isReel = Boolean(post.isReel || post.mediaType === 'VIDEO');
+    var badgeLabel = isReel ? 'Reel' : (post.badge || 'Instagram');
+    var badgeIcon = isReel
+      ? '<svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>'
+      : '<svg class="yl-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>';
 
     return (
       /* A <div>, not an <article>: role="listitem" is not a valid role
@@ -69,16 +75,15 @@
       attrEsc(altText) +
       '" loading="lazy" decoding="async" width="400" height="400">' +
       '    <div class="ugc-media-badge">' +
-      '      <svg class="yl-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>' +
-      '      <span>UGC</span>' +
+      badgeIcon +
+      '      <span>' +
+      attrEsc(badgeLabel) +
+      '</span>' +
       '    </div>' +
       productTagHtml +
       '  </div>' +
       '  <div class="ugc-card-body">' +
       '    <div class="ugc-author-row">' +
-      '      <span class="ugc-author-name">' +
-      attrEsc(post.author || 'Community Member') +
-      '</span>' +
       '      <span class="ugc-author-handle">' +
       attrEsc(post.handle || '@yallternativeliving') +
       '</span>' +

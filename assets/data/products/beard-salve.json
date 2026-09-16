@@ -1,0 +1,57 @@
+{
+  "id": "beard-salve",
+  "name": "Bourbon Beard Salve",
+  "featured": true,
+  "category": "body",
+  "price": 14,
+  "image": "assets/img/beard-salve.jpg",
+  "images": [
+    "assets/img/beard-salve-alt1.jpg"
+  ],
+  "blurb": "A 2 oz tin that softens coarse facial hair, calms the itch underneath, and smells like a stiff drink and cedarwood instead of a drugstore aisle. Light hold, zero grease, genuinely good gift material.",
+  "etsyUrl": "https://www.etsy.com/listing/4460199621/bourbon-beard-salve-vanilla-cedarwood",
+  "ingredients": [
+    "Shea Butter",
+    "Coconut Oil",
+    "Sweet Almond Oil",
+    "Beeswax",
+    "Vitamin E",
+    "Fragrance & Essential Oils"
+  ],
+  "scent": "Bourbon & Vanilla",
+  "tags": [],
+  "concerns": [
+    "dry-skin",
+    "daily-glow"
+  ],
+  "scentProfile": {
+    "top": "Warm Bourbon, Madagascar Vanilla",
+    "heart": "Golden Jojoba, Sweet Amber",
+    "base": "Smoky Cedarwood, Rich Beeswax",
+    "intensity": "Strong",
+    "intensityScore": 4
+  },
+  "usageGuide": {
+    "howToApply": "Scrape a thumbnail-sized amount, warm between palms until melted, and work upward through beard into the underlying skin. Comb through to style.",
+    "storage": "Store in a cool, dry place. Keep lid tightly sealed. Shelf life is 6–12 months.",
+    "patchTest": "Test a small amount on the jawline or inner arm 24 hours prior to full beard application."
+  },
+  "keywords": [
+    "beard",
+    "mustache",
+    "facial hair",
+    "grooming",
+    "stubble",
+    "barber",
+    "woodsy",
+    "bourbon",
+    "conditioning",
+    "coarse hair",
+    "softening"
+  ],
+  "ritualTitle": "The Appalachian Woodsman Grooming Ritual",
+  "pairsWith": [
+    "hand-scrub",
+    "frankincense-salve"
+  ]
+}

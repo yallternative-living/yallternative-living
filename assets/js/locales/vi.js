@@ -60,7 +60,7 @@
     "home.meetTheMaker": "Gặp Người Làm →",
     "home.whatYallAreSaying": "Bà Con Nói Gì",
     "home.communityTitle": "Cộng Đồng Khách Hàng",
-    "home.communityText": "Người thật, hình thật, và đồ tự chăm sóc làm bằng tay. Gắn thẻ @yallternativeliving trên Instagram hoặc TikTok để được lên sóng nha!",
+    "home.communityText": "Hậu trường, các mẻ làm mới và thông tin chợ phiên.",
     "home.followHandle": "Theo dõi @yallternativeliving",
     "home.popUpInTheWild": "Tụi này Pop Up In The Wild",
     "home.followAlong": "Theo Chân Tụi Này",
@@ -74,6 +74,7 @@
     "home.nextPopUp": "POP-UP TIẾP THEO:",
     "home.days": "Ngày,",
     "home.hours": "Giờ,",
+    "home.hoursUntil": "Giờ nữa tới",
     "home.minsUntil": "Phút nữa tới",
     "footer.tagline": "Đồ chăm sóc bản thân làm thủ công dành cho Black Sheep & Bold Hearts. Được pha trộn, rót và khuấy theo từng mẻ nhỏ.",
     "footer.disclaimer": "Đồ chăm sóc bản thân làm thủ công, không phải thuốc. Không có món nào bán ở đây nhằm mục đích chẩn đoán, chữa trị hay ngăn ngừa bất kỳ tình trạng nào. Bạn có vấn đề thực sự về da hoặc sức khỏe? Hãy đi khám bác sĩ thật sự, rồi sau đó tự thưởng cho mình thứ gì đó thơm tho.",
@@ -144,8 +145,8 @@
     "shop.giftCards": "Thẻ quà tặng",
     "shop.giftSets": "Bộ quà tặng",
     "shop.giftSet": "Bộ quà tặng",
-    "shop.filterByConcern": "Lọc theo nhu cầu của da",
-    "shop.allConcerns": "Tất cả nhu cầu",
+    "shop.filterByConcern": "Lọc theo vibe",
+    "shop.allConcerns": "Tất cả vibe",
     "shop.concernWindDown": "Nghỉ ngơi & Thư giãn",
     "shop.concernLongDay": "Sau một ngày dài",
     "shop.concernOutdoor": "Bảo vệ ngoài trời",
@@ -696,8 +697,6 @@
     "auto.contact.8508af": "/ Liên hệ",
     "auto.events.a26238": "/ Sự kiện",
     "auto.journal.2ce617": "/ Nhật ký",
-    "auto.apothecaryJournal.04917a": "Nhật ký tiệm thảo mộc",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "Nhật ký tiệm thảo mộc | Y'allternative Living",
     "auto.bestseller.df042d": "Bán chạy nhất",
     "auto.contactYallternativeLiving.2072b3": "Liên hệ | Y'allternative Living",
     "auto.festival.9f8f3e": "Lễ hội",
@@ -844,7 +843,12 @@
     "auto.wellEmailOneTime.584e36": "Tụi này sẽ gửi một liên kết dùng một lần đến địa chỉ đó. Liên kết chỉ mở được một lần và hết hạn sau 24 giờ.",
     "auto.whenYouClickCheckout.77c899": "Khi bạn bấm Checkout, giỏ hàng của bạn sẽ được giữ riêng trong khoảng 30 phút trong lúc bạn thanh toán. Nếu hết thời gian, phiên mua sắm sẽ đóng lại và các món có giới hạn số lượng sẽ được trả về kệ cho người tiếp theo. Không sao cả, bạn chỉ cần quay lại cửa hàng và thử lại.",
     "auto.yesOrdersOfOr.2a65db": "Có chứ! Đơn hàng từ $40 trở lên (tính trên tiền hàng, trước thuế) được giao miễn phí đến mọi nơi ở Mỹ. Dưới mức đó thì phí đồng giá $10, và thanh đo trong giỏ hàng sẽ cho bạn thấy bạn còn cách bao nhiêu. Tất cả đều tự động áp dụng khi thanh toán. Hiện tụi này chỉ giao đến các địa chỉ ở Mỹ, còn thẻ quà tặng được gửi qua email nên chẳng bao giờ tốn tiền bưu điện.",
-    "auto.apothecary.3edecd": "Tiệm thảo mộc"
+    "auto.apothecary.3edecd": "Tiệm thảo mộc",
+    "auto.copyCode.1589b6": "Sao chép mã",
+    "auto.materials.2402ea": "Chất liệu",
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living trên mạng xã hội",
+    "auto.freeDowntownArtsMusic.3f38cd": "Lễ hội nghệ thuật & âm nhạc miễn phí tại trung tâm — ghé qua bàn của tụi này nhé.",
+    "auto.twoDayPunkFlea.cd4ed3": "Chợ trời punk hai ngày."
   }
 };
 

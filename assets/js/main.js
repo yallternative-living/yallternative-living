@@ -1,8 +1,10 @@
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING | shared site behavior
-   Zero dependencies, zero build step. Vanilla JS only so the
-   whole site stays instant on any connection.
-   ========================================================== */
+/**
+ * @fileoverview Shared site behavior for Y'allternative Living.
+ *
+ * Provides zero-dependency vanilla JS client behaviors across the site,
+ * including analytics scrubbing and dispatch, theme toggling, mobile nav,
+ * scroll reveal, catalog filtering, search, reviews, and event rendering.
+ */
 /* global module, require */
 (function () {
   "use strict";
@@ -99,7 +101,11 @@
     analyticsInitialSearch = "";
   }
 
-  /** Rebuilds a query string holding only the allow-listed campaign params. */
+  /**
+   * Rebuilds a query string holding only the allow-listed campaign params.
+   * @param {?string} search Raw window.location.search query string.
+   * @return {string} Reconstructed query string with only permitted parameters.
+   */
   function analyticsAllowedQuery(search) {
     var kept = [];
     try {
@@ -114,7 +120,11 @@
     return kept.length ? "?" + kept.join("&") : "";
   }
 
-  /** True when this value is personal enough that it must not be reported. */
+  /**
+   * Checks whether a value is personal enough that it must not be reported.
+   * @param {*} value Target property value.
+   * @return {boolean} True if value looks like an email, token, or Stripe ID.
+   */
   function analyticsValueIsPersonal(value) {
     if (typeof value !== "string") return false;
     return (
@@ -128,6 +138,9 @@
    * Umami's data-before-send hook. Returns the payload to send, or null to
    * drop it. Every exit path is either a scrubbed payload or nothing at all --
    * a throw in here must never turn into an unscrubbed send.
+   * @param {string} type Event type ('pageview' or 'custom').
+   * @param {?Object} payload Umami tracking payload.
+   * @return {?Object} Scrubbed payload, or null to drop the event.
    */
   function analyticsBeforeSend(type, payload) {
     try {
@@ -295,6 +308,10 @@
   var toggle = document.getElementById("themeToggle");
   var cachedTheme = null;
 
+  /**
+   * Resolves the active theme preference (cached, stored, or system default).
+   * @return {string} 'light' or 'dark'.
+   */
   function currentTheme() {
     if (cachedTheme !== null) return cachedTheme;
     // Storage access can throw (Safari private browsing, "block all
@@ -316,6 +333,10 @@
     return cachedTheme;
   }
 
+  /**
+   * Applies the theme attribute to the root element and updates toggle state.
+   * @param {string} theme 'light' or 'dark'.
+   */
   function applyTheme(theme) {
     cachedTheme = theme;
     root.setAttribute("data-theme", theme);
@@ -493,6 +514,10 @@
      to eliminate observer allocation churn on every re-render or search pass. */
   var sharedRevealIO = null;
 
+  /**
+   * Resolves the shared IntersectionObserver singleton for scroll reveals.
+   * @return {?IntersectionObserver} Observer instance, or null if unsupported.
+   */
   function getRevealObserver() {
     if (!sharedRevealIO && "IntersectionObserver" in window && !window.navigator.webdriver) {
       sharedRevealIO = new IntersectionObserver(
@@ -597,6 +622,11 @@
      from under the reader. Dynamically injected nodes (shop grid, journal,
      filters) pass nothing: they are armed in the same task that inserts
      them, before any paint of those nodes, so they animate in as designed. */
+  /**
+   * Sets up scroll reveal animations for unrevealed elements within a root.
+   * @param {(!Element|!Document)=} root Container to search for .reveal elements.
+   * @param {boolean=} serverRendered True if inspecting server-rendered document markup.
+   */
   function wireReveal(root, serverRendered) {
     root = root || document;
     var els = root.querySelectorAll(".reveal:not(.in)");
@@ -978,6 +1008,11 @@
      already believed it was tomorrow: today's market moved itself to "Past
      Events" while the countdown -- which reads local time -- still had it
      running. Same technique the dispatch badge already uses. */
+
+  /**
+   * Returns today's calendar date in America/New_York as YYYY-MM-DD.
+   * @return {string} ISO date string (YYYY-MM-DD).
+   */
   function todayInEastern() {
     try {
       var parts = new Intl.DateTimeFormat("en-CA", {
@@ -1008,12 +1043,25 @@
      meant flipping one in the dashboard changed nothing in the browser.
      Absent means on: that is how each of these features shipped, and a page
      that loads without content-data.js must not silently lose them. */
+
+  /**
+   * Evaluates whether a CMS feature switch in content.json is enabled.
+   * Defaults to true if the switch is absent.
+   * @param {string} name Feature switch identifier.
+   * @return {boolean} True if enabled or omitted.
+   */
   function siteFlagEnabled(name) {
     var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     return site[name] !== false;
   }
 
   /* ---------- shared: escape a value for safe use inside an HTML attribute ---------- */
+
+  /**
+   * Escapes characters for safe inclusion inside HTML attributes.
+   * @param {*} str Raw input value.
+   * @return {string} HTML-escaped string representation.
+   */
   function attrEsc(str) {
     if (str == null) return "";
     return String(str)
@@ -1025,10 +1073,47 @@
       .replace(/`/g, "&#96;");
   }
 
+  /* ---------- shared: CMS text into a CSS attribute selector ----------
+     `input[name="' + name + '"]` throws a SyntaxError inside querySelector()
+     the moment a quiz question name from content.json carries a `"` or `\`,
+     and one bad question then disables the whole quiz.
+
+     NOT CSS.escape(): that escapes an IDENTIFIER, and every caller here
+     interpolates into a QUOTED value. CSS.escape("1oz") is "\31 oz", which
+     inside quotes matches the literal text `1oz` no longer -- so a variant
+     value like 1oz or a question name with a space would silently stop
+     matching, which is worse than the throw this replaced. Inside a quoted
+     string only the quote and the backslash can end it, so those two are
+     the whole job. */
+
+  /**
+   * Escapes a value for use inside a DOUBLE-QUOTED CSS attribute selector.
+   * @param {?string} value Raw attribute value (CMS content, URL hash, data-id).
+   * @return {string} Selector-safe string.
+   */
+  function cssAttrEsc(value) {
+    return String(value == null ? "" : value).replace(/["\\]/g, "\\$&");
+  }
+
+  /**
+   * Escapes regex metacharacters so CMS text can be matched literally.
+   * @param {?string} str Raw text.
+   * @return {string} Pattern-safe string.
+   */
+  function escapeRegExp(str) {
+    return String(str == null ? "" : str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   /* Serializes vars for a data-i18n-vars attribute (see the "TEMPLATES"
      section of translator.js's file header): JSON.stringify, then attrEsc so
      the quotes JSON needs -- and anything in a product name, like the
      apostrophe in "Y'all Means All" -- can't break out of the attribute. */
+
+  /**
+   * Serializes variables for a data-i18n-vars attribute as escaped JSON.
+   * @param {!Object} vars Key-value substitutions for the translation template.
+   * @return {string} HTML-escaped JSON string.
+   */
   function i18nVarsAttr(vars) {
     return attrEsc(JSON.stringify(vars));
   }
@@ -1039,6 +1124,12 @@
      them. cart.js money(), gift-card.js and thank-you.js apply the same rule.
      Machine-facing values (data-item-price, the [+6.00] option tokens, JSON-LD)
      keep toFixed(2). */
+
+  /**
+   * Formats a monetary number into whole dollars or dollar and cents string.
+   * @param {number|string} n Amount in dollars.
+   * @return {string} Formatted string like "$20" or "$21.60".
+   */
   function formatMoney(n) {
     var v = Number(n);
     if (!isFinite(v)) return "$0";
@@ -1050,11 +1141,34 @@
      attrEsc() alone stops attribute-breakout but not a same-quote-safe
      `javascript:` URL, which still executes on click. Used for event/social
      post URLs that come from CMS-editable JSON (events.json, social feed). */
+
+  /**
+   * Sanitizes a URL, allowing only absolute HTTP/HTTPS or root-relative paths.
+   * @param {?string} url Target URL.
+   * @return {string} Sanitized URL or empty string if unsafe.
+   */
   function safeUrl(url) {
     if (!url) return "";
     var trimmed = String(url).trim();
     if (/^(https?:)?\/\//i.test(trimmed) || /^\//.test(trimmed)) return trimmed;
     return "";
+  }
+
+  /* ---------- shared: a Behold feed permalink must point at Instagram ----------
+     safeUrl() accepts any http(s) or protocol-relative host because the
+     event/social JSON in this repo is trusted CMS content. A Behold feed is a
+     third-party response, so its "View Post" link is held to the one host it
+     can legitimately be: instagram.com. Anything else is dropped. */
+
+  /**
+   * Accepts a permalink only when it is an https Instagram URL.
+   * @param {?string} url Candidate permalink from the feed.
+   * @return {string} The URL, or empty string when it is not on instagram.com.
+   */
+  function instagramPermalink(url) {
+    var cleaned = safeLinkUrl(url);
+    if (!cleaned) return "";
+    return /^https:\/\/(?:www\.)?instagram\.com\//i.test(cleaned) ? cleaned : "";
   }
 
   /* ---------- shared: only allow an image path into src= ----------
@@ -1065,6 +1179,12 @@
      path characters, which cannot carry a scheme, a host, whitespace or a
      control character. Everything else -- javascript:, data:, vbscript:, a
      tab-obfuscated scheme -- comes back empty. */
+
+  /**
+   * Validates and sanitizes an image src path.
+   * @param {?string} url Target image URL or document-relative path.
+   * @return {string} Clean path or empty string if rejected.
+   */
   function safeImageSrc(url) {
     var vetted = safeUrl(url);
     if (vetted) return vetted;
@@ -1087,6 +1207,12 @@
   /* Search results render on every page, including /products/<id>.html, so a
      site-relative path like "products/x.html" or "faq.html#q" must be made
      root-absolute or it resolves to /products/products/x.html from a PDP. */
+
+  /**
+   * Sanitizes a URL and ensures relative paths are root-absolute.
+   * @param {string} url Raw URL.
+   * @return {string} Root-absolute or safe protocol URL.
+   */
   function rootAbsLink(url) {
     var s = safeLinkUrl(url);
     if (!s) return "";
@@ -1094,6 +1220,11 @@
     return "/" + s.replace(/^(?:\.\.\/)+/, "").replace(/^\.\//, "");
   }
 
+  /**
+   * Refuses unsafe schemes (e.g. javascript:) and control characters from links.
+   * @param {?string} url Raw URL.
+   * @return {string} Clean URL or empty string.
+   */
   function safeLinkUrl(url) {
     if (!url) return "";
     var raw = String(url);
@@ -1124,6 +1255,11 @@
      publishes window.YL_MARKDOWN); in Node (the unit tests) it is
      require()d. See that file for what the renderer does and does not
      support, and why it is not a vendored library. */
+
+  /**
+   * Resolves the singleton Markdown parsing module from window or CommonJS.
+   * @return {?Object} Markdown module exporting renderMarkdown, or null.
+   */
   function markdownModule() {
     if (window.YL_MARKDOWN) return window.YL_MARKDOWN;
     if (typeof module !== "undefined" && module.exports && typeof require === "function") {
@@ -1132,6 +1268,11 @@
     return null;
   }
 
+  /**
+   * Renders Markdown text to HTML safely via markdown.js or paragraph fallback.
+   * @param {?string} text Raw markdown input.
+   * @return {string} HTML output.
+   */
   function renderMarkdown(text) {
     var md = markdownModule();
     if (md) return md.renderMarkdown(text);
@@ -1190,6 +1331,11 @@
      "assets/img/x.jpg" resolves to /products/assets/... there and 404s.
      Every image path this file renders goes through this: root-absolute is
      correct from any page of the site. */
+  /**
+   * Converts an image path to a root-absolute path for consistency across nested routes.
+   * @param {?string} src Raw image path.
+   * @return {string} Root-absolute or unmodified URL.
+   */
   function rootAbsImage(src) {
     var s = String(src || "").trim();
     if (!s) return "";
@@ -1197,6 +1343,12 @@
     return "/" + s.replace(/^(?:\.\.\/)+/, "").replace(/^\.\//, "");
   }
 
+  /**
+   * Generates responsive <picture> HTML using AVIF/WebP variants from image manifest.
+   * @param {!Object} p Product catalog item.
+   * @param {Object=} opts Options for sizing, loading, alt text, or alternate imagePath.
+   * @return {string} HTML markup string for <picture> or <img>.
+   */
   function pictureHTML(p, opts) {
     opts = opts || {};
     // imagePath lets a caller render a photo OTHER than the product's
@@ -1306,6 +1458,12 @@
      silently download 3-4x the bytes for every featured card the
      moment the homepage loads, even though most visitors never click
      a dot. */
+  /**
+   * Generates the multi-image gallery HTML markup for a product card.
+   * @param {!Object} p Product data object.
+   * @param {Object=} opts Display options such as eager loading.
+   * @return {string} HTML markup string for the card photo gallery.
+   */
   function cardGalleryHTML(p, opts) {
     opts = opts || {};
     // eager: true is only ever passed for the first handful of cards on
@@ -1410,6 +1568,12 @@
      re-validates every price server-side against products.json before
      Stripe Checkout is ever created (see workers/checkout.js), so nothing
      here needs to be trusted, just read. */
+  /**
+   * Generates the "Add to Cart" button markup with data-item-* attributes.
+   * @param {!Object} p Product catalog item object.
+   * @param {string=} extraClass Optional additional CSS class names for the button.
+   * @return {string} HTML markup string for the button or link.
+   */
   function addToCartHTML(p, extraClass) {
     if (p.id === "yallternative-gift-card") {
       return (
@@ -1774,7 +1938,7 @@
     ids.forEach(function (id) {
       var p = map.get(id);
       if (!p) return;
-      var cards = document.querySelectorAll('article.card[data-id="' + attrEsc(id) + '"]');
+      var cards = document.querySelectorAll('article.card[data-id="' + cssAttrEsc(id) + '"]');
       Array.prototype.forEach.call(cards, function (old) {
         var holder = document.createElement("div");
         holder.innerHTML = cardHTML(p, { eager: true });
@@ -2066,7 +2230,7 @@
 
   function syncWishButtons(id) {
     var buttons = id
-      ? document.querySelectorAll('.wish-btn[data-id="' + id + '"]')
+      ? document.querySelectorAll('.wish-btn[data-id="' + cssAttrEsc(id) + '"]')
       : document.querySelectorAll(".wish-btn[data-id]");
 
     buttons.forEach(function (btn) {
@@ -2818,7 +2982,7 @@
       else if (!cb.checked && i !== -1) chosen.splice(i, 1);
       render();
       // Re-rendering blows away focus; put it back on the control just used.
-      var again = card.querySelector('input[value="' + id.replace(/"/g, '\\"') + '"]');
+      var again = card.querySelector('input[value="' + cssAttrEsc(id) + '"]');
       if (again) again.focus();
     });
 
@@ -4070,7 +4234,9 @@
        the flag is absent, matching the CMS default. */
     var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     if (site.enableIngredientsModal === false) return "";
-    var label = p.ingredientsLabel || "Ingredients";
+    var label =
+      (p.ingredientsLabel && p.ingredientsLabel.trim()) ||
+      (p.category === "apparel" || p.category === "potions" ? "Materials" : "Ingredients");
     var items = p.ingredients
       .map(function (i) {
         return "<li>" + attrEsc(i) + "</li>";
@@ -5265,25 +5431,6 @@
       markReveal(upcomingEl);
 
       injectEventJsonLd(sortedUpcoming);
-
-      /* "Invite us to your market" + the event-specific email capture,
-         rendered once just after the upcoming list. Re-checks for an
-         existing panel so a second call (there isn't one today, but this
-         mirrors the id-check pattern injectEventJsonLd and the reviews
-         distribution bar both use) updates in place instead of duplicating. */
-      var followupPanel = document.getElementById("eventsFollowupPanel");
-      if (!followupPanel) {
-        followupPanel = document.createElement("div");
-        followupPanel.id = "eventsFollowupPanel";
-        followupPanel.className = "events-followup-panel";
-        if (upcomingEl.parentNode) {
-          upcomingEl.parentNode.insertBefore(followupPanel, upcomingEl.nextSibling);
-        }
-      }
-      followupPanel.innerHTML = eventInviteOrganizerHTML() + eventEmailCaptureHTML();
-      /* The markup above is a working plain form on its own. This upgrades it
-         to a fetch, and reads the no-JS round trip's ?market-alerts= result. */
-      initMarketAlertForm(followupPanel);
     }
 
     if (pastEl) {
@@ -5734,12 +5881,52 @@
 
   function formatEventMapDestination(ev) {
     if (!ev) return "Landrum, SC";
+    if (ev.coordinates) {
+      if (typeof ev.coordinates === "string" && ev.coordinates.trim()) {
+        return ev.coordinates.trim();
+      }
+      if (typeof ev.coordinates === "object" && ev.coordinates !== null) {
+        var lat = ev.coordinates.lat != null ? ev.coordinates.lat : ev.coordinates.latitude;
+        var lng =
+          ev.coordinates.lng != null
+            ? ev.coordinates.lng
+            : ev.coordinates.lon != null
+              ? ev.coordinates.lon
+              : ev.coordinates.longitude;
+        if (lat != null && lng != null) {
+          return lat + "," + lng;
+        }
+      }
+    }
+    if (ev.address) {
+      var addr = String(ev.address).trim();
+      var addrParts = [];
+      if (ev.venue && addr.indexOf(ev.venue) === -1) {
+        addrParts.push(String(ev.venue).trim());
+      }
+      addrParts.push(addr);
+      if (ev.location && addr.indexOf(ev.location) === -1) {
+        addrParts.push(ev.location);
+      }
+      if (
+        ev.zip &&
+        addr.indexOf(ev.zip) === -1 &&
+        (!ev.location || ev.location.indexOf(ev.zip) === -1)
+      ) {
+        addrParts.push(ev.zip);
+      }
+      return addrParts.join(", ");
+    }
     if (ev.note && ev.zip && ev.note.indexOf(ev.zip) !== -1) {
       var match = ev.note.match(/^([^.]+?\b\d{5}\b)/);
       if (match) return match[1].trim();
     }
     var parts = [];
-    if (ev.name) parts.push(ev.name);
+    if (ev.venue) {
+      parts.push(ev.venue);
+    } else if (ev.name) {
+      parts.push(ev.name);
+    }
     if (ev.location) parts.push(ev.location);
     if (ev.zip && (!ev.location || ev.location.indexOf(ev.zip) === -1)) parts.push(ev.zip);
     return parts.length ? parts.join(", ") : "Landrum, SC";
@@ -5765,6 +5952,7 @@
      the note doesn't start with a street address, so JSON-LD (below) omits
      streetAddress entirely instead of guessing. */
   function getEventStreetAddress(ev) {
+    if (ev && ev.address) return String(ev.address).trim();
     if (!ev || !ev.note || !ev.zip) return "";
     var note = String(ev.note);
     if (!/^\d/.test(note.trim())) return "";
@@ -6299,6 +6487,65 @@
     return label + " \u00b7 from " + start;
   }
 
+  function resolveEventDetails(ev) {
+    var venue = ev && ev.venue ? String(ev.venue).trim() : "";
+    var street = ev && ev.address ? String(ev.address).trim() : "";
+    var rawNote = ev && ev.note ? String(ev.note).trim() : "";
+    var note = rawNote;
+
+    if ((!venue || !street) && rawNote) {
+      var m = rawNote.match(/^([^.]+?\b(?:[A-Z]{2}\s+\d{5}|\d{5})\b)\.?\s*(.*)$/);
+      if (m) {
+        var addrPart = m[1].trim();
+        var rest = m[2] ? m[2].trim() : "";
+        var chunks = addrPart.split(/\s*,\s*/);
+        var locStr = ev && ev.location ? ev.location.toLowerCase() : "";
+        var zipStr = ev && ev.zip ? String(ev.zip).trim() : "";
+        var remaining = [];
+        for (var i = 0; i < chunks.length; i++) {
+          var c = chunks[i].trim();
+          var cLower = c.toLowerCase();
+          if (zipStr && c === zipStr) continue;
+          if (/^[A-Z]{2}\s+\d{5}$/i.test(c)) continue;
+          if (locStr && (locStr.indexOf(cLower) !== -1 || cLower.indexOf(locStr) !== -1)) continue;
+          if (/^(?:NC|SC|GA|TN|VA)\b/i.test(c) && /\d{5}/.test(c)) continue;
+          remaining.push(c);
+        }
+        if (!venue && !street) {
+          if (remaining.length >= 2) {
+            venue = remaining[0];
+            street = remaining.slice(1).join(", ");
+          } else if (remaining.length === 1) {
+            if (/\d/.test(remaining[0])) {
+              street = remaining[0];
+            } else {
+              venue = remaining[0];
+            }
+          }
+        } else if (!street && remaining.length) {
+          street = remaining.join(", ");
+        }
+        note = rest;
+      }
+    }
+
+    if (street && ev && ev.location) {
+      var locParts = ev.location.split(/\s*,\s*/);
+      for (var j = 0; j < locParts.length; j++) {
+        var lp = locParts[j].trim();
+        if (lp && street.indexOf(lp) !== -1) {
+          street = street.replace(new RegExp(",?\\s*" + escapeRegExp(lp) + "\\b", "gi"), "").trim();
+        }
+      }
+    }
+
+    return {
+      venue: venue,
+      street: street,
+      note: note
+    };
+  }
+
   function eventCardHTML(ev, opts) {
     var isPast = Boolean(opts && opts.past);
     var gCalUrl = generateGoogleCalendarUrl(ev);
@@ -6311,35 +6558,74 @@
     /* Search results deep-link to events.html#<id>, so the card carries it. */
     var idAttr = ev.id ? ' id="' + attrEsc(ev.id) + '"' : "";
 
+    var details = resolveEventDetails(ev);
+    var venue = details.venue;
+    var street = details.street;
+    var note = details.note;
+
+    var venueAddressHtml = "";
+    if (venue && street) {
+      venueAddressHtml =
+        '<p class="event-venue-address">' +
+        '<span class="event-place">' +
+        attrEsc(venue) +
+        '</span> <span class="event-addr-divider" aria-hidden="true">·</span> <span class="event-street">' +
+        attrEsc(street) +
+        "</span>" +
+        "</p>";
+    } else if (venue) {
+      venueAddressHtml =
+        '<p class="event-venue-address"><span class="event-place">' +
+        attrEsc(venue) +
+        "</span></p>";
+    } else if (street) {
+      venueAddressHtml =
+        '<p class="event-venue-address"><span class="event-street">' +
+        attrEsc(street) +
+        "</span></p>";
+    }
+
     /* A past market is a record of where the table has been. It gets no
        "Reserve / Pick Up", calendar or RSVP buttons and no directions --
        every one of those used to be rendered for past dates too, offering
        pickup at a booth that had already been packed up. */
     var actionsHtml = isPast
       ? ""
-      : '<div class="event-actions-row" style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">' +
+      : '<div class="event-actions-row">' +
+        '<div class="event-cta-main">' +
         (safeUrl(ev.url)
           ? '<a class="btn btn-primary btn-sm btn-block" href="' +
             attrEsc(safeUrl(ev.url)) +
             '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
           : "") +
-        '<a class="btn btn-outline btn-sm btn-block" href="shop.html?pickup_market=' +
+        '<a class="btn ' +
+        (safeUrl(ev.url) ? "btn-outline" : "btn-primary") +
+        ' btn-sm btn-block" href="shop.html?pickup_market=' +
         pickupParam +
         '#shop-catalog">' +
         '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Reserve / Pick Up at This Booth' +
         "</a>" +
-        '<a class="btn btn-outline btn-sm btn-block" href="' +
+        "</div>" +
+        '<div class="event-calendar-row">' +
+        '<div class="event-calendar-pills">' +
+        '<a class="event-cal-btn" href="' +
         attrEsc(gCalUrl) +
-        '" target="_blank" rel="noopener noreferrer">' +
-        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Add to Google Calendar<span class="sr-only"> (opens in new tab)</span>' +
+        '" target="_blank" rel="noopener noreferrer" title="Add to Google Calendar">' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
+        '<span class="cal-btn-visible" aria-hidden="true">Google Calendar</span>' +
+        '<span class="sr-only">Add to Google Calendar<span class="sr-only"> (opens in new tab)</span></span>' +
         "</a>" +
-        '<a class="btn btn-outline btn-sm btn-block" href="' +
+        '<a class="event-cal-btn" href="' +
         attrEsc(icsUri) +
         '" download="' +
         attrEsc(icsFilename) +
-        '">' +
-        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> iCal / Apple Calendar (.ics)' +
+        '" title="iCal / Apple Calendar (.ics)">' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> ' +
+        '<span class="cal-btn-visible" aria-hidden="true">Apple / iCal</span>' +
+        '<span class="sr-only">iCal / Apple Calendar (.ics)</span>' +
         "</a>" +
+        "</div>" +
+        "</div>" +
         "</div>";
 
     return (
@@ -6359,22 +6645,24 @@
       '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
       attrEsc(eventDateLabelWithTime(ev)) +
       "</time></p>" +
-      '<p class="event-location">' +
       (ev.location
-        ? '<svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
-          "<span>" +
+        ? '<p class="event-location"><span class="event-venue-name"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
           attrEsc(ev.location) +
-          "</span>" +
-          (isPast
-            ? ""
-            : '<span class="event-directions-links"> · <a class="event-map-link" href="' +
-              attrEsc(gMapsUrl) +
-              '" target="_blank" rel="noopener noreferrer">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
-              attrEsc(appleMapsUrl) +
-              '" target="_blank" rel="noopener noreferrer">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></span>')
+          "</span></p>"
         : "") +
-      "</p>" +
-      (ev.note ? '<p class="event-desc">' + attrEsc(ev.note) + "</p>" : "") +
+      venueAddressHtml +
+      (isPast || !ev.location
+        ? ""
+        : '<p class="event-directions-links"><a class="event-map-link" href="' +
+          attrEsc(gMapsUrl) +
+          '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
+          attrEsc(ev.name) +
+          ' on Google Maps">Google Maps<span class="sr-only"> directions (opens in new tab)</span></a> · <a class="event-map-link" href="' +
+          attrEsc(appleMapsUrl) +
+          '" target="_blank" rel="noopener noreferrer" aria-label="Get directions to ' +
+          attrEsc(ev.name) +
+          ' on Apple Maps">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></p>') +
+      (note ? '<p class="event-desc">' + attrEsc(note) + "</p>" : "") +
       actionsHtml +
       "</div>" +
       "</article>"
@@ -6406,7 +6694,7 @@
 
     if (concernRow && concerns.length) {
       var concernPills = [
-        '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Concerns</button>'
+        '<button class="concern-pill active" type="button" data-concern="all" aria-pressed="true">All Vibes</button>'
       ].concat(
         concerns.map(function (c) {
           return (
@@ -7417,6 +7705,7 @@
       try {
         var params = new URLSearchParams(window.location.search);
         params.delete("filter");
+        params.delete("vibe");
         var setOrDrop = function (key, value, isDefault) {
           if (value && !isDefault) params.set(key, value);
           else params.delete(key);
@@ -7430,11 +7719,14 @@
         var hashIsCategory = categories.some(function (c) {
           return c.id === hash;
         });
+        var hashIsConcern = concerns.some(function (c) {
+          return c.id === hash;
+        });
         var query = params.toString();
         var next =
           window.location.pathname +
           (query ? "?" + query : "") +
-          (hash && !hashIsCategory ? "#" + hash : "");
+          (hash && !hashIsCategory && !hashIsConcern ? "#" + hash : "");
         var current = window.location.pathname + window.location.search + window.location.hash;
         if (next !== current) history.replaceState(history.state, "", next);
       } catch {
@@ -7551,10 +7843,10 @@
       }
     }
 
-    // Deep-linking: URL search params (?concern=... / ?category=...) and hash #apparel
+    // Deep-linking: URL search params (?vibe=... / ?concern=... / ?category=...) and hash #apparel / #sore-muscles
     try {
       var searchParams = new URLSearchParams(window.location.search);
-      var urlConcern = searchParams.get("concern");
+      var urlConcern = searchParams.get("vibe") || searchParams.get("concern");
       if (
         urlConcern &&
         concerns.some(function (c) {
@@ -7610,19 +7902,37 @@
     }
 
     var hash = window.location.hash.replace("#", "");
-    if (
+    var hashIsCategory =
       hash &&
       categories.some(function (c) {
         return c.id === hash;
-      })
-    ) {
+      });
+    var hashIsConcern =
+      hash &&
+      concerns.some(function (c) {
+        return c.id === hash;
+      });
+
+    if (hashIsCategory) {
       state.filter = hash;
       row.querySelectorAll(".filter-pill").forEach(function (b) {
         var isActive = b.getAttribute("data-filter") === hash;
         b.classList.toggle("active", isActive);
         b.setAttribute("aria-pressed", isActive ? "true" : "false");
       });
-      /* No element carries the category id, so the browser cannot scroll to
+    } else if (hashIsConcern) {
+      state.concern = hash;
+      if (concernRow) {
+        concernRow.querySelectorAll(".concern-pill").forEach(function (b) {
+          var isActive = b.getAttribute("data-concern") === hash;
+          b.classList.toggle("active", isActive);
+          b.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+      }
+    }
+
+    if (hashIsCategory || hashIsConcern) {
+      /* No element carries the category or vibe id, so the browser cannot scroll to
          it; bring the filtered grid into view ourselves. */
       var catalogAnchor = document.getElementById("shop-catalog") || row;
       window.requestAnimationFrame(function () {
@@ -7948,19 +8258,38 @@
   function announcementBar() {
     var siteCfg = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     var announcement = siteCfg.announcement;
+    var seasonal = siteCfg.seasonalNotice;
+
+    var seasonalActive = Boolean(
+      seasonal &&
+      seasonal.enabled &&
+      seasonal.showInHeader &&
+      seasonal.text &&
+      String(seasonal.text).trim()
+    );
+    var seasonalMessage = seasonalActive ? String(seasonal.text).trim() : "";
+    /* Both links are CMS text. rootAbsLink() refuses javascript:/data: and
+       friends and returns "", which every branch below renders as plain text
+       instead of an anchor. Sanitized once here so the fold-into-ticker path
+       and the create-a-bar path cannot drift apart again. */
+    var seasonalLink =
+      seasonalActive && seasonal.link ? rootAbsLink(String(seasonal.link).trim()) : "";
 
     var message = "";
     var accent = "default";
     var link = "";
 
     if (announcement && typeof announcement === "object") {
-      if (announcement.enabled === false) return;
-      message = (announcement.text && String(announcement.text).trim()) || "";
-      accent = (announcement.accent && String(announcement.accent).trim()) || "default";
-      link = (announcement.link && String(announcement.link).trim()) || "";
+      if (announcement.enabled === false) {
+        if (!seasonalActive) return;
+      } else {
+        message = (announcement.text && String(announcement.text).trim()) || "";
+        accent = (announcement.accent && String(announcement.accent).trim()) || "default";
+        link = rootAbsLink((announcement.link && String(announcement.link).trim()) || "");
+      }
     }
 
-    if (!message) {
+    if (!message && !seasonalActive) {
       var data = window.YL_PRODUCTS;
       var threshold = data && data.shop && data.shop.freeShippingThreshold;
       if (!threshold || threshold <= 0) return;
@@ -7970,34 +8299,56 @@
       message = "✦ Free shipping on orders of " + formatMoney(threshold) + " or more ✦";
     }
 
+    if (!message && !seasonalActive) return;
+
     var accentClass = accent && accent !== "default" ? " announcement-accent-" + accent : "";
 
     /* index.html already ships a sticky announcement bar (the #yl-countdown-
        ticker pop-up countdown). When that bar is present, fold this message into
-       it as a second segment instead of creating a rival bar. */
+       it as an extra segment instead of creating a rival bar. */
     var existing = document.getElementById("yl-countdown-ticker");
     if (existing) {
       if (accent && accent !== "default") {
         existing.classList.add("announcement-accent-" + accent);
       }
-      var sep = document.createElement("span");
-      sep.className = "announcement-sep";
-      sep.setAttribute("aria-hidden", "true");
-      var seg = document.createElement("span");
-      seg.className = "announcement-segment";
-      if (link) {
-        var linkEl = document.createElement("a");
-        linkEl.href = link;
-        linkEl.textContent = message;
-        seg.appendChild(linkEl);
-      } else {
-        seg.textContent = message;
+      if (seasonalActive) {
+        var sSep = document.createElement("span");
+        sSep.className = "announcement-sep";
+        sSep.setAttribute("aria-hidden", "true");
+        var sSeg = document.createElement("span");
+        sSeg.className = "announcement-segment announcement-segment-seasonal";
+        if (seasonalLink) {
+          var sLinkEl = document.createElement("a");
+          sLinkEl.href = seasonalLink;
+          sLinkEl.textContent = seasonalMessage;
+          sSeg.appendChild(sLinkEl);
+        } else {
+          sSeg.textContent = seasonalMessage;
+        }
+        if (typeof sSeg.insertBefore === "function") sSeg.insertBefore(sSep, sSeg.firstChild);
+        else existing.appendChild(sSep);
+        existing.appendChild(sSeg);
       }
-      /* The separator travels with its segment so a wrap never strands it; a
-         minimal test DOM may lack insertBefore, so fall back to the old order. */
-      if (typeof seg.insertBefore === "function") seg.insertBefore(sep, seg.firstChild);
-      else existing.appendChild(sep);
-      existing.appendChild(seg);
+      if (message) {
+        var sep = document.createElement("span");
+        sep.className = "announcement-sep";
+        sep.setAttribute("aria-hidden", "true");
+        var seg = document.createElement("span");
+        seg.className = "announcement-segment";
+        if (link) {
+          var linkEl = document.createElement("a");
+          linkEl.href = link;
+          linkEl.textContent = message;
+          seg.appendChild(linkEl);
+        } else {
+          seg.textContent = message;
+        }
+        /* The separator travels with its segment so a wrap never strands it; a
+           minimal test DOM may lack insertBefore, so fall back to the old order. */
+        if (typeof seg.insertBefore === "function") seg.insertBefore(sep, seg.firstChild);
+        else existing.appendChild(sep);
+        existing.appendChild(seg);
+      }
       updateAnnouncementCrowding();
       return;
     }
@@ -8006,14 +8357,53 @@
     bar.className = "announcement-bar" + accentClass;
     bar.setAttribute("role", "region");
     bar.setAttribute("aria-label", "Site announcement");
-    if (link) {
+
+    if (seasonalActive && message) {
+      var sSpan = document.createElement("span");
+      sSpan.className = "announcement-segment announcement-segment-seasonal";
+      if (seasonalLink) {
+        var sA = document.createElement("a");
+        sA.href = seasonalLink;
+        sA.textContent = seasonalMessage;
+        sSpan.appendChild(sA);
+      } else {
+        sSpan.textContent = seasonalMessage;
+      }
+      var sepSpan = document.createElement("span");
+      sepSpan.className = "announcement-sep";
+      sepSpan.setAttribute("aria-hidden", "true");
+      var mSpan = document.createElement("span");
+      mSpan.className = "announcement-segment";
+      if (link) {
+        var mA = document.createElement("a");
+        mA.href = link;
+        mA.textContent = message;
+        mSpan.appendChild(mA);
+      } else {
+        mSpan.textContent = message;
+      }
+      bar.appendChild(sSpan);
+      bar.appendChild(sepSpan);
+      bar.appendChild(mSpan);
+    } else if (seasonalActive) {
+      bar.classList.add("announcement-seasonal");
+      if (seasonalLink) {
+        var sLink = document.createElement("a");
+        sLink.href = seasonalLink;
+        sLink.textContent = seasonalMessage;
+        bar.appendChild(sLink);
+      } else {
+        bar.textContent = seasonalMessage;
+      }
+    } else if (link) {
       var barLink = document.createElement("a");
-      barLink.href = rootAbsLink(link) || link;
+      barLink.href = link;
       barLink.textContent = message;
       bar.appendChild(barLink);
     } else {
       bar.textContent = message;
     }
+
     var header = document.querySelector(".site-header");
     var skip = document.querySelector(".skip-link");
     if (header) {
@@ -8131,7 +8521,7 @@
          pixels down, so closing the lightbox left the shopper nowhere. */
       var landTries = 0;
       (function landOnCard() {
-        var card = document.querySelector('.card[data-id="' + possibleProdId + '"]');
+        var card = document.querySelector('.card[data-id="' + cssAttrEsc(possibleProdId) + '"]');
         if (!card) {
           if (landTries++ < 20) setTimeout(landOnCard, 100);
           return;
@@ -8170,7 +8560,11 @@
     window.YL_CONTENT.site &&
     window.YL_CONTENT.site.enableSocialFeed !== undefined
       ? window.YL_CONTENT.site.enableSocialFeed
-      : /*YL:site.enableSocialFeed*/ true; /*/YL:site.enableSocialFeed*/
+      : /*YL:site.enableSocialFeed*/ false; /*/YL:site.enableSocialFeed*/
+  var instagramFeedId =
+    window.YL_CONTENT && window.YL_CONTENT.site && window.YL_CONTENT.site.instagramFeedId
+      ? String(window.YL_CONTENT.site.instagramFeedId).trim()
+      : "";
   /* Read the live flag the same way enableSocialFeed above does. The
      build injects the `YL:site` markers into HTML pages only -- never into
      this file -- so the baked-in literal is a stale second source of truth
@@ -8187,74 +8581,168 @@
       : /*YL:site.enableJournal*/ false; /*/YL:site.enableJournal*/
 
   function renderUgcFeed(gridElem, sectionElem) {
-    if (!enableSocialFeed || !gridElem || !sectionElem || !window.YL_SOCIAL_FEED) return;
-    var socialPosts = window.YL_SOCIAL_FEED.posts || [];
-    if (socialPosts.length === 0) return;
+    var isEnabled =
+      window.YL_CONTENT &&
+      window.YL_CONTENT.site &&
+      window.YL_CONTENT.site.enableSocialFeed !== undefined
+        ? window.YL_CONTENT.site.enableSocialFeed
+        : enableSocialFeed;
+    if (!isEnabled || !gridElem || !sectionElem) return;
 
-    sectionElem.style.display = "block";
-    gridElem.innerHTML = socialPosts
-      .map(function (post) {
-        var altText = post.caption
-          ? "Customer community photo: " + post.caption.slice(0, 80)
-          : "Y'allternative Living customer post";
-        var productTagHtml = "";
-        if (post.productId && post.productName) {
-          productTagHtml =
-            '<a href="shop.html#' +
-            attrEsc(post.productId) +
-            '" class="ugc-product-tag" aria-label="View ' +
-            attrEsc(post.productName) +
-            ' in shop">' +
-            '  <svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> ' +
-            attrEsc(post.productName) +
-            "</a>";
-        }
-        var postLink = safeUrl(post.url);
-        var linkHtml = postLink
-          ? '<a href="' +
-            attrEsc(postLink) +
-            '" target="_blank" rel="noopener noreferrer" class="ugc-post-link" aria-label="View original post by ' +
+    var feedId =
+      window.YL_CONTENT &&
+      window.YL_CONTENT.site &&
+      window.YL_CONTENT.site.instagramFeedId !== undefined
+        ? String(window.YL_CONTENT.site.instagramFeedId).trim()
+        : instagramFeedId;
+
+    function renderCards(posts) {
+      if (!posts || posts.length === 0) return;
+      sectionElem.style.display = "block";
+      gridElem.innerHTML = posts
+        .map(function (post) {
+          var altText =
+            post.altText ||
+            (post.caption
+              ? "Customer community photo: " + post.caption.slice(0, 80)
+              : "Y'allternative Living customer post");
+          var productTagHtml = "";
+          if (post.productId && post.productName) {
+            productTagHtml =
+              '<a href="shop.html#' +
+              attrEsc(post.productId) +
+              '" class="ugc-product-tag" aria-label="View ' +
+              attrEsc(post.productName) +
+              ' in shop">' +
+              '  <svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> ' +
+              attrEsc(post.productName) +
+              "</a>";
+          }
+          var postLink = safeUrl(post.url);
+          var linkHtml = postLink
+            ? '<a href="' +
+              attrEsc(postLink) +
+              '" target="_blank" rel="noopener noreferrer" class="ugc-post-link" aria-label="View original post by ' +
+              attrEsc(post.handle || "@yallternativeliving") +
+              ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
+            : "";
+
+          var isReel = Boolean(post.isReel || post.mediaType === "VIDEO");
+          var badgeLabel = isReel ? "Reel" : post.badge || "Instagram";
+          var badgeIcon = isReel
+            ? '<svg class="yl-icon" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>'
+            : '<svg class="yl-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>';
+
+          return (
+            /* A <div>, not an <article>: role="listitem" is not a valid role
+               override for <article>, so each card announced itself as a
+               stray article instead of as item N of the surrounding
+               role="list" feed (axe aria-allowed-role). */
+            '<div class="ugc-card reveal" role="listitem">' +
+            '  <div class="ugc-card-media">' +
+            '    <img src="' +
+            attrEsc(safeImageSrc(post.image)) +
+            '" alt="' +
+            attrEsc(altText) +
+            '" loading="lazy" decoding="async" width="400" height="400">' +
+            '    <div class="ugc-media-badge">' +
+            badgeIcon +
+            "      <span>" +
+            attrEsc(badgeLabel) +
+            "</span>" +
+            "    </div>" +
+            productTagHtml +
+            "  </div>" +
+            '  <div class="ugc-card-body">' +
+            '    <div class="ugc-author-row">' +
+            '      <span class="ugc-author-handle">' +
             attrEsc(post.handle || "@yallternativeliving") +
-            ' (opens in new tab)">View Post &#8599;<span class="sr-only"> (opens in new tab)</span></a>'
-          : "";
+            "</span>" +
+            "    </div>" +
+            '    <p class="ugc-caption">' +
+            attrEsc(post.caption) +
+            "</p>" +
+            linkHtml +
+            "  </div>" +
+            "</div>"
+          );
+        })
+        .join("");
+      wireReveal(sectionElem);
+    }
 
-        return (
-          /* A <div>, not an <article>: role="listitem" is not a valid role
-             override for <article>, so each card announced itself as a
-             stray article instead of as item N of the surrounding
-             role="list" feed (axe aria-allowed-role). */
-          '<div class="ugc-card reveal" role="listitem">' +
-          '  <div class="ugc-card-media">' +
-          '    <img src="' +
-          attrEsc(safeImageSrc(post.image)) +
-          '" alt="' +
-          attrEsc(altText) +
-          '" loading="lazy" decoding="async" width="400" height="400">' +
-          '    <div class="ugc-media-badge">' +
-          '      <svg class="yl-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>' +
-          "      <span>UGC</span>" +
-          "    </div>" +
-          productTagHtml +
-          "  </div>" +
-          '  <div class="ugc-card-body">' +
-          '    <div class="ugc-author-row">' +
-          '      <span class="ugc-author-name">' +
-          attrEsc(post.author || "Community Member") +
-          "</span>" +
-          '      <span class="ugc-author-handle">' +
-          attrEsc(post.handle || "@yallternativeliving") +
-          "</span>" +
-          "    </div>" +
-          '    <p class="ugc-caption">' +
-          attrEsc(post.caption) +
-          "</p>" +
-          linkHtml +
-          "  </div>" +
-          "</div>"
-        );
-      })
-      .join("");
-    wireReveal(sectionElem);
+    function fallbackToStaticFeed() {
+      if (!window.YL_SOCIAL_FEED) return;
+      var socialPosts = window.YL_SOCIAL_FEED.posts || [];
+      if (socialPosts.length === 0) return;
+      renderCards(socialPosts);
+    }
+
+    // Zero CLS: render static fallback feed synchronously on initial paint
+    // so the section height and card grid layout are established before the
+    // asynchronous Behold network request completes.
+    fallbackToStaticFeed();
+
+    if (feedId && typeof fetch === "function") {
+      fetch("https://feeds.behold.so/" + encodeURIComponent(feedId))
+        .then(function (res) {
+          if (!res.ok) throw new Error("Behold fetch failed: " + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          var rawPosts = Array.isArray(data) ? data : (data && data.posts) || [];
+          if (rawPosts.length === 0) {
+            fallbackToStaticFeed();
+            return;
+          }
+          var defaultUsername = (data && data.username) || "yallternativeliving";
+          var normalized = rawPosts
+            .map(function (p) {
+              var isReel = Boolean(p.isReel || p.mediaType === "VIDEO");
+              var img =
+                (p.sizes && p.sizes.medium && p.sizes.medium.mediaUrl) ||
+                (p.sizes && p.sizes.small && p.sizes.small.mediaUrl) ||
+                (p.sizes && p.sizes.large && p.sizes.large.mediaUrl) ||
+                p.thumbnailUrl ||
+                (!isReel ? p.mediaUrl : "") ||
+                "";
+              var cap = p.prunedCaption || p.caption || "";
+              var handle = p.username ? "@" + p.username : "@" + defaultUsername;
+              return {
+                image: img,
+                caption: cap,
+                altText:
+                  p.altText ||
+                  p.accessibilityCaption ||
+                  (cap
+                    ? "Y'allternative Living post: " + cap.slice(0, 80)
+                    : "Y'allternative Living Instagram post"),
+                author:
+                  p.author ||
+                  (p.username && p.username !== defaultUsername
+                    ? p.username
+                    : "Y'allternative Living"),
+                handle: handle,
+                /* A permalink that is not on instagram.com is dropped rather
+                   than fixed up: the card then renders with no View Post link. */
+                url:
+                  instagramPermalink(p.permalink) ||
+                  (!p.permalink && p.id ? "https://www.instagram.com/p/" + p.id : ""),
+                isReel: isReel,
+                mediaType: p.mediaType
+              };
+            })
+            .filter(function (post) {
+              return Boolean(post.image);
+            });
+          renderCards(normalized.slice(0, 6));
+        })
+        .catch(function () {
+          fallbackToStaticFeed();
+        });
+    } else {
+      fallbackToStaticFeed();
+    }
   }
 
   renderUgcFeed(socialFeedGrid, homeSocialFeedSection);
@@ -8775,11 +9263,6 @@
       return;
     }
 
-    var daysSpan = document.getElementById("yl-countdown-days");
-    var hoursSpan = document.getElementById("yl-countdown-hours");
-    var minsSpan = document.getElementById("yl-countdown-minutes");
-    var eventDetailsSpan = document.getElementById("heroEventDetails");
-
     /* .countdown-card has no rule in styles.css -- the card is drawn entirely
        by these inline styles. The "in progress today" branch below used to
        emit the bare class with nothing on it, so from 9am on a market day the
@@ -8796,6 +9279,7 @@
 
     function update() {
       var rem = targetTime - Date.now();
+      var timerEl = tickerContainer ? document.getElementById("heroCountdownTimer") : null;
       var iconHtml = nextEvt.emoji
         ? '<span class="ticker-emoji" aria-hidden="true" style="margin-right: 4px;">' +
           attrEsc(nextEvt.emoji) +
@@ -8804,7 +9288,6 @@
 
       if (rem <= 0) {
         if (tickerContainer) {
-          var timerEl = document.getElementById("heroCountdownTimer");
           if (timerEl) timerEl.textContent = nextEvt.name + " is in progress today!";
           /* The badge next to it is baked into the HTML as "NEXT POP-UP:",
              which reads wrong once the pop-up is the one happening right now.
@@ -8849,28 +9332,54 @@
       totalSec %= 3600;
       var m = Math.floor(totalSec / 60);
 
-      /* Days, hours and minutes only -- a market weeks away does not need a
-         seconds hand ticking in the header. The markup ships "00"; keep the
-         width stable instead of letting the numbers jitter between one and
-         two digits. */
+      /* Adaptive precision: when an event is >=24 hours away, minutes are omitted
+         to reduce mobile banner crowding and eliminate artificial tick urgency.
+         When <24 hours away, hours and minutes provide relevant countdown
+         precision, dropping to minutes only under 1 hour. */
       var hStr = (h < 10 ? "0" : "") + h;
       var mStr = (m < 10 ? "0" : "") + m;
 
-      if (daysSpan) daysSpan.textContent = String(d);
-      if (hoursSpan) hoursSpan.textContent = hStr;
-      if (minsSpan) minsSpan.textContent = mStr;
-      if (eventDetailsSpan)
-        eventDetailsSpan.textContent =
-          nextEvt.name + (nextEvt.location ? " (" + nextEvt.location + ")" : "");
+      if (tickerContainer && timerEl) {
+        var detailsText = nextEvt.name + (nextEvt.location ? " (" + nextEvt.location + ")" : "");
+        if (d >= 1) {
+          timerEl.innerHTML =
+            '<span id="yl-countdown-days">' +
+            d +
+            "</span> Days, " +
+            '<span id="yl-countdown-hours">' +
+            hStr +
+            '</span> Hours until <span id="heroEventDetails">' +
+            attrEsc(detailsText) +
+            "</span>";
+        } else if (h > 0) {
+          timerEl.innerHTML =
+            '<span id="yl-countdown-hours">' +
+            hStr +
+            "</span> Hours, " +
+            '<span id="yl-countdown-minutes">' +
+            mStr +
+            '</span> Mins until <span id="heroEventDetails">' +
+            attrEsc(detailsText) +
+            "</span>";
+        } else {
+          timerEl.innerHTML =
+            '<span id="yl-countdown-minutes">' +
+            mStr +
+            '</span> Mins until <span id="heroEventDetails">' +
+            attrEsc(detailsText) +
+            "</span>";
+        }
+      }
 
       if (bannerContainer) {
-        var timeStr =
-          d +
-          (d === 1 ? " Day, " : " Days, ") +
-          hStr +
-          (h === 1 ? " Hour, " : " Hours, ") +
-          mStr +
-          (m === 1 ? " Min" : " Mins");
+        var timeStr = "";
+        if (d >= 1) {
+          timeStr = d + (d === 1 ? " Day, " : " Days, ") + hStr + (h === 1 ? " Hour" : " Hours");
+        } else if (h > 0) {
+          timeStr = h + (h === 1 ? " Hour, " : " Hours, ") + mStr + (m === 1 ? " Min" : " Mins");
+        } else {
+          timeStr = m + (m === 1 ? " Min" : " Mins");
+        }
         var nextAppCatHtml = nextEvt.emoji
           ? '<span aria-hidden="true" style="margin-right: 4px;">' +
             attrEsc(nextEvt.emoji) +
@@ -9102,6 +9611,19 @@
     var results = document.getElementById("quiz-results-container");
     var resetBtn = document.getElementById("start-apothecary-quiz-btn");
 
+    if (results) {
+      results.addEventListener("click", function (e) {
+        if (e.target.closest(".yl-add-item")) {
+          if (modal) {
+            setTimeout(function () {
+              if (typeof modal.close === "function") modal.close();
+              else modal.removeAttribute("open");
+            }, 50);
+          }
+        }
+      });
+    }
+
     function resetQuiz() {
       var allSteps = quizSection.querySelectorAll(".quiz-step");
       for (var s = 0; s < allSteps.length; s++) {
@@ -9110,6 +9632,14 @@
       if (results) {
         results.style.display = "none";
         results.innerHTML = "";
+      }
+      var firstInput = quizSection.querySelector(".quiz-step input[type='radio']");
+      if (firstInput) {
+        try {
+          firstInput.focus();
+        } catch {
+          /* focus fallback */
+        }
       }
     }
 
@@ -9128,7 +9658,18 @@
           allSteps[i].style.display = "none";
         }
         var nextStepEl = document.getElementById("quiz-step-" + targetStep);
-        if (nextStepEl) nextStepEl.style.display = "block";
+        if (nextStepEl) {
+          nextStepEl.style.display = "block";
+          var targetFocus = nextStepEl.querySelector("h3, legend, input[type='radio']");
+          if (targetFocus) {
+            if (targetFocus.tagName !== "INPUT") targetFocus.setAttribute("tabindex", "-1");
+            try {
+              targetFocus.focus();
+            } catch {
+              /* focus fallback */
+            }
+          }
+        }
         return;
       }
 
@@ -9140,7 +9681,18 @@
           allSteps[j].style.display = "none";
         }
         var prevStepEl = document.getElementById("quiz-step-" + prevStep);
-        if (prevStepEl) prevStepEl.style.display = "block";
+        if (prevStepEl) {
+          prevStepEl.style.display = "block";
+          var prevFocus = prevStepEl.querySelector("h3, legend, input[type='radio']");
+          if (prevFocus) {
+            if (prevFocus.tagName !== "INPUT") prevFocus.setAttribute("tabindex", "-1");
+            try {
+              prevFocus.focus();
+            } catch {
+              /* focus fallback */
+            }
+          }
+        }
         return;
       }
     });
@@ -9166,7 +9718,9 @@
         if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
           quizQuestions.forEach(function (q) {
             var param = q.name || "quiz-" + q.id;
-            var checked = quizSection.querySelector('input[name="' + param + '"]:checked');
+            var checked = quizSection.querySelector(
+              'input[name="' + cssAttrEsc(param) + '"]:checked'
+            );
             var val = checked
               ? checked.value
               : q.options && q.options[0]
@@ -9284,21 +9838,56 @@
       var match = scored[0] ? scored[0].item : allItems[0];
 
       // Formulate Rationale
-      var vibeVal =
-        (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value || "gothic-calm";
-      var needVal =
-        (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value || "hydration";
-      var intentVal =
-        (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value ||
-        "treat-myself";
-      var rationale =
-        "Prescribed based on your choice of " +
-        vibeVal.replace(/-/g, " ") +
-        " vibes, " +
-        needVal.replace(/-/g, " ") +
-        " focus, and " +
-        intentVal.replace(/-/g, " ") +
-        " intent.";
+      var vibeVal = (quizSection.querySelector('input[name="quiz-vibe"]:checked') || {}).value;
+      var needVal = (quizSection.querySelector('input[name="quiz-need"]:checked') || {}).value;
+      var intentVal = (quizSection.querySelector('input[name="quiz-intent"]:checked') || {}).value;
+
+      var rationale = "";
+      if (vibeVal && needVal && intentVal) {
+        rationale =
+          "Prescribed based on your choice of " +
+          vibeVal.replace(/-/g, " ") +
+          " vibes, " +
+          needVal.replace(/-/g, " ") +
+          " focus, and " +
+          intentVal.replace(/-/g, " ") +
+          " intent.";
+      } else {
+        var selectedLabels = [];
+        if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
+          quizQuestions.forEach(function (q) {
+            var param = q.name || "quiz-" + q.id;
+            var checked = quizSection.querySelector(
+              'input[name="' + cssAttrEsc(param) + '"]:checked'
+            );
+            var val = checked
+              ? checked.value
+              : q.options && q.options[0]
+                ? q.options[0].value
+                : null;
+            var opt =
+              q.options &&
+              q.options.find(function (o) {
+                return o.value === val;
+              });
+            if (opt && opt.label) {
+              selectedLabels.push(opt.label);
+            }
+          });
+        }
+        if (selectedLabels.length > 0) {
+          rationale = "Prescribed based on your selection: " + selectedLabels.join(", ") + ".";
+        } else {
+          rationale =
+            "Prescribed based on your choice of " +
+            (vibeVal || "gothic-calm").replace(/-/g, " ") +
+            " vibes, " +
+            (needVal || "hydration").replace(/-/g, " ") +
+            " focus, and " +
+            (intentVal || "treat-myself").replace(/-/g, " ") +
+            " intent.";
+        }
+      }
 
       var pMap = getProductMap();
       var firstBundleProduct =
@@ -9402,6 +9991,15 @@
 
         results.style.display = "block";
         wireReveal(results);
+        var resHeading = results.querySelector("h3, .card-cat");
+        if (resHeading) {
+          resHeading.setAttribute("tabindex", "-1");
+          try {
+            resHeading.focus();
+          } catch {
+            /* focus fallback */
+          }
+        }
         /* Fires where the recommendation is actually painted, not where it is
            scored, so an abandoned quiz never counts. The catalogue id of what
            it recommended is the whole point -- it says which answers the quiz
@@ -9458,13 +10056,20 @@
     };
   }
 
+  var tokenQueryCache = new Map();
+
   function tokenizeQuery(rawQuery) {
     if (!rawQuery || typeof rawQuery !== "string") return [];
+    var hit = tokenQueryCache.get(rawQuery);
+    if (hit !== undefined) return hit;
     var cleaned = rawQuery
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, " ")
       .trim();
-    if (!cleaned) return [];
+    if (!cleaned) {
+      if (tokenQueryCache.size < 2000) tokenQueryCache.set(rawQuery, []);
+      return [];
+    }
     var rawTokens = cleaned.split(/\s+/).filter(Boolean);
     var seen = new Set();
     var result = [];
@@ -9473,6 +10078,9 @@
         seen.add(rawTokens[i]);
         result.push(rawTokens[i]);
       }
+    }
+    if (tokenQueryCache.size < 2000) {
+      tokenQueryCache.set(rawQuery, result);
     }
     return result;
   }
@@ -9489,9 +10097,17 @@
      tokenisation here is deliberate and load-bearing for the ingredient and
      intent groups, where "body butter" genuinely has to contribute "body"
      and "butter" for shea-butter to rank first. */
+  var expandCache = new Map();
+
   function expandTokensWithSynonyms(tokens, synonymsMap) {
     if (!tokens || !tokens.length) return [];
     var synMap = synonymsMap || getSearchIndex().synonyms || {};
+    var canCache = !synonymsMap;
+    var cacheKey = canCache ? tokens.join("\0") : null;
+    if (canCache) {
+      var hit = expandCache.get(cacheKey);
+      if (hit !== undefined) return hit;
+    }
     var expanded = new Set();
 
     tokens.forEach(function (token) {
@@ -9541,7 +10157,11 @@
       });
     });
 
-    return Array.from(expanded);
+    var result = Array.from(expanded);
+    if (canCache && expandCache.size < 2000) {
+      expandCache.set(cacheKey, result);
+    }
+    return result;
   }
 
   function scoreTextMatch(targetText, queryTokens, expandedTokens, weights) {
@@ -9592,6 +10212,8 @@
    * @return {{query: string, totalCount: number, products: !Array,
    *           journal: !Array, events: !Array, faq: !Array, medical: ?Object}}
    */
+  var searchResultCache = new Map();
+
   function searchGlobal(rawQuery) {
     function emptyResult(medical) {
       return {
@@ -9605,6 +10227,18 @@
       };
     }
     if (!rawQuery || typeof rawQuery !== "string") return emptyResult(null);
+    if (searchResultCache.has(rawQuery)) {
+      var cached = searchResultCache.get(rawQuery);
+      return {
+        query: cached.query,
+        totalCount: cached.totalCount,
+        products: cached.products.slice(),
+        journal: cached.journal.slice(),
+        events: cached.events.slice(),
+        faq: cached.faq.slice(),
+        medical: cached.medical
+      };
+    }
     var medical = medicalQueryRoute(rawQuery);
     var query = (medical ? medical.strippedQuery : rawQuery).trim();
     if (!query) return emptyResult(medical);
@@ -9825,7 +10459,7 @@
     var totalCount =
       scoredProducts.length + scoredJournal.length + scoredEvents.length + scoredFaq.length;
 
-    return {
+    var result = {
       query: query,
       totalCount: totalCount,
       products: scoredProducts,
@@ -9834,6 +10468,10 @@
       faq: scoredFaq,
       medical: medical
     };
+    if (searchResultCache.size < 500) {
+      searchResultCache.set(rawQuery, result);
+    }
+    return result;
   }
 
   function formatVariantChipLabel(prod, opt) {
@@ -10451,10 +11089,15 @@
       // 2. Journal Section
       if (results.journal.length > 0) {
         html += '<div class="search-results-section" role="rowgroup">';
+        var jTitle =
+          (window.YL_CONTENT && window.YL_CONTENT.journal && window.YL_CONTENT.journal.title) ||
+          "Root & Ritual";
         html +=
           '  <div class="search-section-header" role="row" id="search-section-journal-title">';
         html +=
-          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Apothecary Journal</span>';
+          '    <span role="gridcell"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> ' +
+          escapeSearchHtml(jTitle) +
+          "</span>";
         html +=
           '    <span class="search-section-count" role="gridcell">' +
           results.journal.length +
@@ -12335,6 +12978,7 @@
       initPdpRitualSection: initPdpRitualSection,
       initPdpStickyBar: initPdpStickyBar,
       announcementBar: announcementBar,
+      renderUgcFeed: renderUgcFeed,
       initApothecaryQuiz: initApothecaryQuiz,
       analyticsBeforeSend: analyticsBeforeSend,
       analyticsAllowedQuery: analyticsAllowedQuery,
@@ -12345,6 +12989,9 @@
         productMapCache = null;
         searchIndexCache = null;
         recentlyViewedCache = null;
+        if (tokenQueryCache) tokenQueryCache.clear();
+        if (expandCache) expandCache.clear();
+        if (searchResultCache) searchResultCache.clear();
       }
     };
   }

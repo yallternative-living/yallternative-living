@@ -1,36 +1,23 @@
 #!/usr/bin/env node
 "use strict";
 
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING -- automated QA suite ("npm test")
-   ----------------------------------------------------------
-   Turns the manual, one-off checks that used to get re-typed by hand
-   after every content/code change into a permanent, repeatable script:
-
-     - Every .js file in the project actually parses (node --check)
-     - CSS braces balance (a real, if blunt, signal something got
-       mismatched)
-     - Every <script type="application/ld+json"> block on every page
-       is valid JSON
-     - Every internal href/src the pages reference points at a real
-       file (no dead links, no 404'ing local assets)
-     - Every image referenced anywhere (HTML/JS/CSS/JSON) exists on
-       disk
-     - image-manifest.js has both AVIF and WebP variants for every
-       entry (nothing silently reverted to JPG-only)
-     - products-data.js: every product has the required fields, and
-       any variants block is well-formed (options array, numeric
-       priceDelta, matches what build-site-data.js expects)
-     - Gift card custom-field option string round-trips parse correctly
-       (catches a malformed "Preset $NN[+X.XX]" before it ships)
-     - WCAG contrast math for the site's actual current color tokens,
-       parsed live out of styles.css -- not hardcoded historical
-       values, so a future palette edit gets re-checked automatically
-       instead of silently drifting out of compliance
-
-   Run: node scripts/qa-check.js   (or: npm test)
-   Exits non-zero if anything fails, so this is CI-friendly.
-   ========================================================== */
+/**
+ * @fileoverview Automated static quality assurance test suite ("npm test").
+ *
+ * Turns manual, one-off checks into a permanent, repeatable verification suite:
+ *   - Every .js file in the project actually parses (node --check)
+ *   - CSS braces balance (a real, if blunt, signal something got mismatched)
+ *   - Every <script type="application/ld+json"> block on every page is valid JSON
+ *   - Every internal href/src the pages reference points at a real file (no dead links, no 404'ing local assets)
+ *   - Every image referenced anywhere (HTML/JS/CSS/JSON) exists on disk
+ *   - image-manifest.js has both AVIF and WebP variants for every entry (nothing silently reverted to JPG-only)
+ *   - products-data.js: every product has the required fields, and any variants block is well-formed (options array, numeric priceDelta, matches what build-site-data.js expects)
+ *   - Gift card custom-field option string round-trips parse correctly (catches a malformed "Preset $NN[+X.XX]" before it ships)
+ *   - WCAG contrast math for the site's actual current color tokens, parsed live out of styles.css -- not hardcoded historical values, so a future palette edit gets re-checked automatically instead of silently drifting out of compliance
+ *
+ * Run: node scripts/qa-check.js (or: npm test)
+ * Exits non-zero if anything fails, so this is CI-friendly.
+ */
 
 var fs = require("fs");
 var path = require("path");
@@ -1665,7 +1652,8 @@ if (!cspText) {
   var REQUIRED_CSP_SUBSTRINGS = [
     ["formspree.io", "Formspree (review submission form)"],
     ["embed.tawk.to", "Tawk.to (live chat script-src)"],
-    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"]
+    ["*.tawk.to", "Tawk.to (connect/frame/img-src)"],
+    ["feeds.behold.so", "Behold.so (Instagram JSON feed connect-src)"]
   ];
   /* The newsletter endpoint is derived, not pinned. This list used to require
      BOTH app.kit.com and app.convertkit.com -- the second was dead (nothing in
@@ -2122,13 +2110,19 @@ if (!fs.existsSync(configYmlPath)) {
     fail("admin/config.yml", "backend.repo doesn't look like a valid owner/repo value");
   }
 
-  if (/file:\s*assets\/data\/products\.json/.test(configYml))
+  if (
+    /folder:\s*assets\/data\/products\b/.test(configYml) &&
+    /file:\s*assets\/data\/catalog-config\.json\b/.test(configYml)
+  ) {
+    ok("CMS config points at assets/data/products folder and assets/data/catalog-config.json");
+  } else if (/file:\s*assets\/data\/products\.json/.test(configYml)) {
     ok("file collection points at assets/data/products.json");
-  else
+  } else {
     fail(
       "admin/config.yml",
-      "doesn't reference assets/data/products.json -- the CMS wouldn't be editing the real catalog file"
+      "doesn't reference assets/data/products or catalog-config.json -- the CMS wouldn't be editing the real catalog files"
     );
+  }
 
   if (
     /media_folder:\s*\/assets\/img/.test(configYml) &&
@@ -2139,13 +2133,123 @@ if (!fs.existsSync(configYmlPath)) {
     fail("admin/config.yml", "media_folder/public_folder aren't both /assets/img");
   }
 
+  if (
+    /logo:\s*\n\s*src:\s*\/assets\/img\/logo\.png\b/.test(configYml) &&
+    /show_in_header:\s*true\b/.test(configYml)
+  ) {
+    ok("CMS config declares structured logo with show_in_header: true");
+  } else {
+    fail("admin/config.yml", "missing structured logo object or show_in_header: true");
+  }
+
+  if (/logout_redirect_url:\s*https:\/\/yallternativeliving\.com\b/.test(configYml)) {
+    ok("CMS config declares logout_redirect_url to public homepage");
+  } else {
+    fail("admin/config.yml", "missing logout_redirect_url to https://yallternativeliving.com");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?preview_path:\s*["']?products\/\{\{fields\.id\}\}\.html["']?/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares live preview_path");
+  } else {
+    fail("admin/config.yml", "products collection missing preview_path");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?search_fields:\s*\[[\s\S]*?name[\s\S]*?blurb[\s\S]*?category[\s\S]*?id[\s\S]*?\]/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares search_fields covering name, blurb, category, and id");
+  } else {
+    fail("admin/config.yml", "products collection missing search_fields");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?In Stock[\s\S]*?Out of Stock[\s\S]*?Coming Soon[\s\S]*?Salves & Balms[\s\S]*?Bath Soaks[\s\S]*?Body & Skin[\s\S]*?Potions & Spellwork[\s\S]*?Ritual & Home[\s\S]*?Apparel[\s\S]*?Gift Sets[\s\S]*?Gift Cards[\s\S]*?Featured on Homepage[\s\S]*?Bestsellers[\s\S]*?Vegan[\s\S]*?Sensitive Skin Safe[\s\S]*?Cruelty-Free/.test(
+      configYml
+    )
+  ) {
+    ok(
+      "CMS products collection declares comprehensive view_filters for stock, catalog categories, merchandising badges, and tags"
+    );
+  } else {
+    fail("admin/config.yml", "products collection missing comprehensive view_filters");
+  }
+
+  if (
+    /name:\s*journal\b[\s\S]*?view_filters:\s*[\r\n]+[\s\S]*?Apothecary[\s\S]*?Botanical Care[\s\S]*?Self-Care[\s\S]*?Small Batch[\s\S]*?Behind the Scenes/.test(
+      configYml
+    )
+  ) {
+    ok("CMS journal collection declares topic view_filters covering all published topics");
+  } else {
+    fail("admin/config.yml", "journal collection missing topic view_filters");
+  }
+
+  if (
+    /name:\s*journal\b[\s\S]*?search_fields:\s*\[[\s\S]*?title[\s\S]*?excerpt[\s\S]*?tags[\s\S]*?\]/.test(
+      configYml
+    )
+  ) {
+    ok("CMS journal collection declares search_fields covering title, excerpt, and tags");
+  } else {
+    fail("admin/config.yml", "journal collection missing search_fields");
+  }
+
+  if (/name:\s*products\b[\s\S]*?sortable_fields:\s*[\r\n]+[\s\S]*?stock/.test(configYml)) {
+    ok("CMS products collection allows sorting by live stock inventory count");
+  } else {
+    fail("admin/config.yml", "products collection missing sortable stock count");
+  }
+
+  if (
+    /name:\s*products\b[\s\S]*?view_groups:\s*[\r\n]+\s*-\s*label:\s*["']?Category["']?[\s\S]*?field:\s*category\b[\s\S]*?-\s*label:\s*["']?In Stock["']?[\s\S]*?field:\s*inStock\b/.test(
+      configYml
+    )
+  ) {
+    ok("CMS products collection declares category and stock status view_groups");
+  } else {
+    fail("admin/config.yml", "products collection missing category and inStock view_groups");
+  }
+
+  if (
+    /name:\s*journal\b[\s\S]*?preview_path:\s*["']?journal\/\{\{slug\}\}\.html["']?/.test(configYml)
+  ) {
+    ok("CMS journal collection declares live preview_path");
+  } else {
+    fail("admin/config.yml", "journal collection missing preview_path");
+  }
+
+  var storeConfigSeparated = /divider:\s*true[\s\S]*?name:\s*storeConfig\b/.test(configYml);
+  var contentSeparated = /divider:\s*true[\s\S]*?name:\s*content\b/.test(configYml);
+  var storeConfigBlock = (configYml.match(
+    /-\s*name:\s*storeConfig\b[\s\S]*?(?=\r?\n\s*-\s*name:|\r?\n\s*-\s*divider:|$)/
+  ) || [""])[0];
+  var contentBlock = (configYml.match(
+    /-\s*name:\s*content\b[\s\S]*?(?=\r?\n\s*-\s*name:|\r?\n\s*-\s*divider:|$)/
+  ) || [""])[0];
+  var singletonsPreserved =
+    !/divider:\s*true/.test(storeConfigBlock) && !/divider:\s*true/.test(contentBlock);
+
+  if (storeConfigSeparated && contentSeparated && singletonsPreserved) {
+    ok(
+      "CMS sidebar sections declare standalone divider: true partitions without collapsing singletons"
+    );
+  } else {
+    fail(
+      "admin/config.yml",
+      "sidebar sections missing divider: true partitions or corrupting singletons"
+    );
+  }
+
   // Every real top-level key in each CMS-editable JSON file needs a
   // corresponding field defined in config.yml, or the CMS would silently
   // drop/hide that data the next time someone saves through the editor.
-  // Originally only checked products.json -- widened to cover all 4 file
-  // collections config.yml actually defines (see the "2. Markets... 3.
-  // Customer Reviews... 4. Page Wording" comment near the top of that
-  // file) after a swarm audit flagged events/reviews/content as unchecked.
+  // Covers all folder collections and singletons config.yml actually defines.
   var journalPostFiles = fs.existsSync(path.join(ROOT, "assets/data/journal"))
     ? fs
         .readdirSync(path.join(ROOT, "assets/data/journal"))
@@ -2157,15 +2261,29 @@ if (!fs.existsSync(configYmlPath)) {
         })
     : [];
   if (!journalPostFiles.length) fail("assets/data/journal", "no journal post files found");
+
+  var productPostFiles = fs.existsSync(path.join(ROOT, "assets/data/products"))
+    ? fs
+        .readdirSync(path.join(ROOT, "assets/data/products"))
+        .filter(function (f) {
+          return f.endsWith(".json");
+        })
+        .map(function (f) {
+          return "assets/data/products/" + f;
+        })
+    : [];
+  if (!productPostFiles.length) fail("assets/data/products", "no individual product files found");
+
   [
+    "assets/data/catalog-config.json",
     "assets/data/products.json",
     "assets/data/events.json",
     "assets/data/site-reviews.json",
     "assets/data/content.json",
-    "assets/data/quiz.json",
-    "assets/data/social-feed.json"
+    "assets/data/quiz.json"
   ]
     .concat(journalPostFiles)
+    .concat(productPostFiles)
     .forEach(function (relPath) {
       var full = path.join(ROOT, relPath);
       if (!fs.existsSync(full)) return; // already reported missing in section 1 above
@@ -4415,8 +4533,8 @@ section("Milestone 3: CMS Merchandising, Schema Validation & Quiz Integrity");
     var primarySocials = ["instagram", "tiktok", "facebook", "etsy"];
     var allSocialsValid = socialKeys.every(function (k) {
       var val = social[k];
+      if (val === undefined || val === null || val === "") return true;
       if (typeof val !== "string") return false;
-      if (val.length === 0) return true;
       return val.startsWith("https://");
     });
     var primaryPopulated = primarySocials.every(function (k) {

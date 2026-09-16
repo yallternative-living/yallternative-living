@@ -91,18 +91,21 @@ const PROVIDERS = {
      * and this must become `repo` -- there is no narrower classic scope for
      * private repositories.
      */
-    scope: "public_repo",
-  },
+    scope: "public_repo"
+  }
 };
 
-/** Escape a string for safe interpolation into a RegExp source. */
+/**
+ * Escapes characters in a string for safe interpolation into a RegExp source.
+ * @param {string} str Raw input string to escape.
+ * @return {string} Escaped string safe for regular expression usage.
+ */
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
- * Turn the comma-separated ALLOWED_DOMAINS var into anchored RegExp sources
- * that match a full ORIGIN, not a bare hostname.
+ * Converts comma-separated allowed domain definitions into anchored RegExp patterns matching full origins.
  *
  * The check used to compare `new URL(origin).hostname` only, so
  * `http://yallternativeliving.com` (plaintext, trivially spoofed on a hostile
@@ -115,6 +118,9 @@ function escapeRegExp(str) {
  * matches any subdomain but cannot swallow a port, a path or a credential.
  * Returns strings, not RegExp objects, so they serialize into the browser
  * script below.
+ *
+ * @param {?string|undefined} allowedDomains Comma-separated list of allowed domains or wildcard patterns.
+ * @return {!Array<string>} Array of regex pattern source strings matching HTTPS origins.
  */
 function domainPatternSources(allowedDomains) {
   return (allowedDomains ?? "")
@@ -125,23 +131,38 @@ function domainPatternSources(allowedDomains) {
 }
 
 /**
- * JSON-safe serialization for values embedded into the inline <script>. Also
- * escapes "<" so a "</script>" inside any string can't break out of the tag.
+ * Serializes values safely for embedding into inline script tags without XSS breakout.
+ *
+ * Also escapes "<" as unicode so that an embedded "</script>" string cannot terminate
+ * the enclosing HTML script element.
+ *
+ * @param {*} value JavaScript value to serialize into JSON format.
+ * @return {string} Escaped JSON string safe for inline script contexts.
  */
 function serialize(value) {
   return JSON.stringify(value).replaceAll("<", "\\u003c");
 }
 
 /**
- * Build the HTML page returned from /callback. Its script performs the
- * Sveltia/Decap popup handshake:
+ * Builds the HTML response page that executes the client-side OAuth handshake with the opener window.
+ *
+ * Its script performs the Sveltia/Decap popup handshake:
  *   1. On load it posts "authorizing:<provider>" to its opener (the /admin
  *      window) with target "*", announcing the popup is ready.
  *   2. When the opener echoes "authorizing:<provider>" back, the popup learns
  *      the opener's real origin from the message event, and -- only if that
  *      origin is trusted -- posts the result to it and closes.
- * The result string is  authorization:<provider>:<status>:<json>  where
- * <status> is "success" or "error".
+ * The result string is `authorization:<provider>:<status>:<json>` where
+ * `<status>` is "success" or "error".
+ *
+ * @param {!{
+ *   provider: string,
+ *   status: string,
+ *   content: (!Object|undefined),
+ *   allowedDomains: (?string|undefined),
+ *   clearCsrfCookie: (boolean|undefined)
+ * }} options Configuration options for rendering the HTML callback response.
+ * @return {!Response} HTML response containing the inline script and appropriate cache/cookie headers.
  */
 function outputHTML({ provider, status, content, allowedDomains, clearCsrfCookie }) {
   const script = `
@@ -232,7 +253,7 @@ function outputHTML({ provider, status, content, allowedDomains, clearCsrfCookie
     "Content-Type": "text/html;charset=UTF-8",
     // The page holds a fresh access token in memory only long enough to
     // postMessage it; never let a proxy or the browser cache it.
-    "Cache-Control": "no-store",
+    "Cache-Control": "no-store"
   };
 
   // The CSRF cookie is single-use: it exists to tie one /auth redirect to one
@@ -246,7 +267,13 @@ function outputHTML({ provider, status, content, allowedDomains, clearCsrfCookie
   return new Response(body, { headers });
 }
 
-/** GET /auth -- kick off the OAuth flow. */
+/**
+ * Handles the OAuth authorization request by generating a CSRF token and redirecting to the provider.
+ *
+ * @param {!Request} request Incoming HTTP request containing optional provider query parameters.
+ * @param {!Object<string, string>} env Worker environment bindings containing client credentials and allowed domains.
+ * @return {!Response} HTTP 302 redirect response with Set-Cookie header, or HTML error page.
+ */
 function handleAuth(request, env) {
   const { searchParams } = new URL(request.url);
   const provider = searchParams.get("provider") || "github";
@@ -256,8 +283,12 @@ function handleAuth(request, env) {
     return outputHTML({
       provider,
       status: "error",
-      content: { provider, error: "Unsupported OAuth provider.", errorCode: "UNSUPPORTED_PROVIDER" },
-      allowedDomains: env.ALLOWED_DOMAINS,
+      content: {
+        provider,
+        error: "Unsupported OAuth provider.",
+        errorCode: "UNSUPPORTED_PROVIDER"
+      },
+      allowedDomains: env.ALLOWED_DOMAINS
     });
   }
 
@@ -269,9 +300,9 @@ function handleAuth(request, env) {
       content: {
         provider,
         error: "OAuth client ID is not configured on the server.",
-        errorCode: "MISCONFIGURED",
+        errorCode: "MISCONFIGURED"
       },
-      allowedDomains: env.ALLOWED_DOMAINS,
+      allowedDomains: env.ALLOWED_DOMAINS
     });
   }
 
@@ -293,12 +324,18 @@ function handleAuth(request, env) {
     headers: {
       Location: authURL,
       "Set-Cookie": `csrf-token=${provider}_${csrfToken}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax; Secure`,
-      "Cache-Control": "no-store",
-    },
+      "Cache-Control": "no-store"
+    }
   });
 }
 
-/** GET /callback -- GitHub redirected back here with ?code & ?state. */
+/**
+ * Handles the OAuth callback by validating CSRF tokens and exchanging authorization codes for access tokens.
+ *
+ * @param {!Request} request Incoming HTTP request containing code, state, and cookies.
+ * @param {!Object<string, string>} env Worker environment bindings containing client credentials and allowed domains.
+ * @return {!Promise<!Response>} HTML response delivering the token to the trusted opener window or reporting failure.
+ */
 async function handleCallback(request, env) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
@@ -323,7 +360,7 @@ async function handleCallback(request, env) {
       status: "error",
       content: { provider: provider || "github", error, errorCode },
       allowedDomains: env.ALLOWED_DOMAINS,
-      clearCsrfCookie: true,
+      clearCsrfCookie: true
     });
 
   if (!cfg) return fail("Invalid or missing provider.", "UNSUPPORTED_PROVIDER");
@@ -346,7 +383,7 @@ async function handleCallback(request, env) {
     const res = await fetch(`https://${hostname}${cfg.tokenPath}`, {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({ code, client_id: clientId, client_secret: clientSecret }),
+      body: JSON.stringify({ code, client_id: clientId, client_secret: clientSecret })
     });
     const data = await res.json();
     token = data.access_token || "";
@@ -364,13 +401,12 @@ async function handleCallback(request, env) {
     status: "success",
     content: { provider, token },
     allowedDomains: env.ALLOWED_DOMAINS,
-    clearCsrfCookie: true,
+    clearCsrfCookie: true
   });
 }
 
 /**
- * POST /revoke -- called by the callback page's own script when it finds that
- * the window which opened the popup is NOT a trusted origin.
+ * Handles token revocation when the popup opener fails the origin allowlist verification check.
  *
  * The token is minted at /callback, before anything can know who the opener
  * is, so by the time the origin check fails a usable GitHub token already
@@ -383,6 +419,10 @@ async function handleCallback(request, env) {
  * It takes only a token that this Worker just issued; a caller who supplies
  * someone else's token can at worst have that token revoked, which is not a
  * capability worth protecting.
+ *
+ * @param {!Request} request Incoming HTTP POST request containing provider, token, and revocation reason.
+ * @param {!Object<string, string>} env Worker environment bindings containing client credentials and allowed domains.
+ * @return {!Promise<!Response>} Response indicating whether token revocation succeeded with GitHub.
  */
 async function handleRevoke(request, env) {
   let body = {};
@@ -414,9 +454,9 @@ async function handleRevoke(request, env) {
         "X-GitHub-Api-Version": "2022-11-28",
         "User-Agent": "yallternative-cms-auth",
         Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ access_token: token }),
+      body: JSON.stringify({ access_token: token })
     });
     // 204 = revoked, 404 = already gone. Either way the token is dead.
     console.log(
@@ -430,6 +470,12 @@ async function handleRevoke(request, env) {
 }
 
 export default {
+  /**
+   * Main entry point for Cloudflare Worker routing requests to auth endpoints.
+   * @param {!Request} request Incoming HTTP request.
+   * @param {!Object<string, string>} env Worker environment variables and bindings.
+   * @return {!Promise<!Response>} Worker HTTP response.
+   */
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
     const method = request.method;
@@ -454,5 +500,5 @@ export default {
     }
 
     return new Response("Not found", { status: 404 });
-  },
+  }
 };

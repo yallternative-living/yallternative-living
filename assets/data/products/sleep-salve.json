@@ -1,0 +1,58 @@
+{
+  "id": "sleep-salve",
+  "name": "Hush Y'all Magnesium Arnica Sleep Salve",
+  "category": "salves",
+  "price": 20,
+  "image": "assets/img/sleep-salve.jpg",
+  "images": [
+    "assets/img/sleep-salve-alt1.jpg"
+  ],
+  "blurb": "Rub a little onto your feet or shoulders before bed and let lavender, chamomile, and cedarwood take it from there. Magnesium and arnica in a 2 oz tin, built for overthinkers and night owls who need the day to actually end.",
+  "etsyUrl": "https://www.etsy.com/listing/4398125773/hush-yall-magnesium-arnica-sleep-salve",
+  "rating": {
+    "value": 5,
+    "count": 1
+  },
+  "ingredients": [
+    "Shea Butter",
+    "Coconut Oil",
+    "Magnesium",
+    "Essential Oils (Lavender, Cedarwood, Chamomile, Orange, Frankincense)"
+  ],
+  "scent": "Lavender",
+  "tags": [
+    "vegan"
+  ],
+  "concerns": [
+    "sleep-relaxation",
+    "sore-muscles"
+  ],
+  "scentProfile": {
+    "top": "Fresh Lavender, Sweet Chamomile",
+    "heart": "Herbal Arnica, Mountain Honey",
+    "base": "Grounding Cedarwood, Rich Shea",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Massage a dime-sized amount into temples, back of neck, shoulders, or soles of feet 15–30 minutes before bedtime.",
+    "storage": "Store in a cool, dry place away from direct heat. Shelf life is 6–12 months.",
+    "patchTest": "Apply a small dab to inner forearm 24 hours before first use to ensure compatibility with essential oils."
+  },
+  "keywords": [
+    "sleep",
+    "bedtime",
+    "magnesium",
+    "arnica",
+    "calm",
+    "relax",
+    "nighttime",
+    "lavender",
+    "cedarwood"
+  ],
+  "ritualTitle": "The Deep Rest & Nighttime Ritual",
+  "pairsWith": [
+    "lavender-soak",
+    "shea-butter"
+  ]
+}

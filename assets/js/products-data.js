@@ -22,7 +22,6 @@ window.YL_PRODUCTS = {
       "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
       "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
       "stock": 10,
-      "ingredientsLabel": "",
       "ingredientsNote": "",
       "scent": "",
       "variants": {
@@ -87,7 +86,6 @@ window.YL_PRODUCTS = {
       "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production. Wear it to the market, wear it to Pride, wear it everywhere in between.",
       "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
       "stock": 20,
-      "ingredientsLabel": "",
       "ingredientsNote": "",
       "scent": "",
       "variants": {
@@ -166,7 +164,6 @@ window.YL_PRODUCTS = {
         "Vitamin E",
         "Essential Oils (Lavender, Tea Tree, Frankincense, Rosemary, Chamomile)"
       ],
-      "ingredientsLabel": "",
       "ingredientsNote": "Now made with almond oil (a tree nut). Not recommended if you have a nut allergy.",
       "scent": "Herbal & Woodsy",
       "variants": {
@@ -236,7 +233,6 @@ window.YL_PRODUCTS = {
         "Lanolin",
         "Vitamin E (Tocopherol)"
       ],
-      "ingredientsLabel": "",
       "ingredientsNote": "No essential oils, no added fragrance.",
       "scent": "Unscented",
       "tags": [
@@ -851,7 +847,6 @@ window.YL_PRODUCTS = {
         "Metal",
         "Wax"
       ],
-      "ingredientsLabel": "Materials",
       "ingredientsNote": "Exact salt/herb blend varies by the option you choose above.",
       "scent": "Herbal & Woodsy",
       "variants": {
@@ -1457,6 +1452,23 @@ window.YL_PRODUCTS = {
         "sleep-relaxation",
         "outdoor-defense"
       ]
+    },
+    {
+      "id": "frost-flannel-reset",
+      "name": "Frost & Flannel Reset",
+      "productIds": [
+        "backroad-soak",
+        "frankincense-salve",
+        "shea-butter"
+      ],
+      "discountPercent": 10,
+      "price": 43,
+      "blurb": "Built for when the Blue Ridge air turns crisp and your bones start feeling every mile: soak the trail stiffness out with peppermint and black pepper backroad salts, seal windburned cheeks and cracked hands with our miracle frankincense tin, and wrap it all up in thick whipped lavender shea before bed. Autumn recovery in three easy steps.",
+      "concerns": [
+        "sore-muscles",
+        "dry-skin",
+        "sleep-relaxation"
+      ]
     }
   ],
   "faq": [
@@ -1623,7 +1635,6 @@ window.YL_PRODUCTS = {
     "etsyShopUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
     "rating": 4.9,
     "reviewCount": 33,
-    "sales": 108,
     "freeShippingThreshold": 40,
     "shippingMilestones": [
       {

@@ -2231,5 +2231,158 @@ assert(
   );
 })();
 
+/* Product ids become output paths (products/<id>.html) and writeFile() is
+   the only way the build touches disk: both must refuse anything that could
+   land outside the repository. */
+(function productIdAndOutputPathHardening() {
+  assert(
+    typeof buildScript.validateProductId === "function" &&
+      typeof buildScript.resolveOutputPath === "function" &&
+      buildScript.PRODUCT_ID_RE instanceof RegExp,
+    "validateProductId, resolveOutputPath and PRODUCT_ID_RE are exported"
+  );
+  const rejects = ["../admin/index", "x/y", "X", "a b", "", "..", ".hidden", "a_b", "-lead"];
+  rejects.forEach(function (id) {
+    assert(
+      throwsMatching(function () {
+        buildScript.validateProductId(id, "assets/data/products/evil.json");
+      }, /evil\.json.*not a valid slug/),
+      "validateProductId rejects " + JSON.stringify(id) + " and names the file"
+    );
+  });
+  assert(
+    throwsMatching(function () {
+      buildScript.validateProductId(undefined, "products.json product #1");
+    }, /product #1.*not a valid slug/),
+    "validateProductId rejects a missing id"
+  );
+  ["frankincense-salve", "tank-top", "a", "0", "yallternative-gift-card"].forEach(function (id) {
+    eq(buildScript.validateProductId(id, "x.json"), id, "validateProductId accepts " + id);
+  });
+  assert(
+    throwsMatching(function () {
+      buildScript.validateProductId("a".repeat(82), "x.json");
+    }, /not a valid slug/) && buildScript.validateProductId("a".repeat(81), "x.json"),
+    "validateProductId caps ids at 81 characters"
+  );
+
+  const ROOT = path.resolve(__dirname, "..");
+  eq(
+    buildScript.resolveOutputPath("products/tank-top.html"),
+    path.join(ROOT, "products", "tank-top.html"),
+    "resolveOutputPath keeps a normal page under the root"
+  );
+  eq(
+    buildScript.resolveOutputPath(".well-known/security.txt"),
+    path.join(ROOT, ".well-known", "security.txt"),
+    "resolveOutputPath allows a dot-directory inside the root"
+  );
+  ["../admin/index.html", "products/../../escape.html", "/etc/passwd", "", "."].forEach(
+    function (rel) {
+      assert(
+        throwsMatching(function () {
+          buildScript.resolveOutputPath(rel);
+        }, /Refusing to write outside the repository/),
+        "resolveOutputPath refuses " + JSON.stringify(rel)
+      );
+    }
+  );
+  // products/../admin/index.html is INSIDE the root, so it resolves -- which is
+  // exactly why the id itself has to be validated first.
+  eq(
+    buildScript.resolveOutputPath("products/../admin/index.html"),
+    path.join(ROOT, "admin", "index.html"),
+    "resolveOutputPath alone does not protect admin/ -- validateProductId must"
+  );
+  const escapePath = "../yl-build-test-escape-" + process.pid + ".txt";
+  const escapeAbs = path.resolve(ROOT, escapePath);
+  assert(
+    throwsMatching(function () {
+      buildScript.writeFile(escapePath, "should never land");
+    }, /Refusing to write outside the repository/) && !fs.existsSync(escapeAbs),
+    "writeFile throws on a traversal path and writes nothing"
+  );
+  if (fs.existsSync(escapeAbs)) fs.unlinkSync(escapeAbs);
+  // The live catalog must already satisfy the rule the build now enforces.
+  const live = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/data/products.json"), "utf8"));
+  assert(
+    live.products.length > 0 &&
+      live.products.every(function (p) {
+        return buildScript.PRODUCT_ID_RE.test(p.id);
+      }),
+    "every committed product id is a valid slug"
+  );
+})();
+
+/* resolveEventDetails compiles a comma-split piece of ev.location into a
+   RegExp; a stray bracket in the CMS field used to throw a SyntaxError and
+   fail the whole deploy. */
+(function eventLocationRegexHardening() {
+  assert(
+    typeof buildScript.resolveEventDetails === "function" &&
+      typeof buildScript.escapeRegExp === "function",
+    "resolveEventDetails and escapeRegExp are exported"
+  );
+  eq(
+    buildScript.escapeRegExp("Asheville (NC) [a-z] $1.5 ^ * + ? | { } \\"),
+    "Asheville \\(NC\\) \\[a-z\\] \\$1\\.5 \\^ \\* \\+ \\? \\| \\{ \\} \\\\",
+    "escapeRegExp escapes every metacharacter"
+  );
+  assert(
+    new RegExp(buildScript.escapeRegExp("Mills River [NC")).test("x Mills River [NC y"),
+    "escaped pattern matches the literal text"
+  );
+  let out = null;
+  let threw = null;
+  try {
+    out = buildScript.resolveEventDetails({
+      location: "Asheville (NC",
+      address: "121 College St, Asheville (NC",
+      venue: "Pack Square Park",
+      note: "Free festival."
+    });
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, "resolveEventDetails survives location 'Asheville (NC'");
+  eq(
+    out,
+    { venue: "Pack Square Park", street: "121 College St", note: "Free festival." },
+    "the unbalanced location is still stripped from the street"
+  );
+  threw = null;
+  try {
+    out = buildScript.resolveEventDetails({
+      location: "Mills River [NC",
+      address: "336 Banner Farm Rd, Mills River [NC",
+      venue: "Mills River Brewing Co"
+    });
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, "resolveEventDetails survives location 'Mills River [NC'");
+  eq(out && out.street, "336 Banner Farm Rd", "the bracketed location is stripped from the street");
+  threw = null;
+  try {
+    out = buildScript.resolveEventDetails({
+      location: "Landrum, SC",
+      note: "123 Main St, Landrum, SC 29356. Pop-up table."
+    });
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, "resolveEventDetails handles a note-only address");
+  eq(
+    out,
+    { venue: "", street: "123 Main St", note: "Pop-up table." },
+    "note-only address is parsed into street and note"
+  );
+  eq(
+    buildScript.resolveEventDetails({ location: "Charlotte, NC" }),
+    { venue: "", street: "", note: "" },
+    "an event with only a location yields empty details"
+  );
+})();
+
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

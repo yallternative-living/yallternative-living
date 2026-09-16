@@ -1,0 +1,57 @@
+{
+  "id": "whipped-body-butter",
+  "name": "Y'all Means All Rainbow Whipped Body Butter",
+  "comingSoon": true,
+  "category": "body",
+  "price": 18,
+  "image": "assets/img/placeholder-coming-soon.svg",
+  "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.",
+  "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "ingredients": [
+    "Shea Butter",
+    "Mango Butter",
+    "Coconut Oil",
+    "Sweet Almond Oil",
+    "Cornstarch",
+    "Optiphen (Preservative)",
+    "Citrus Peach Fragrance",
+    "Mica (Color)"
+  ],
+  "scent": "Citrus & Bright",
+  "tags": [
+    "vegan",
+    "essential-oil-free"
+  ],
+  "concerns": [
+    "dry-skin",
+    "daily-glow"
+  ],
+  "scentProfile": {
+    "top": "Sweet Tangerine, Blood Orange",
+    "heart": "Whipped Coconut Cream",
+    "base": "Raw Shea, Golden Jojoba",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Smooth a dollop over clean, towel-dry skin from neck to toes. Absorbs quickly without greasy residue.",
+    "storage": "Keep in a cool, dark place away from heat vents or direct sun. Shelf life is 6–12 months.",
+    "patchTest": "Test a pea-sized amount on inner forearm 24 hours before full use."
+  },
+  "keywords": [
+    "body butter",
+    "whipped butter",
+    "rainbow",
+    "pride",
+    "dry skin",
+    "deep hydration",
+    "fluffy moisturizer",
+    "soft skin"
+  ],
+  "ritualTitle": "The Velvet Cloud Moisture Ritual",
+  "pairsWith": [
+    "sugar-scrub",
+    "shimmer-oil"
+  ],
+  "estimatedBatchDate": "Late October 2026"
+}

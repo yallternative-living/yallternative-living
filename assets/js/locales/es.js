@@ -60,7 +60,7 @@
     "home.meetTheMaker": "Conoce a la creadora →",
     "home.whatYallAreSaying": "Lo que dicen ustedes",
     "home.communityTitle": "Comunidad de clientes",
-    "home.communityText": "Gente real, fotos reales y cuidado personal hecho a mano. ¡Etiqueta a @yallternativeliving en Instagram o TikTok para aparecer aquí!",
+    "home.communityText": "Detrás de escena, lotes frescos y novedades de mercados.",
     "home.followHandle": "Sigue a @yallternativeliving",
     "home.popUpInTheWild": "Aparecemos en Pop Up In The Wild",
     "home.followAlong": "Acompáñanos",
@@ -74,6 +74,7 @@
     "home.nextPopUp": "PRÓXIMO POP-UP:",
     "home.days": "Días,",
     "home.hours": "Horas,",
+    "home.hoursUntil": "Horas para",
     "home.minsUntil": "Minutos para",
     "footer.tagline": "Cuidado personal hecho a mano para Black Sheep & Bold Hearts. Mezclado, vertido y revuelto en lotes pequeños.",
     "footer.disclaimer": "Cuidado personal hecho a mano, no medicina. Nada de lo que se vende aquí tiene como fin diagnosticar, tratar, curar o prevenir ninguna condición. ¿Tienes un problema real en la piel o de salud? Ve con un doctor de verdad y después date un gusto con algo que huela rico.",
@@ -144,8 +145,8 @@
     "shop.giftCards": "Tarjetas de regalo",
     "shop.giftSets": "Sets de regalo",
     "shop.giftSet": "Set de regalo",
-    "shop.filterByConcern": "Filtrar por necesidad de la piel",
-    "shop.allConcerns": "Todas las necesidades",
+    "shop.filterByConcern": "Filtrar por vibra",
+    "shop.allConcerns": "Todas las vibras",
     "shop.concernWindDown": "Descanso y relajación",
     "shop.concernLongDay": "Después de un día largo",
     "shop.concernOutdoor": "Defensa al aire libre",
@@ -696,8 +697,6 @@
     "auto.contact.8508af": "/ Contacto",
     "auto.events.a26238": "/ Eventos",
     "auto.journal.2ce617": "/ Diario",
-    "auto.apothecaryJournal.04917a": "Diario de botica",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "Diario de botica | Y'allternative Living",
     "auto.bestseller.df042d": "Más vendido",
     "auto.contactYallternativeLiving.2072b3": "Contacto | Y'allternative Living",
     "auto.festival.9f8f3e": "Festival",
@@ -844,7 +843,12 @@
     "auto.wellEmailOneTime.584e36": "Te enviaremos un enlace de un solo uso a esa dirección. Se abre una sola vez y vence en 24 horas.",
     "auto.whenYouClickCheckout.77c899": "Cuando haces clic en Checkout, tu carrito se reserva durante unos 30 minutos mientras pagas. Si el tiempo se agota, la sesión se cierra y cualquier producto con inventario limitado vuelve al estante para la siguiente persona. No pasa nada, solo regresa a la tienda e inténtalo de nuevo.",
     "auto.yesOrdersOfOr.2a65db": "¡Sí! Las órdenes de $40 o más (en productos, antes de impuestos) tienen envío gratis a cualquier parte de EE. UU. Por debajo de eso son $10 fijos, y el medidor en tu carrito te muestra qué tan cerca estás. Todo se aplica automáticamente al pagar. Por ahora solo hacemos envíos a direcciones en EE. UU., y las tarjetas de regalo se envían por correo electrónico, así que nunca necesitan estampilla.",
-    "auto.apothecary.3edecd": "Botica"
+    "auto.apothecary.3edecd": "Botica",
+    "auto.copyCode.1589b6": "Copiar código",
+    "auto.materials.2402ea": "Materiales",
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living en redes sociales",
+    "auto.freeDowntownArtsMusic.3f38cd": "Festival gratuito de arte y música en el centro — ven a buscar nuestra mesa.",
+    "auto.twoDayPunkFlea.cd4ed3": "Mercado de pulgas punk de dos días."
   }
 };
 

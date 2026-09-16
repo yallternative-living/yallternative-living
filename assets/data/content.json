@@ -47,7 +47,8 @@
     "enableUsageGuideEmails": true,
     "usageGuideDelayDays": 4,
     "enableJournal": true,
-    "enableSocialFeed": false,
+    "enableSocialFeed": true,
+    "instagramFeedId": "wLcvOTDHfwF50KITgjht",
     "enableRestockAlerts": true,
     "showLiveStock": true,
     "enableSquareSync": true,
@@ -117,8 +118,8 @@
     },
     "community": {
       "eyebrow": "Customer Community",
-      "title": "Spotted In The Wild",
-      "text": "Real folks, real photos, and handmade self-care. Tag @yallternativeliving on Instagram or TikTok to be featured!"
+      "title": "Y'allternative Living On Social",
+      "text": "Behind the scenes, fresh batches, and market updates."
     },
     "findUs": {
       "eyebrow": "Find Us In Person",
@@ -152,7 +153,7 @@
       "sortButton": "Sort",
       "sheetTitle": "Filter & sort",
       "categoryHeading": "Category",
-      "concernHeading": "Concern",
+      "concernHeading": "Vibe",
       "applyButton": "Apply",
       "clearAll": "Clear all",
       "activeFilters": "Active filters",
@@ -236,7 +237,7 @@
     }
   },
   "journal": {
-    "title": "Apothecary Journal",
+    "title": "Root & Ritual",
     "lede": "Stories, science, and small-batch updates straight from the kitchen.",
     "backLabel": "← Back to Journal",
     "newerLabel": "Newer post",

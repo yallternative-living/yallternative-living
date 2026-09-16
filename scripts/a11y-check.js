@@ -160,8 +160,17 @@ const INCOMPLETE_BASELINE = {
   },
   "faq.html [dark]": 11,
   "faq.html [light]": 11,
-  "index.html [dark]": 39,
-  "index.html [light]": 39,
+  /* index.html: scales with UGC social feed cards (each .ugc-card renders a
+     media badge over the image whose contrast axe cannot decide, exactly
+     as for event/journal cards: 40 base chrome + 1 per rendered card). */
+  "index.html [dark]": {
+    base: 40,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
+  "index.html [light]": {
+    base: 40,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
   /* journal.html scales with the posts, the same way events.html scales with
      its cards: each post card renders a "Read Post" outline button whose
      contrast axe cannot decide over its pseudo-element (measured 2026-09-09
@@ -240,8 +249,15 @@ const INCOMPLETE_BASELINE = {
   "reviews.html [light]": 40,
   "safety.html [dark]": 13,
   "safety.html [light]": 13,
-  "shop.html [dark]": 105,
-  "shop.html [light]": 105,
+  /* shop.html: scales with UGC cards: 107 base chrome + 1 per rendered card */
+  "shop.html [dark]": {
+    base: 107,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
+  "shop.html [light]": {
+    base: 107,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
   "terms.html [dark]": 19,
   "terms.html [light]": 19,
   /* +1 on 2026-09-09: the "All Your Orders" outline button beside "Keep

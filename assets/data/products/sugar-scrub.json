@@ -1,0 +1,56 @@
+{
+  "id": "sugar-scrub",
+  "name": "Y'all Means All Sugar Scrub",
+  "comingSoon": true,
+  "category": "body",
+  "price": 14,
+  "image": "assets/img/placeholder-coming-soon.svg",
+  "blurb": "Rainbow layers of sweet exfoliant that slough off the rough, leave skin soft, and look like a Pride parade in a jar. Glitter-and-grit self-care that means exactly what it says: everybody's welcome.",
+  "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "ingredients": [
+    "Cane Sugar",
+    "Coconut Oil",
+    "Sweet Almond Oil",
+    "Vitamin E",
+    "Skin-Safe Fragrance",
+    "Mica (Color)"
+  ],
+  "scent": "Citrus & Bright",
+  "tags": [
+    "vegan",
+    "essential-oil-free"
+  ],
+  "concerns": [
+    "dry-skin",
+    "daily-glow"
+  ],
+  "scentProfile": {
+    "top": "Juicy Peach Nectar, Meyer Lemon",
+    "heart": "Candied Citrus Peel, Cane Sugar",
+    "base": "Golden Vanilla, Sweet Almond",
+    "intensity": "Medium",
+    "intensityScore": 3
+  },
+  "usageGuide": {
+    "howToApply": "Buff gently onto wet skin in circular motions during shower or bath. Rinse thoroughly with warm water to reveal silky soft, exfoliated skin.",
+    "storage": "Keep jar sealed tightly and avoid introducing standing water into jar. Shelf life is 6–12 months.",
+    "patchTest": "Test a small dab on inner wrist before first use. Discontinue if redness occurs."
+  },
+  "keywords": [
+    "sugar scrub",
+    "body exfoliator",
+    "rainbow scrub",
+    "smooth skin",
+    "pride",
+    "cane sugar",
+    "dry skin",
+    "polishing",
+    "softening"
+  ],
+  "ritualTitle": "The Sweet Woods Exfoliation Ritual",
+  "pairsWith": [
+    "whipped-body-butter",
+    "bath-tea"
+  ],
+  "estimatedBatchDate": "Late October 2026"
+}

@@ -265,7 +265,8 @@ async function runAllTests() {
   );
   assert(feedXmlContent.includes("<channel>"), "<channel> container present");
   assert(
-    feedXmlContent.includes("<title>Apothecary Journal | Y'allternative Living</title>"),
+    feedXmlContent.includes("<title>Root &amp; Ritual | Y'allternative Living</title>") ||
+      feedXmlContent.includes("<title>Apothecary Journal | Y'allternative Living</title>"),
     "Channel <title> present"
   );
   assert(

@@ -6,7 +6,7 @@
  * @const {!Object}
  */
 window.YL_JOURNAL = {
-  "title": "Apothecary Journal",
+  "title": "Root & Ritual",
   "lede": "Stories, science, and small-batch updates straight from the kitchen.",
   "wording": {
     "backLabel": "← Back to Journal",

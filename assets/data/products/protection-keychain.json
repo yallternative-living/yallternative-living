@@ -1,0 +1,75 @@
+{
+  "id": "protection-keychain",
+  "name": "Protection Potion Keychain",
+  "featured": true,
+  "category": "potions",
+  "price": 8,
+  "image": "assets/img/protection-keychain.jpg",
+  "images": [
+    "assets/img/protection-keychain-alt1.jpg",
+    "assets/img/protection-keychain-alt2.jpg"
+  ],
+  "blurb": "A mini spell jar, wax-sealed and clipped to a sturdy keyring. Pick your blend below. Five inches of everyday witchy armor for your keys, bag, or backpack.",
+  "etsyUrl": "https://www.etsy.com/listing/4378341348/protection-potion-keychain-black-lava",
+  "rating": {
+    "value": 5,
+    "count": 1
+  },
+  "ingredients": [
+    "Black Lava Salt",
+    "Pink Himalayan Salt",
+    "Glass",
+    "Metal",
+    "Wax"
+  ],
+  "ingredientsNote": "Exact salt/herb blend varies by the option you choose above.",
+  "scent": "Herbal & Woodsy",
+  "variants": {
+    "name": "Blend",
+    "options": [
+      {
+        "label": "Black Lava & Pink Himalayan Salt (Protection + Self Love)",
+        "priceDelta": 0
+      },
+      {
+        "label": "Black Lava Salt & Rosemary (Protect + Purify)",
+        "priceDelta": 0
+      },
+      {
+        "label": "Black Lava Salt & Myrrh (Protect + Guard)",
+        "priceDelta": 0
+      }
+    ]
+  },
+  "tags": [],
+  "concerns": [],
+  "scentProfile": {
+    "top": "Crushed Rosemary, White Sage",
+    "heart": "Bay Laurel, Tourmaline Essence",
+    "base": "Smoky Cedar, Black Sea Salt",
+    "intensity": "Subtle",
+    "intensityScore": 2
+  },
+  "usageGuide": {
+    "howToApply": "Attach to your keyring, backpack, purse, or altar space as a handheld protective talisman. Handle with positive intention.",
+    "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
+    "patchTest": "Non-topical talisman artifact. Contains sealed mineral salts and dried botanicals — not for consumption or topical skin application."
+  },
+  "keywords": [
+    "protection",
+    "amulet",
+    "talisman",
+    "warding",
+    "energy clearing",
+    "alt gothic",
+    "witchy",
+    "potion bottle",
+    "keychain",
+    "good vibes"
+  ],
+  "ritualTitle": "The Witches' Road Armor Ritual",
+  "pairsWith": [
+    "bug-spray",
+    "cleansing-spray"
+  ]
+}

@@ -211,6 +211,7 @@ import { handleGiftNote } from "./routes/gift-note.js";
 import { handleMarketAlerts } from "./routes/market-alerts.js";
 import { handleSquareWebhook } from "./routes/square-webhook.js";
 import { handleOrdersList, handleOrdersRequestLink } from "./routes/orders.js";
+import { handleUnfulfilledOrders, handleFulfillOrder } from "./routes/fulfillment.js";
 import {
   handleBirthdayClub,
   handleLoyaltyBalance,
@@ -1655,7 +1656,8 @@ const ROUTES = {
   // The passwordless order history (routes/orders.js). Same STATE_DB +
   // MAGIC_LINK_SECRET requirement as the retention routes, same 503 without.
   "/orders/request-link": handleOrdersRequestLink,
-  "/orders": handleOrdersList
+  "/orders": handleOrdersList,
+  "/fulfill-order": handleFulfillOrder
 };
 
 /**
@@ -2483,9 +2485,18 @@ export default {
         return json({ error: "Something went wrong. Please try again." }, 500, origin, env);
       }
     }
-    // /orders is GET-only (handled above); as a POST it would fall through to
-    // the same token-burning handler by a second method.
-    if (request.method !== "POST" || route === "/orders") {
+    // The fourth GET: listing unfulfilled orders (routes/fulfillment.js).
+    if (route === "/unfulfilled-orders" && request.method === "GET") {
+      try {
+        return await handleUnfulfilledOrders(request, env, origin);
+      } catch (err) {
+        console.error("unfulfilled-orders failed:", err && err.stack ? err.stack : err);
+        return json({ error: "Failed to load unfulfilled orders." }, 500, origin, env);
+      }
+    }
+    // /orders and /unfulfilled-orders are GET-only (handled above); as POSTs
+    // they would fall through to the token-burning handler or 404.
+    if (request.method !== "POST" || route === "/orders" || route === "/unfulfilled-orders") {
       return json({ error: "Method Not Allowed" }, 405, origin, env);
     }
     // Reject cross-site callers outright. A request with NO Origin header is

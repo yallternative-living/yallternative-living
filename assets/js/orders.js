@@ -1,30 +1,31 @@
-/* ==========================================================
-   Y'ALLTERNATIVE LIVING | orders.html page logic
-   Loaded `defer`, after main.js and cart.js (both also deferred, so
-   window.YLCart and window.YL_PRODUCTS exist by the time this runs).
-
-   No accounts, no passwords. Two states on one page:
-     1. No token in the URL: an email form. It POSTs the address to
-        /api/orders/request-link and shows the SAME confirmation whatever
-        the Worker knew about that address -- the page never says "we have
-        orders for you" or "we don't", because that would make the form a
-        way to test whether an address has shopped here.
-     2. ?token= in the URL (from the emailed link): the token is read, then
-        scrubbed from the address bar before anything else happens, and
-        GET /api/orders?token= paints the list -- date, items with
-        quantities and unit prices, total, status, a tracking link when
-        the parcel has one, a Reorder button, and the points balance when
-        the loyalty switch is on. The token works once; a refresh shows
-        the form again with a note saying why.
-
-   NOTHING HERE MAY USE innerHTML WITH A SERVER STRING. Line names come
-   from Stripe by way of the catalog and tracking links from metadata a
-   human typed, so every value is set with textContent and the one href
-   goes through safeLinkUrl (http(s) only). The page sends NO analytics
-   event of its own; the pageview the tracker records drops the query
-   string (data-exclude-search), and the token is gone from the URL
-   before the page settles anyway.
-   ========================================================== */
+/**
+ * @fileoverview Client-side order lookup and history display for orders.html.
+ *
+ * Loaded `defer`, after main.js and cart.js (both also deferred, so
+ * window.YLCart and window.YL_PRODUCTS exist by the time this runs).
+ *
+ * No accounts, no passwords. Two states on one page:
+ *   1. No token in the URL: an email form. It POSTs the address to
+ *      /api/orders/request-link and shows the SAME confirmation whatever
+ *      the Worker knew about that address -- the page never says "we have
+ *      orders for you" or "we don't", because that would make the form a
+ *      way to test whether an address has shopped here.
+ *   2. ?token= in the URL (from the emailed link): the token is read, then
+ *      scrubbed from the address bar before anything else happens, and
+ *      GET /api/orders?token= paints the list -- date, items with
+ *      quantities and unit prices, total, status, a tracking link when
+ *      the parcel has one, a Reorder button, and the points balance when
+ *      the loyalty switch is on. The token works once; a refresh shows
+ *      the form again with a note saying why.
+ *
+ * NOTHING HERE MAY USE innerHTML WITH A SERVER STRING. Line names come
+ * from Stripe by way of the catalog and tracking links from metadata a
+ * human typed, so every value is set with textContent and the one href
+ * goes through safeLinkUrl (http(s) only). The page sends NO analytics
+ * event of its own; the pageview the tracker records drops the query
+ * string (data-exclude-search), and the token is gone from the URL
+ * before the page settles anyway.
+ */
 (function () {
   "use strict";
 
@@ -32,8 +33,17 @@
   var LIST_ENDPOINT = "/api/orders";
   var CONTACT_EMAIL = "y.allternative.living@gmail.com";
 
-  /* Render a dictionary key through the translator (window.YL_T) with the
-     English as the fallback -- the same helper cart.js uses. */
+  /**
+   * Translates a dictionary key with variable substitution or fallback.
+   *
+   * Renders a dictionary key through the translator (window.YL_T) with
+   * English as the fallback -- the same helper cart.js uses.
+   *
+   * @param {string} key Dictionary key to translate.
+   * @param {?Object<string, *>=} vars Interpolation variables for the translation.
+   * @param {string=} fallbackEn Default English string if key is untranslated.
+   * @return {string} Translated string or fallback text.
+   */
   function tr(key, vars, fallbackEn) {
     var t = typeof window !== "undefined" ? window.YL_T : null;
     if (typeof t !== "function") return fallbackEn;
@@ -46,13 +56,27 @@
     return typeof out === "string" && out && out !== key ? out : fallbackEn;
   }
 
+  /**
+   * Checks whether a site configuration feature flag is enabled.
+   *
+   * @param {string} name Name of the feature flag property on window.YL_CONTENT.site.
+   * @return {boolean} True if the feature flag is not explicitly disabled.
+   */
   function siteFlagEnabled(name) {
     var site = (window.YL_CONTENT && window.YL_CONTENT.site) || {};
     return site[name] !== false;
   }
 
-  /* "$25" for whole dollars, "$12.34" when there are cents -- the rule every
-     price on the site follows; Intl for any other currency. */
+  /**
+   * Formats a monetary amount in cents into a currency display string.
+   *
+   * Returns "$25" for whole dollars and "$12.34" when there are cents -- the rule
+   * every price on the site follows; uses Intl.NumberFormat for any other currency.
+   *
+   * @param {number|string} cents Price in smallest currency unit (e.g. cents).
+   * @param {?string=} currency Currency code, defaults to 'usd'.
+   * @return {string} Formatted monetary string, or empty string if invalid.
+   */
   function money(cents, currency) {
     var value = Number(cents);
     if (!isFinite(value)) return "";
@@ -71,6 +95,12 @@
     }
   }
 
+  /**
+   * Formats a Unix timestamp in seconds into a human-readable localized date.
+   *
+   * @param {number|string} seconds Epoch timestamp in seconds.
+   * @return {string} Localized long date string, or empty string on failure.
+   */
   function placedOn(seconds) {
     var n = Number(seconds);
     if (!isFinite(n) || n <= 0) return "";
@@ -84,8 +114,15 @@
     }
   }
 
-  /* The same words order-status.html uses for the same metadata, so an order
-     never reads "Shipped" on one page and something else on the other. */
+  /**
+   * Maps an order fulfillment or payment status to a localized display label.
+   *
+   * The same words order-status.html uses for the same metadata, so an order
+   * never reads "Shipped" on one page and something else on the other.
+   *
+   * @param {?string} status Raw order status string from backend metadata.
+   * @return {string} Localized status label.
+   */
   function statusWords(status) {
     var s = String(status || "")
       .trim()
@@ -97,8 +134,15 @@
     return tr("orders.processing", null, "Paid, being packed");
   }
 
-  /* http(s) only. A `javascript:` tracking link typed into Stripe metadata
-     must never become a clickable href here. */
+  /**
+   * Sanitizes an external URL to ensure it only uses http or https protocols.
+   *
+   * A `javascript:` tracking link typed into Stripe metadata must never become
+   * a clickable href on the page.
+   *
+   * @param {?string} value Potential URL string to sanitize.
+   * @return {string} Sanitized absolute HTTP/HTTPS URL, or empty string if invalid.
+   */
   function safeLinkUrl(value) {
     if (typeof value !== "string" || !value) return "";
     try {
@@ -110,6 +154,14 @@
     }
   }
 
+  /**
+   * Creates an HTML element with optional class name and text content.
+   *
+   * @param {string} tag HTML tag name to create.
+   * @param {?string=} className Optional CSS class name string.
+   * @param {?string=} text Optional text content to assign via textContent.
+   * @return {!HTMLElement} The newly created DOM element.
+   */
   function el(tag, className, text) {
     var node = document.createElement(tag);
     if (className) node.className = className;
@@ -117,6 +169,11 @@
     return node;
   }
 
+  /**
+   * Generates a pre-filled mailto URI for manual customer support requests.
+   *
+   * @return {string} Encoded mailto URL string.
+   */
   function mailtoHref() {
     return (
       "mailto:" +
@@ -130,6 +187,12 @@
 
   /* ---------------------------------------------------------- the catalog */
 
+  /**
+   * Resolves a product or bundle ID against the in-memory catalog data.
+   *
+   * @param {string} id Product or bundle identifier.
+   * @return {?Object} Matching catalog entry item or null if not found.
+   */
   function catalogEntry(id) {
     var cat = window.YL_PRODUCTS || {};
     var lists = [cat.products, cat.bundles];
@@ -143,15 +206,15 @@
   }
 
   /**
-   * Turns a past order's lines into what window.YLCart.addItems expects:
-   * the live catalog entry (name, price, image, category), the option that
-   * was bought (matched by label against the live option list, so a size
-   * that no longer exists is dropped rather than added blind), and the
-   * quantity. Lines the Worker marked non-reorderable -- gift cards, boxes,
-   * gift sets with per-member choices -- are skipped and counted, so the
-   * page can say so.
+   * Converts past order line items into cart item structures for reordering.
    *
-   * @returns {{items: object[], skipped: number}}
+   * Maps lines into live catalog entries (name, price, image, category), matching
+   * purchased options by label against current catalog options. Lines marked
+   * non-reorderable (gift cards, boxes, customized sets) or out of stock are
+   * skipped and tallied.
+   *
+   * @param {!Object} order Order record containing items list and metadata.
+   * @return {{items: !Array<!Object>, skipped: number}} Reorder plan with items and count of skipped lines.
    */
   function cartLinesFor(order) {
     var items = [];
@@ -198,6 +261,13 @@
     return { items: items, skipped: skipped };
   }
 
+  /**
+   * Adds eligible items from a past order into the active shopping cart.
+   *
+   * @param {!Object} order Order data structure containing line items.
+   * @param {?HTMLElement=} statusEl Optional DOM element for displaying status feedback.
+   * @return {{items: !Array<!Object>, skipped: number}} Resulting reorder plan.
+   */
   function reorder(order, statusEl) {
     var plan = cartLinesFor(order);
     if (!plan.items.length) {
@@ -234,6 +304,12 @@
 
   /* ---------------------------------------------------------- rendering */
 
+  /**
+   * Renders an order summary card into an article DOM element.
+   *
+   * @param {!Object} order Individual order record to render.
+   * @return {!HTMLElement} The constructed order card DOM node.
+   */
   function renderOrder(order) {
     var card = el("article", "orders-card");
     var head = el("div", "orders-card-head");
@@ -319,6 +395,12 @@
     return card;
   }
 
+  /**
+   * Renders the loyalty points balance card for the order history view.
+   *
+   * @param {!Object} loyalty Loyalty account data containing balance and reward thresholds.
+   * @return {!HTMLElement} The rendered loyalty balance container DOM node.
+   */
   function renderLoyalty(loyalty) {
     var box = el("div", "orders-loyalty");
     var points = Number(loyalty.balance) || 0;
@@ -359,6 +441,13 @@
     return box;
   }
 
+  /**
+   * Renders the complete order list and loyalty details into the target container.
+   *
+   * @param {!HTMLElement} container Destination element to mount orders.
+   * @param {?Object} data Orders payload returned from the backend.
+   * @return {void}
+   */
   function renderOrders(container, data) {
     while (container.firstChild) container.removeChild(container.firstChild);
     var orders = data && Array.isArray(data.orders) ? data.orders : [];
@@ -390,6 +479,14 @@
     container.appendChild(list);
   }
 
+  /**
+   * Renders an informational or error notice inside the specified container.
+   *
+   * @param {!HTMLElement} container Destination DOM element.
+   * @param {string} text Message text to display.
+   * @param {boolean} withMail Whether to append a customer support email link.
+   * @return {void}
+   */
   function renderNotice(container, text, withMail) {
     while (container.firstChild) container.removeChild(container.firstChild);
     var p = el("p", "orders-notice", text);
@@ -407,6 +504,13 @@
 
   /* ---------------------------------------------------------- the network */
 
+  /**
+   * Sends an HTTP fetch request and parses JSON response data safely.
+   *
+   * @param {string} url Destination endpoint URL.
+   * @param {?Object=} options Fetch request init options.
+   * @return {!Promise<{status: number, data: ?Object}>} Promise resolving to status and parsed data.
+   */
   function request(url, options) {
     var doFetch = typeof window.fetch === "function" ? window.fetch.bind(window) : null;
     if (!doFetch) return Promise.reject(new Error("fetch unavailable"));
@@ -424,6 +528,12 @@
     });
   }
 
+  /**
+   * Requests an order lookup magic link email for the given address.
+   *
+   * @param {string} email Customer email address to send magic link to.
+   * @return {!Promise<{status: number, data: ?Object}>} Network response promise.
+   */
   function requestLink(email) {
     return request(LINK_ENDPOINT, {
       method: "POST",
@@ -432,6 +542,12 @@
     });
   }
 
+  /**
+   * Fetches order history records associated with a one-time access token.
+   *
+   * @param {string} token One-time access token from magic link URL.
+   * @return {!Promise<{status: number, data: ?Object}>} Network response promise.
+   */
   function loadOrders(token) {
     return request(LIST_ENDPOINT + "?token=" + encodeURIComponent(token), {
       method: "GET",
@@ -440,8 +556,14 @@
     });
   }
 
-  /* Read ?token= and take it out of the address bar before the page settles,
-     so it lands in no screenshot, no shared link and no history entry. */
+  /**
+   * Extracts the one-time token from query parameters and removes it from the browser URL.
+   *
+   * Scrubs the token before the page settles so it lands in no screenshot, no shared link,
+   * and no history entry.
+   *
+   * @return {string} Extracted token string, or empty string if absent.
+   */
   function takeTokenFromUrl() {
     var token = "";
     try {
@@ -458,6 +580,11 @@
 
   /* ---------------------------------------------------------- the page */
 
+  /**
+   * Initializes the orders page forms, event listeners, and token loading flow.
+   *
+   * @return {void}
+   */
   function init() {
     var form = document.getElementById("ordersRequestForm");
     var emailInput = document.getElementById("ordersEmailInput");
@@ -469,6 +596,11 @@
     var listEl = document.getElementById("ordersList");
     if (!form || !listEl) return;
 
+    /**
+     * Unhides the result section containing orders and notices.
+     *
+     * @return {void}
+     */
     function showList() {
       if (resultSection) resultSection.hidden = false;
     }

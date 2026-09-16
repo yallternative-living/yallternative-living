@@ -55,7 +55,7 @@ keep it in sync if you change the design system.
   farmers markets and Pride events (e.g. Upstate Pride).
 - **Founder:** Savanna
 - **Email:** y.allternative.living@gmail.com
-- **Etsy shop:** https://www.etsy.com/shop/YallternativeLivinCO — 4.9★ (33 ratings), 108+ sales
+- **Etsy shop:** https://www.etsy.com/shop/YallternativeLivinCO — 4.9★ (33 ratings)
 - **Facebook:** https://www.facebook.com/p/Yallternative-Living-61577943406316/ (308 followers)
 - **Instagram:** https://www.instagram.com/yallternativeliving
 - **TikTok:** https://www.tiktok.com/@yallternativeliving
@@ -80,7 +80,7 @@ time the build script runs.
 ```
 site/
   index.html          Home
-  shop.html            Full 15-product catalog with category filters + sort
+  shop.html            Full catalog (20 products, 7 bundles) with category filters + sort
   events.html          Markets, fairs & Pride pop-ups (upcoming + past)
   about.html           Brand story / founder note
   contact.html         Contact, socials, where to find us in person
@@ -163,12 +163,12 @@ that introduces a real lint error or an unformatted file will show a
 failing check.
 
 ```
-npm run lint            # ESLint, scripts/ + assets/js/
-npm run format           # Prettier, writes fixes in place
+npm run lint            # ESLint: scripts/, assets/js/, workers/, cms-auth/
+npm run format           # Prettier, writes fixes in place (scripts/ + assets/js/)
 npm run format:check     # Prettier, fails without writing (what CI runs)
 ```
 
-Both are scoped to `scripts/**/*.js` and `assets/js/*.js` only --
+`format` is scoped to `scripts/**/*.js` and `assets/js/*.js` only --
 HTML, CSS, JSON, and markdown in this project are intentionally left to
 hand-formatting, not Prettier's opinions.
 
@@ -404,7 +404,7 @@ snippets worth quoting on the homepage:
 > "second purchase, works well. good scent." — Eric, Etsy review
 > "Smells GREAT! Haven't tried it yet, but look forward to using it :)" — Leese, Etsy review
 
-Shop stats: **4.9★ average, 33 ratings (22 of them with written text, republished on /reviews.html), 108+ sales, 1 year on Etsy.**
+Shop stats: **4.9★ average, 33 ratings (22 of them with written text, republished on /reviews.html), 1 year on Etsy.**
 
 ## 8. The shopping system, explained
 
@@ -1501,33 +1501,34 @@ current docs at that time.
         copy the **Client ID**, then **Generate a new client secret** and
         copy that. You'll set the **Authorization callback URL** in step 4,
         once step 2 gives you the Worker URL.
-     2. **Deploy `cms-auth/`** to Cloudflare — same two ways as the
-        checkout Worker (Workers Builds with the project root set to
-        `cms-auth`, or `wrangler deploy` from that folder). See
-        `workers/README.md` → "Sign-in Worker". Cloudflare then shows the
-        Worker's URL, e.g.
-        `https://yallternative-cms-auth.<your-subdomain>.workers.dev`.
-     3. **Add the two secrets** — in that Worker's Cloudflare dashboard,
-        **Settings → Variables and Secrets**, add `GITHUB_CLIENT_ID` and
-        `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1). `ALLOWED_DOMAINS`
-        is already set in `wrangler.toml` (not secret) and restricts token
-        issuance to this site.
-     4. **Connect the three URLs.** Put the Worker URL from step 2 into
-        `admin/config.yml` as `backend.base_url` (replacing the
-        `YOUR-SUBDOMAIN` placeholder already there), commit it, and set the
-        GitHub OAuth App's **Authorization callback URL** (step 1) to
-        `<that-same-Worker-URL>/callback`. These must match exactly.
-        After that, `/admin` shows a real **Sign in with GitHub** button and
-        nobody manages a token. The Worker never sees your data — it only
-        performs the OAuth handshake and hands the browser a token; the client
-        secret lives only as a Cloudflare Secret, never in the repo.
+     2. **Deploy `cms-auth/`** to Cloudflare — already deployed to
+        `https://yallternative-cms-auth.y-allternative-living.workers.dev`
+        (in the `y-allternative-living` Cloudflare account).
+     3. **Add the two secrets** — in that Worker's Cloudflare dashboard
+        (or via `wrangler secret put GITHUB_CLIENT_ID` and
+        `wrangler secret put GITHUB_CLIENT_SECRET` in `cms-auth/`), add
+        `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1).
+        `ALLOWED_DOMAINS` is already set in `wrangler.toml` (`yallternativeliving.com,localhost`)
+        and restricts token issuance to this site.
+     4. **Connect the URLs.** The Worker URL is already configured in
+        `admin/config.yml` as `backend.base_url: https://yallternative-cms-auth.y-allternative-living.workers.dev`.
+        Set the GitHub OAuth App's **Authorization callback URL** (step 1) to:
+        `https://yallternative-cms-auth.y-allternative-living.workers.dev/callback`.
+        These must match exactly.
+        After that, `/admin` provides a 1-click **Sign in with GitHub** button and
+        nobody has to manually paste tokens. The Worker never touches catalog data — it only
+        performs the OAuth handshake and hands the browser an authentication token; the client
+        secret lives securely as a Cloudflare Secret, never in the repository.
 
 3. **Visit `https://<your-real-domain>/admin` and sign in** using
-   whichever method you set up. You should see forms for Shop Info,
-   Categories, Products, Bundles, and FAQ — editing any of them and
-   clicking "Save" commits directly to `assets/data/products.json` in
-   the GitHub repo, which triggers a normal deploy (section 12) that
-   regenerates everything else automatically.
+   whichever method you prefer (1-click GitHub OAuth or Token). You will see:
+   - **Products** (folder collection with dedicated per-product editors, search, and sorting)
+   - **Shop & Catalog Settings** (bundles, multi-buy deals, category sales, FAQ, shop details)
+   - **Markets & Pop-Ups**, **Customer Reviews**, **Journal**, **Social Media Feed**, **Site Settings**, and **Quiz**.
+   Editing any product writes directly to `assets/data/products/<slug>.json`, and
+   saving publishes via the editorial workflow pull request. On deploy,
+   `node scripts/build-site-data.js` compiles the catalog into `assets/data/products.json`
+   and regenerates the static site.
 4. **Test with something low-stakes first** — e.g. edit one product's
    `blurb` by a word, save, confirm the live site updates after the
    deploy finishes, then move on to real catalog changes.
@@ -1633,3 +1634,21 @@ the tracking merge and the webhook write; `scripts/orders-page.browser.test.js`
 drives the page with the Worker mocked — form, neutral confirmation (the DOM
 after a known and an unknown address is byte-identical), list rendering,
 token scrubbing, and a Reorder into the real cart.
+
+## 23. Automated Event Rollover & Netlify Build Hook (TODO for Steven)
+
+**The challenge.** In `assets/data/events.json`, markets carry `date` and `endDate`. While visitor browsers running `assets/js/main.js` automatically roll over past events on page load (`todayInEastern()`), the pre-rendered static HTML (`events.html`, `assets/js/events-data.js`, `assets/js/search-data.js`) only updates when `node scripts/build-site-data.js` executes during a build.
+
+**The Netlify credit reality:**
+- Netlify meters production builds in **credits** (1 production deploy = **15 credits** / $0.10).
+- The Free plan includes **300 credits/month** (a hard ceiling of 20 production deploys total).
+- Netlify explicitly ignores the `[build] ignore` command for builds triggered by build hooks (`https://docs.netlify.com/build/configure-builds/ignore-builds/`).
+- A blind daily cron calling a Netlify build hook would execute 30 builds and burn **450 credits/month**, exhausting Savanna's monthly quota and locking out site deploys.
+
+**The credit-safe design:**
+1. `scripts/check-events-rollover.js` evaluates whether any compiled upcoming event in `assets/js/events-data.js` has expired against today's date in Eastern Time.
+2. `.github/workflows/daily-build-hook.yml` runs this check in GitHub Actions for free. On ~27 days of every month, it exits in 2 seconds with zero Netlify builds and **0 credits spent**. Only on the ~2–3 days a month after a real weekend market does it trigger a build (**15 credits**), costing ~30–45 credits/month total.
+3. The workflow is **DORMANT** by default (cron schedule commented out) until Steven is ready to activate it.
+
+See [`docs/TODO.md`](TODO.md) for the step-by-step activation checklist.
+

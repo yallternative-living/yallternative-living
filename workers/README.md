@@ -2,8 +2,8 @@
 
 `checkout.js` is the live backend for **the entire money path**. The on-site
 cart (`assets/js/cart.js`) POSTs to it and gets back a Stripe Checkout URL, and
-four more endpoints that used to be Netlify Functions now live behind the same
-router:
+the full suite of backend endpoints (including the four that originally migrated from
+Netlify Functions) now live behind the same router:
 
 | Route                         | What it does                                                                        |
 | ----------------------------- | ----------------------------------------------------------------------------------- |
@@ -22,6 +22,8 @@ router:
 | `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED                       |
 | `POST /api/orders/request-link` | `{email}` -> emails a one-time order-history link; the SAME 200 for every address  |
 | `GET /api/orders?token=`      | the orders behind that link (newest 25) + points balance; burns the token           |
+| `GET /api/unfulfilled-orders` | the owner's dashboard: every `processing` order; `Authorization: Bearer <GitHub OAuth token>`, verified with GitHub and requiring push access to the shop repo, 30/min shared across all callers, fails closed |
+| `POST /api/fulfill-order`     | `{payment_intent, tracking_url, status}` -> Stripe metadata (same GitHub token check + limiter) |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
 CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
@@ -43,7 +45,7 @@ audit C-1 found it minted real, cash-like store credit for anyone who could POST
 to it, and there is no server-side points ledger for a rebuilt version to spend
 from.
 
-`auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
+`cms-auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
 with GitHub" button for the Sveltia CMS product editor at `/admin`. It replaces
 Netlify's deprecated "Git Gateway / OAuth" login, so `/admin` depends on nothing
 from Netlify. It's its own separate Worker in the top-level `cms-auth/` folder
@@ -166,7 +168,11 @@ as "try this," not a guarantee.
 3. **Settings -> Variables and Secrets -> Add** -> `STRIPE_SECRET_KEY`,
    `STRIPE_WEBHOOK_SECRET` and `RESEND_API_KEY`, type **Secret** (same
    restricted-key guidance as Option B step 3; see "Turning the state layer on"
-   below for what each one is for).
+   below for what each one is for). The fulfilment dashboard at
+   `/admin/fulfillment.html` needs no secret of its own: it sends the GitHub
+   token from the CMS sign-in at `/admin/`, and the Worker checks that token
+   with GitHub. Anyone who is a collaborator with push access on the shop repo
+   can use it; anyone else is refused.
 4. **Settings -> Domains & Routes.** Optional -- see Option B step 5. If you do
    add a route, it is `yallternativeliving.com/api/*`, not just
    `/api/checkout`: the Worker answers five paths now.
@@ -938,9 +944,11 @@ which order.
 
 ### Marking an order shipped
 
-There is no fulfilment dashboard: an order is marked shipped by adding metadata
-to its **PaymentIntent** in Stripe (Payments -> the payment -> Metadata ->
-"Edit metadata"). Three keys, all optional except the first:
+The owner's dashboard at `/admin/fulfillment.html` does this for her (it signs
+in with GitHub through the CMS -- see the route table above). By hand, an order
+is marked shipped by adding metadata to its **PaymentIntent** in Stripe
+(Payments -> the payment -> Metadata -> "Edit metadata"). Three keys, all
+optional except the first:
 
 | Key                  | Value                                     |
 | -------------------- | ----------------------------------------- |

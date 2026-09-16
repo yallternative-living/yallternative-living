@@ -10,23 +10,28 @@ Nothing in this dashboard touches customer credit card numbers or sensitive paym
 
 Whenever you want to make changes to the live site, open **yourdomain.com/admin** in any web browser and log in (see [How to Log In](#2-how-to-log-in) below).
 
-Your dashboard is organized into 7 focused sections in the left sidebar. The **Journal** sits under the **Collections** heading at the top and shows your list of posts; every other section sits under **Sections** below it and opens straight into its editor when you click it. The numbers match the walkthroughs in this guide, not the order on screen:
+Your dashboard is organized into clean, partitioned sections in the left sidebar:
 
-1. **Shop & Products** — Your daily workspace:
-   - **Products (Top Priority)**: Manage your 19 catalog items, edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels.
+### Content & Catalog (Collections)
+- **Products (Top Priority)**: Manage your catalog items (20 products), edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels. Features 1-click filter chips (*In Stock*, *Out of Stock*, *Coming Soon*, *Salves & Balms*, *Bath Soaks*), collapsible category accordion groups, fast search, and live preview links.
+- **Journal**: Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar and live preview links.
+
+### Store Operations (Sections)
+1. **Shop & Catalog Settings** — Your store mechanics:
+   - **Shop details & shipping** (first thing in the form): Etsy sync counters, free shipping threshold, cart reward tiers, and Build-Your-Own Box settings.
    - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2 oz Salves for $15 each*).
    - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
    - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
    - **FAQ**: Update questions and answers on shipping, returns, paying, gift cards, promo codes, ingredients, shelf life, and custom orders.
-   - **Shop details & shipping** (first thing in the form): Etsy sync counters, free shipping threshold, cart reward tiers and Build-Your-Own Box settings — then the products, deals, bundles, FAQ and category filters.
 2. **Markets & Pop-Ups** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
 3. **Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
-4. **Journal** — Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar.
-5. **Social Media Feed** — Feature your favorite Instagram and TikTok posts directly on the homepage.
-6. **Site Settings** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
-7. **Quiz** — The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
+4. **Live Instagram Feed** — Automatically pulls your latest photos and reels from `@yallternativeliving` onto the homepage via Behold (no manual posting required).
 
-> **💡 The "Hit Save and Done" Rule:** When you click **Save** in `/admin`, the site automatically rebuilds, optimizes your photos, updates search engines, and publishes your changes live to the web within 2 to 3 minutes. You never need to run commands or touch server settings.
+### Global Configuration (Sections)
+5. **Site Settings** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
+6. **Quiz** — The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
+
+> **💡 The "Hit Save and Done" Rule:** Whenever you edit products, prices, or settings in `/admin`, simply click **Save**. You never have to worry about git branches, pull requests, or finding a "Publish" button. The system automatically batches your consecutive edits together and publishes them live to the web within ~5 minutes of your last save. You never need to run commands or touch server settings.
 
 ---
 
@@ -49,12 +54,13 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 
 ---
 
-### A note on the other five languages
+### A note on the other eight languages
 
-Your shop shows up in Spanish, German, French, Japanese and Chinese as well as
-English, and you do not have to do anything about it. When you save a change to
-a product name, blurb, description or any other wording in `/admin`, a helper
-runs on its own and writes the five translations within about ten minutes.
+Your shop shows up in Spanish, German, French, Japanese, Chinese, Vietnamese,
+Korean, and Portuguese as well as English, and you do not have to do anything
+about it. When you save a change to a product name, blurb, description or any
+other wording in `/admin`, a helper runs on its own and writes the eight
+translations within about ten minutes.
 Until it finishes, that one piece of wording simply shows in English to a
 customer who has picked another language — nothing looks broken and nothing
 needs fixing. If a sentence ever cannot be translated safely (for example, it
@@ -137,8 +143,8 @@ it anywhere yourself.
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
 
 #### A. Changing a Product's Base Price
-1. In `/admin`, click **Shop & Products**.
-2. Under **Products**, click the item you want to edit (e.g., *Y'all Heal Now Miracle Frankincense Salve*).
+1. In `/admin`, click **Products** under **Collections** in the left sidebar.
+2. Click the item you want to edit (e.g., *Y'all Heal Now Miracle Frankincense Salve*). You can filter the catalog with 1-click preset chips (*In Stock*, *Out of Stock*, *Coming Soon*, *Salves & Balms*, *Bath Soaks*) or use the search bar.
 3. Find the **Price (USD)** field and type the new price (e.g. `20`).
 4. Click **Save** in the top bar. All bundle discounts, cart calculations, and SEO tags update automatically!
 
@@ -186,8 +192,8 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 - If they add a 3rd qualifying salve, it also receives the $15 rate ($45 total).
 
 #### How to Create or Adjust a Volume Deal:
-1. In `/admin`, open **Shop & Products**.
-2. Click to expand **Multi-buy deals** right beneath Products.
+1. In `/admin`, open **Shop & Catalog Settings** in the left sidebar.
+2. Click to expand **Multi-buy deals**.
 3. Click an existing rule (e.g., `2 oz Salve Multi-Buy`) or click **Add Deal**:
    - **Deal ID**: A clean lowercase code with dashes (e.g. `salves-2oz`, `soaks-multi`).
    - **Deal name**: A descriptive title for your reference (e.g. `2 oz Salve Multi-Buy`).
@@ -207,7 +213,7 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 
 #### A. Running a Storewide Category Sale (`sales`)
 Put an entire category on sale at once (e.g. 15% off all *Body & Skin*):
-1. In `/admin` → **Shop & Products**, open **Category sales**.
+1. In `/admin` → **Shop & Catalog Settings**, open **Category sales**.
 2. Click **Add Sale**.
 3. **Which category is on sale**: Pick the category from the dropdown (e.g. `Body & Skin`).
 4. **Percent off**: Type the percentage discount (e.g. `15` for 15% off).
@@ -230,7 +236,7 @@ Bundles are pre-curated collections (like the *Grit & Grace Starter Set* or *Dis
 
 - **Dynamic Math (No Price to Type!)**: Bundle prices calculate automatically from the live prices of whatever items are inside, minus your discount percentage. If you update a salve's price, every bundle containing that salve recalculates its price automatically.
 - **How to Create or Edit a Bundle**:
-  1. In `/admin` → **Shop & Products**, open **Gift bundles**.
+  1. In `/admin` → **Shop & Catalog Settings**, open **Gift bundles**.
   2. Click **Add Bundle** or click an existing bundle to edit.
   3. **Bundle name**: Give your gift set a warm name (e.g. `Backwoods Burnout Recovery Kit`).
   4. **Products in this bundle**: Select 2 or more products by typing and clicking their real product names from the searchable dropdown list.
@@ -242,7 +248,7 @@ Bundles are pre-curated collections (like the *Grit & Grace Starter Set* or *Dis
 
 ### Walkthrough 5: Shop Settings, Technical Filters & Navigation
 
-At the top of **Shop & Products**:
+At the top of **Shop & Catalog Settings**:
 
 | Setting | Where to Find It | What It Controls |
 |---|---|---|
@@ -254,16 +260,16 @@ At the top of **Shop & Products**:
 
 #### The phone filter bar
 
-On a phone the shop no longer shows every category and concern button above
+On a phone the shop no longer shows every category and vibe button above
 the products. Customers get one row -- the search box, a **Filter** button
 (with a little count of how many filters are on) and a **Sort** button -- and
-tapping either slides up a panel holding the same category, concern, scent
+tapping either slides up a panel holding the same category, vibe, scent
 and sort choices. Filters they pick show as small removable chips above the
 products, with a **Clear all** next to them. Tablets and computers still show
 the full row of buttons exactly as before.
 
-The categories, concerns and scents in that panel are the ones you already
-manage (**Product categories**, **Shop concerns**, each product's **Scent**);
+The categories, vibes and scents in that panel are the ones you already
+manage (**Product categories**, **Product vibes**, each product's **Scent**);
 nothing about editing them changes. The words on the row and the panel are
 yours too: **Site Settings → Shop page → Phone filter bar wording**.
 
@@ -272,7 +278,7 @@ yours too: **Site Settings → Shop page → Phone filter bar wording**.
 | **Filter button** | Opens the panel. The count of active filters is added for you. | `Filter` |
 | **Sort button** | Opens the panel at the sort choices. | `Sort` |
 | **Panel heading** | The title at the top of the slide-up panel. | `Filter & sort` |
-| **Category group heading** / **Concern group heading** | The small headings above each group of buttons inside the panel. | `Category` / `Concern` |
+| **Category group heading** / **Vibe group heading** | The small headings above each group of buttons inside the panel. | `Category` / `Vibe` |
 | **Apply button** | Closes the panel and shows the results. | `Apply` |
 | **Clear-all button** | Resets every filter and the search box. Shown in the panel and next to the chips. | `Clear all` |
 | **Active filters label** / **Remove-chip word** | Read aloud by screen readers only (the chip row's name, and the word before a chip's name, e.g. "Remove Salves & Balms"). Never shown on screen. | `Active filters` / `Remove` |
@@ -339,6 +345,8 @@ tracking button in it, and the "how to use it" email is re-timed to arrive a few
 days after the box does instead of a few days after they paid. So if you mark
 something shipped at 2:05 and the customer has nothing by 2:10, that is normal;
 by 3:10 it should be there.
+
+> **💡 The Easy Way:** Instead of logging into Stripe, you can use the **Fulfillment Dashboard** built right into your CMS! Sign in at `/admin` with GitHub exactly the way you already do to edit the site, then click the blue "Fulfillment Dashboard" button in the top right. That is the whole sign-in — there is no password to remember any more, and nothing extra to type: if you can edit the site, you can ship orders. The dashboard lists every unshipped order; paste your tracking links in and click "Mark Shipped" to push the update to Stripe automatically. If it ever tells you that you are signed out, click its **Sign in to the CMS** link, sign in there, come back to the dashboard and press **Check again** — no harm done. The page as a whole accepts thirty requests a minute (about one page load plus a click per order), after which it asks you to wait a minute. A tracking link has to be a real `http://` or `https://` address; anything else is refused with a message rather than saved.
 
 **Put the status and the tracking link in the same save.** The email only sends
 once per order — on purpose, so fixing a typo later cannot mail somebody twice —
@@ -420,9 +428,9 @@ customer's Alt-Points balance and how far they are from the next reward code.
 5. Estimated reading time calculates automatically when published!
 6. **Every post gets its own web page**, built from the title the **first** time you save (so "Why Magnesium & Arnica?" becomes `yallternativeliving.com/journal/why-magnesium-arnica.html`) -- that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. It never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
 
-#### D. Social Media Feed (Social Media Feed)
-1. Click **Social Media Feed**.
-2. Add new Instagram or TikTok post snapshots with photos, captions, and tagged products.
+#### D. Live Instagram Community Feed
+Your Instagram feed is connected directly to your `@yallternativeliving` account via Behold.
+Whenever you post photos or reels on Instagram, they automatically appear on the homepage community grid with zero manual data entry in the CMS! (You can toggle the whole feed on/off under **Site Settings → Switches & branding → UGC Social Feed**).
 
 #### E. Site Settings (Site Settings)
 1. Click **Site Settings**.
@@ -460,6 +468,31 @@ customer's Alt-Points balance and how far they are from the next reward code.
    - **Show Order Lookup Tool** (`enableOrderStatusLookup`). `/order-status`
      now does a real lookup against Stripe (reference + email); off hides the
      lookup form and shows the contact route instead.
+
+#### F. Seasonal Hiatus & Shipping Delay Notice
+When traveling between pop-up markets, taking time off for the holidays, or experiencing weather shipping delays, you can display an announcement banner across the site and inside the shopping cart:
+1. Open **Site Settings** (`⚙️ Site Settings`).
+2. Scroll down to **Seasonal Hiatus & Shipping Delay Notice (Turn on/off)**.
+3. Check **Turn on notice** to make it visible.
+4. Configure where it appears:
+   - **Show in top header bar**: Puts the announcement directly in the top bar on every page (on the homepage it loops with the countdown ticker; on other pages it forms a prominent top banner).
+   - **Show in shopping cart drawer**: Displays an amber warning banner at the top of the slide-out cart so shoppers see it before checking out.
+5. Customize the wording:
+   - **Headline** (e.g. *Holiday Break & Shipping Notice*)
+   - **Message** (e.g. *Orders placed after Dec 18 will ship Jan 5...*)
+6. **When you return:** Simply uncheck **Turn on notice** and click **Save**. The notice disappears completely from both the header and cart drawer, while your message stays saved in the form so you don't have to retype it next time!
+
+#### G. Interactive Apothecary Product Quiz
+Shoppers on the Shop page can take a 3-step quiz to find their personalized product match.
+1. Open **Interactive Apothecary Quiz** in the CMS sidebar.
+2. Edit quiz headers:
+   - **Quiz eyebrow**, **Quiz headline**, and **Quiz subtitle**.
+3. Edit questions & options:
+   - For each option, you can easily select:
+     - **Hero Products (multi-select chips)**: Specific products to recommend when chosen.
+     - **Store Vibes (multi-select chips)**: Which vibe filters this choice boosts (e.g., Wind-Down & Relaxation, Sore Muscles).
+     - **Target Categories (multi-select chips)**: Boosts specific categories (e.g., salves, soaks).
+4. All technical plumbing (DOM IDs, input names, scoring weights) is managed automatically behind the scenes!
 
 ---
 

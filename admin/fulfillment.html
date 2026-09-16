@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Y'allternative Living — Fulfillment Dashboard</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  <!-- Same styles as the CMS for consistency -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      background: #f4f6f8;
+      color: #333;
+    }
+    .header {
+      background: #fff;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #dfe3e8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 500;
+    }
+    .header a {
+      color: #0070f3;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .card-header {
+      background: #fafbfc;
+      padding: 1rem;
+      border-bottom: 1px solid #dfe3e8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .order-date {
+      color: #637381;
+      font-size: 0.9rem;
+    }
+    .card-body {
+      padding: 1rem;
+    }
+    .items-list {
+      list-style: none;
+      margin: 0 0 1rem 0;
+      padding: 0;
+    }
+    .items-list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #f0f2f4;
+      display: flex;
+      justify-content: space-between;
+    }
+    .items-list li:last-child {
+      border-bottom: none;
+    }
+    .item-name {
+      font-weight: 500;
+    }
+    .item-qty {
+      color: #637381;
+    }
+    .fulfillment-form {
+      display: flex;
+      gap: 1rem;
+      background: #f9fafb;
+      padding: 1rem;
+      border-radius: 6px;
+      align-items: center;
+    }
+    .fulfillment-form input {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid #c4cdd5;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .fulfillment-form button {
+      background: #0070f3;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 1rem;
+    }
+    .fulfillment-form button:disabled {
+      background: #a4c9f3;
+      cursor: not-allowed;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 4rem 1rem;
+      color: #637381;
+    }
+    .error-msg {
+      color: #d92d20;
+      background: #fee4e2;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .btn-retry {
+      margin-left: 0.75rem;
+      background: #fff;
+      color: #d92d20;
+      border: 1px solid #d92d20;
+      padding: 0.3rem 0.7rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Fulfillment Dashboard</h1>
+    <div class="header-actions">
+      <a href="/admin/">&larr; Back to CMS</a>
+    </div>
+  </div>
+
+  <div class="container" id="app">
+    <div class="empty-state">Loading unfulfilled orders...</div>
+  </div>
+
+  <!-- Signing in is the CMS's GitHub sign-in, not a password: fulfillment.js
+       reuses the GitHub token Sveltia CMS stored at /admin/, and the Worker
+       checks it with GitHub before answering. Nothing is typed in here and
+       nothing is stored by this page. If she is signed out, the panel above
+       says so and links back to /admin/.
+
+       That logic lives in fulfillment.js, not inline: the /admin/* CSP is
+       script-src 'self' with no hash, so an inline script (or an inline
+       on-click handler attribute) is blocked in production. Same-origin files
+       are allowed. See the header comment in fulfillment.js. -->
+  <script src="fulfillment.js" defer></script>
+</body>
+</html>

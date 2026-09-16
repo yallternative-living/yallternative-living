@@ -60,7 +60,7 @@
     "home.meetTheMaker": "作り手のご紹介 →",
     "home.whatYallAreSaying": "皆さんの声",
     "home.communityTitle": "カスタマーコミュニティ",
-    "home.communityText": "リアルな仲間、リアルな写真、そして手作りのセルフケア。InstagramやTikTokで @yallternativeliving をタグ付けしていただくと、ご紹介させていただくことがあります！",
+    "home.communityText": "キッチンの舞台裏、作りたてのバッチ、マーケット出店情報。",
     "home.followHandle": "@yallternativeliving をフォロー",
     "home.popUpInTheWild": "Pop Up In The Wild で出店中",
     "home.followAlong": "最新情報をフォロー",
@@ -74,6 +74,7 @@
     "home.nextPopUp": "次回のポップアップ：",
     "home.days": "日,",
     "home.hours": "時間、",
+    "home.hoursUntil": "時間 まで",
     "home.minsUntil": "分 まで",
     "footer.tagline": "Black Sheep & Bold Heartsのためのハンドメイド・セルフケア。スモールバッチで調合し、注ぎ、かき混ぜています。",
     "footer.disclaimer": "手作りのセルフケアであり、医薬品ではありません。ここで販売されている商品は、いかなる症状の診断、治療、治癒、予防を目的としたものでもありません。お肌や健康に本気のお悩みがある場合は、まず本物のお医者さんに診てもらってください。いい香りのアイテムをご褒美にするのは、そのあとでどうぞ。",
@@ -144,8 +145,8 @@
     "shop.giftCards": "ギフトカード",
     "shop.giftSets": "ギフトセット",
     "shop.giftSet": "ギフトセット",
-    "shop.filterByConcern": "肌のお悩みで絞り込む",
-    "shop.allConcerns": "すべてのお悩み",
+    "shop.filterByConcern": "バイブスで絞り込む",
+    "shop.allConcerns": "すべてのバイブス",
     "shop.concernWindDown": "くつろぎ＆リラックス",
     "shop.concernLongDay": "長い一日の終わりに",
     "shop.concernOutdoor": "アウトドア対策",
@@ -696,8 +697,6 @@
     "auto.contact.8508af": "/ お問い合わせ",
     "auto.events.a26238": "/ イベント",
     "auto.journal.2ce617": "/ ジャーナル",
-    "auto.apothecaryJournal.04917a": "アポセカリージャーナル",
-    "auto.apothecaryJournalYallternativeLiving.a3343f": "アポセカリージャーナル | Y'allternative Living",
     "auto.bestseller.df042d": "ベストセラー",
     "auto.contactYallternativeLiving.2072b3": "お問い合わせ | Y'allternative Living",
     "auto.festival.9f8f3e": "フェスティバル",
@@ -844,7 +843,12 @@
     "auto.wellEmailOneTime.584e36": "そのアドレス宛にワンタイムリンクをメールでお送りします。1度だけ開くことができ、24時間で失効します。",
     "auto.whenYouClickCheckout.77c899": "「Checkout」をクリックすると、お支払い中、カートの商品は約30分間キープされます。タイマーが切れるとセッションは終了し、在庫数が設定されている商品は棚に戻され、次の方に開放されます。問題ありませんので、ショップに戻ってもう一度お試しください。",
     "auto.yesOrdersOfOr.2a65db": "はい！$40以上のご注文（商品代金、税抜）は、米国内どこでも送料無料です。それに満たない場合は一律$10で、あとどれくらいかはカート内のメーターで確認できます。チェックアウト時にすべて自動で適用されます。現在のところ配送は米国内のご住所のみとなっており、ギフトカードはメールでお送りするため送料はかかりません。",
-    "auto.apothecary.3edecd": "アポセカリー"
+    "auto.apothecary.3edecd": "アポセカリー",
+    "auto.copyCode.1589b6": "コードをコピー",
+    "auto.materials.2402ea": "素材",
+    "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative LivingのSNS",
+    "auto.freeDowntownArtsMusic.3f38cd": "入場無料のダウンタウン・アート＆音楽フェスティバル — ぜひ私たちのテーブルを探しに来てください。",
+    "auto.twoDayPunkFlea.cd4ed3": "2日間のパンク・フリーマーケット。"
   }
 };
 

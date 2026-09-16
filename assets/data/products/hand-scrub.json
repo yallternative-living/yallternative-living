@@ -1,0 +1,82 @@
+{
+  "id": "hand-scrub",
+  "name": "Bourbon Vanilla Hand Scrub",
+  "category": "body",
+  "price": 10,
+  "image": "assets/img/hand-scrub.jpg",
+  "images": [
+    "assets/img/hand-scrub-alt1.jpg",
+    "assets/img/hand-scrub-alt2.jpg",
+    "assets/img/hand-scrub-alt3.jpg"
+  ],
+  "blurb": "Pumice, pink salt, and sugar for the grease and grime; coconut and olive oil so your hands don't pay for it. It lathers, so there is a sudsing surfactant base in the mix too, listed in full on the label. A 2 oz tin built for hands that work for a living.",
+  "etsyUrl": "https://www.etsy.com/listing/4342208406/bourbon-vanilla-hand-scrub-exfoliating",
+  "rating": {
+    "value": 5,
+    "count": 2
+  },
+  "ingredients": [
+    "Pumice",
+    "Himalayan Pink Salt",
+    "Sugar",
+    "Epsom Salt",
+    "Pink Clay",
+    "Coconut Oil",
+    "Olive Oil",
+    "Vitamin E",
+    "Surfactant Blend (Water, Sodium Lauryl Sulfate, Sodium Laureth Sulfate, C10-16 Alkyldimethylamine Oxide, Alcohol Denat., Sodium Chloride, Phenoxyethanol, Methylisothiazolinone, Fragrance)",
+    "Bourbon Vanilla Fragrance",
+    "Preservative"
+  ],
+  "ingredientsNote": "Essential-oil free, but not a mild formula: the sudsing base brings sodium lauryl sulfate, denatured alcohol and methylisothiazolinone with it. If your skin is reactive, or you already know MI is one of yours, this is not the tin for you.",
+  "scent": "Bourbon & Vanilla",
+  "variants": {
+    "name": "Size",
+    "options": [
+      {
+        "label": "2 oz",
+        "priceDelta": 0
+      },
+      {
+        "label": "4 oz",
+        "priceDelta": 4
+      }
+    ]
+  },
+  "tags": [
+    "vegan",
+    "essential-oil-free"
+  ],
+  "concerns": [
+    "dry-skin",
+    "sore-muscles"
+  ],
+  "scentProfile": {
+    "top": "Distiller's Bourbon, Brown Sugar",
+    "heart": "Warm Tahitian Vanilla",
+    "base": "Roasted Tonka Bean, Cedar",
+    "intensity": "Strong",
+    "intensityScore": 4
+  },
+  "usageGuide": {
+    "howToApply": "Scoop a nickel-sized amount onto damp hands. Work thoroughly into palms, knuckles, and cuticles in circular motions, then rinse clean with warm water.",
+    "storage": "Keep lid closed between uses to prevent excess water from entering the tin. Shelf life is 6–12 months.",
+    "patchTest": "Exfoliating scrub with pumice and pink salt in a sudsing surfactant base that contains methylisothiazolinone, a known contact allergen. Test a small amount on hands before first heavy use, skip it entirely if you know you react to MI, and avoid open cuts."
+  },
+  "keywords": [
+    "hand scrub",
+    "exfoliator",
+    "rough hands",
+    "bourbon vanilla",
+    "dead skin",
+    "soft hands",
+    "gardener hands",
+    "cane sugar",
+    "smoothing"
+  ],
+  "ritualTitle": "The Bourbon & Grit Working Hands Reset",
+  "pairsWith": [
+    "frankincense-salve",
+    "beard-salve"
+  ]
+}

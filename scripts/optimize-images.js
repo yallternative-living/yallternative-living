@@ -15,8 +15,8 @@
    the fallback for the rare holdout, and the original JPG is the
    final safety net for anything that supports neither.
 
-   This ALSO runs automatically on every deploy (netlify.toml /
-   vercel.json, before build-site-data.js so new variants land in the
+   This ALSO runs automatically on every deploy (netlify.toml,
+   before build-site-data.js so new variants land in the
    generated <picture> markup) -- so a photo uploaded through /admin
    gets optimized without anyone running anything. Incremental: photos
    whose variants already exist and whose source is unchanged are
@@ -45,7 +45,7 @@ const fs = require("fs");
 const path = require("path");
 
 // sharp is a devDependency, and this script now runs as the first step of
-// every deploy (see netlify.toml / vercel.json). If a host ever skips
+// every deploy (see netlify.toml). If a host ever skips
 // devDependencies -- setting NODE_ENV=production is the usual way -- a hard
 // require here would abort the whole build, which on this site means a CMS
 // edit silently never goes live. Photos being unoptimized is a slow page;
@@ -196,7 +196,7 @@ async function optimizeOne(filename) {
  *
  * Formatted with prettier (same config `npm run format` uses) before it
  * touches disk. Netlify's build runs this script directly, with no `npm run
- * format` step after it (see netlify.toml / vercel.json), while a local
+ * format` step after it (see netlify.toml), while a local
  * `npm run build-data` runs build-site-data.js and then `npm run format`.
  * Those two pipelines used to disagree on quoted-vs-unquoted object keys
  * (raw `JSON.stringify` quotes every key; prettier's default `quoteProps:

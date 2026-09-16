@@ -157,10 +157,11 @@ async function runTests() {
   // The expectation follows the CMS flag actually committed in content.json:
   // the section must be VISIBLE with every post rendered when it is on, and
   // fully HIDDEN with zero cards when it is off. Asserting "visible" no
-  // matter what turned this into a test of the fixture, not of the site.
-  const liveFlag = JSON.parse(
+  const contentSite = JSON.parse(
     fs.readFileSync(path.join(ROOT, "assets", "data", "content.json"), "utf8")
-  ).site.enableSocialFeed;
+  ).site;
+  const liveFlag = contentSite.enableSocialFeed;
+  const feedId = contentSite.instagramFeedId;
   const feedOn = liveFlag !== false;
   console.log(`\n3. Live DOM Rendering (content.json enableSocialFeed = ${feedOn})`);
 
@@ -179,10 +180,17 @@ async function runTests() {
         visible,
         `${target.page} ${target.section} is visible (display != 'none') when enableSocialFeed is true`
       );
-      assert(
-        cards === socialFeedJson.posts.length,
-        `${target.page} rendered ${cards} UGC cards (matches social-feed.json count of ${socialFeedJson.posts.length})`
-      );
+      if (feedId) {
+        assert(
+          cards > 0 && cards <= 6,
+          `${target.page} rendered ${cards} UGC cards from live Instagram feed (expected 1-6)`
+        );
+      } else {
+        assert(
+          cards === socialFeedJson.posts.length,
+          `${target.page} rendered ${cards} UGC cards (matches social-feed.json count of ${socialFeedJson.posts.length})`
+        );
+      }
     } else {
       assert(
         !visible,
