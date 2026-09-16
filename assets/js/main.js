@@ -1073,6 +1073,33 @@
       .replace(/`/g, "&#96;");
   }
 
+  /* ---------- shared: CMS text into a CSS attribute selector ----------
+     `input[name="' + name + '"]` throws a SyntaxError inside querySelector()
+     the moment a quiz question name from content.json carries a `"` or `\`,
+     and one bad question then disables the whole quiz. CSS.escape() is the
+     platform answer; the fallback covers the test DOM (and any engine
+     without it) by escaping the two characters that can end the string. */
+
+  /**
+   * Escapes a value for use inside a quoted CSS attribute selector.
+   * @param {?string} value Raw attribute value (CMS content, URL hash, data-id).
+   * @return {string} Selector-safe string.
+   */
+  function cssAttrEsc(value) {
+    var str = value == null ? "" : String(value);
+    if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(str);
+    return str.replace(/["\\]/g, "\\$&");
+  }
+
+  /**
+   * Escapes regex metacharacters so CMS text can be matched literally.
+   * @param {?string} str Raw text.
+   * @return {string} Pattern-safe string.
+   */
+  function escapeRegExp(str) {
+    return String(str == null ? "" : str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
   /* Serializes vars for a data-i18n-vars attribute (see the "TEMPLATES"
      section of translator.js's file header): JSON.stringify, then attrEsc so
      the quotes JSON needs -- and anything in a product name, like the
@@ -1121,6 +1148,23 @@
     var trimmed = String(url).trim();
     if (/^(https?:)?\/\//i.test(trimmed) || /^\//.test(trimmed)) return trimmed;
     return "";
+  }
+
+  /* ---------- shared: a Behold feed permalink must point at Instagram ----------
+     safeUrl() accepts any http(s) or protocol-relative host because the
+     event/social JSON in this repo is trusted CMS content. A Behold feed is a
+     third-party response, so its "View Post" link is held to the one host it
+     can legitimately be: instagram.com. Anything else is dropped. */
+
+  /**
+   * Accepts a permalink only when it is an https Instagram URL.
+   * @param {?string} url Candidate permalink from the feed.
+   * @return {string} The URL, or empty string when it is not on instagram.com.
+   */
+  function instagramPermalink(url) {
+    var cleaned = safeLinkUrl(url);
+    if (!cleaned) return "";
+    return /^https:\/\/(?:www\.)?instagram\.com\//i.test(cleaned) ? cleaned : "";
   }
 
   /* ---------- shared: only allow an image path into src= ----------
@@ -1890,7 +1934,7 @@
     ids.forEach(function (id) {
       var p = map.get(id);
       if (!p) return;
-      var cards = document.querySelectorAll('article.card[data-id="' + attrEsc(id) + '"]');
+      var cards = document.querySelectorAll('article.card[data-id="' + cssAttrEsc(id) + '"]');
       Array.prototype.forEach.call(cards, function (old) {
         var holder = document.createElement("div");
         holder.innerHTML = cardHTML(p, { eager: true });
@@ -2182,7 +2226,7 @@
 
   function syncWishButtons(id) {
     var buttons = id
-      ? document.querySelectorAll('.wish-btn[data-id="' + id + '"]')
+      ? document.querySelectorAll('.wish-btn[data-id="' + cssAttrEsc(id) + '"]')
       : document.querySelectorAll(".wish-btn[data-id]");
 
     buttons.forEach(function (btn) {
@@ -2934,7 +2978,7 @@
       else if (!cb.checked && i !== -1) chosen.splice(i, 1);
       render();
       // Re-rendering blows away focus; put it back on the control just used.
-      var again = card.querySelector('input[value="' + id.replace(/"/g, '\\"') + '"]');
+      var again = card.querySelector('input[value="' + cssAttrEsc(id) + '"]');
       if (again) again.focus();
     });
 
@@ -6486,7 +6530,7 @@
       for (var j = 0; j < locParts.length; j++) {
         var lp = locParts[j].trim();
         if (lp && street.indexOf(lp) !== -1) {
-          street = street.replace(new RegExp(",?\\s*" + lp + "\\b", "gi"), "").trim();
+          street = street.replace(new RegExp(",?\\s*" + escapeRegExp(lp) + "\\b", "gi"), "").trim();
         }
       }
     }
@@ -8220,7 +8264,12 @@
       String(seasonal.text).trim()
     );
     var seasonalMessage = seasonalActive ? String(seasonal.text).trim() : "";
-    var seasonalLink = seasonalActive && seasonal.link ? String(seasonal.link).trim() : "";
+    /* Both links are CMS text. rootAbsLink() refuses javascript:/data: and
+       friends and returns "", which every branch below renders as plain text
+       instead of an anchor. Sanitized once here so the fold-into-ticker path
+       and the create-a-bar path cannot drift apart again. */
+    var seasonalLink =
+      seasonalActive && seasonal.link ? rootAbsLink(String(seasonal.link).trim()) : "";
 
     var message = "";
     var accent = "default";
@@ -8232,7 +8281,7 @@
       } else {
         message = (announcement.text && String(announcement.text).trim()) || "";
         accent = (announcement.accent && String(announcement.accent).trim()) || "default";
-        link = (announcement.link && String(announcement.link).trim()) || "";
+        link = rootAbsLink((announcement.link && String(announcement.link).trim()) || "");
       }
     }
 
@@ -8310,7 +8359,7 @@
       sSpan.className = "announcement-segment announcement-segment-seasonal";
       if (seasonalLink) {
         var sA = document.createElement("a");
-        sA.href = rootAbsLink(seasonalLink) || seasonalLink;
+        sA.href = seasonalLink;
         sA.textContent = seasonalMessage;
         sSpan.appendChild(sA);
       } else {
@@ -8323,7 +8372,7 @@
       mSpan.className = "announcement-segment";
       if (link) {
         var mA = document.createElement("a");
-        mA.href = rootAbsLink(link) || link;
+        mA.href = link;
         mA.textContent = message;
         mSpan.appendChild(mA);
       } else {
@@ -8336,7 +8385,7 @@
       bar.classList.add("announcement-seasonal");
       if (seasonalLink) {
         var sLink = document.createElement("a");
-        sLink.href = rootAbsLink(seasonalLink) || seasonalLink;
+        sLink.href = seasonalLink;
         sLink.textContent = seasonalMessage;
         bar.appendChild(sLink);
       } else {
@@ -8344,7 +8393,7 @@
       }
     } else if (link) {
       var barLink = document.createElement("a");
-      barLink.href = rootAbsLink(link) || link;
+      barLink.href = link;
       barLink.textContent = message;
       bar.appendChild(barLink);
     } else {
@@ -8468,7 +8517,7 @@
          pixels down, so closing the lightbox left the shopper nowhere. */
       var landTries = 0;
       (function landOnCard() {
-        var card = document.querySelector('.card[data-id="' + possibleProdId + '"]');
+        var card = document.querySelector('.card[data-id="' + cssAttrEsc(possibleProdId) + '"]');
         if (!card) {
           if (landTries++ < 20) setTimeout(landOnCard, 100);
           return;
@@ -8670,7 +8719,11 @@
                     ? p.username
                     : "Y'allternative Living"),
                 handle: handle,
-                url: p.permalink || (p.id ? "https://www.instagram.com/p/" + p.id : ""),
+                /* A permalink that is not on instagram.com is dropped rather
+                   than fixed up: the card then renders with no View Post link. */
+                url:
+                  instagramPermalink(p.permalink) ||
+                  (!p.permalink && p.id ? "https://www.instagram.com/p/" + p.id : ""),
                 isReel: isReel,
                 mediaType: p.mediaType
               };
@@ -9661,7 +9714,9 @@
         if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
           quizQuestions.forEach(function (q) {
             var param = q.name || "quiz-" + q.id;
-            var checked = quizSection.querySelector('input[name="' + param + '"]:checked');
+            var checked = quizSection.querySelector(
+              'input[name="' + cssAttrEsc(param) + '"]:checked'
+            );
             var val = checked
               ? checked.value
               : q.options && q.options[0]
@@ -9798,7 +9853,9 @@
         if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
           quizQuestions.forEach(function (q) {
             var param = q.name || "quiz-" + q.id;
-            var checked = quizSection.querySelector('input[name="' + param + '"]:checked');
+            var checked = quizSection.querySelector(
+              'input[name="' + cssAttrEsc(param) + '"]:checked'
+            );
             var val = checked
               ? checked.value
               : q.options && q.options[0]

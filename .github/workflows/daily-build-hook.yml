@@ -58,6 +58,10 @@ jobs:
       - name: Check If Event Rollover Is Needed
         id: check-events
         run: |
+          set -uo pipefail
+          # check-events-rollover.js exits 0 = rollover needed, 1 = nothing expired,
+          # 2 = events-data.js is missing/tampered (the `if` treats 2 as "no rollover";
+          # the error text is still printed to the log).
           if node scripts/check-events-rollover.js; then
             echo "rollover_needed=true" >> $GITHUB_OUTPUT
           else
@@ -66,8 +70,13 @@ jobs:
 
       - name: Check Build Hook Secret
         id: check-secret
+        env:
+          # Secrets go through env, never inline in `run:` (inlining expands the
+          # value into the shell script text itself).
+          HOOK_URL: ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
         run: |
-          if [ -z "${{ secrets.NETLIFY_BUILD_HOOK_URL }}" ]; then
+          set -euo pipefail
+          if [ -z "$HOOK_URL" ]; then
             echo "NETLIFY_BUILD_HOOK_URL secret is not configured."
             echo "configured=false" >> $GITHUB_OUTPUT
           else
@@ -76,9 +85,12 @@ jobs:
 
       - name: Trigger Netlify Build Hook
         if: (steps.check-events.outputs.rollover_needed == 'true' || inputs.force_build == true) && steps.check-secret.outputs.configured == 'true' && inputs.dry_run != true
+        env:
+          HOOK_URL: ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
         run: |
+          set -euo pipefail
           echo "Triggering Netlify build hook to rebuild site with updated events..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST -d '{}' "${{ secrets.NETLIFY_BUILD_HOOK_URL }}")
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" -X POST -d '{}' "$HOOK_URL")
           if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
             echo "Successfully triggered Netlify build (HTTP $STATUS)."
           else

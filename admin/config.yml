@@ -68,7 +68,10 @@
 # Automated publishing: .github/workflows/cms-publish.yml monitors `cms/**`
 # branches, waits out a 3-minute quiet window to batch consecutive saves,
 # verifies QA gates, and automatically merges and publishes to main, so
-# Savanna never has to manually click "Publish" or manage PRs.
+# Savanna never has to manually click "Publish" or manage PRs. It only
+# merges branches whose changes stay inside what this file lets Sveltia
+# write (assets/data/*.json and assets/img/ uploads); a `cms/*` branch that
+# touches anything else is refused with an error and never auto-published.
 publish_mode: editorial_workflow
 
 backend:

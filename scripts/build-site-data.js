@@ -182,6 +182,26 @@ function listJournalFiles() {
     });
 }
 const PRODUCTS_DATA_DIR = "assets/data/products";
+/* A product id becomes a file name (products/<id>.html), a URL and a cart
+   key, so it is restricted to a lowercase slug. Anything else -- a slash, a
+   dot segment, a space, upper case -- fails the build with the file named: a
+   committed id of "../admin/index" would otherwise be written straight over
+   admin/index.html by the product-page pass. */
+const PRODUCT_ID_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
+function validateProductId(id, source) {
+  if (typeof id !== "string" || !PRODUCT_ID_RE.test(id)) {
+    throw new Error(
+      "[build] " +
+        source +
+        ": product id " +
+        JSON.stringify(id) +
+        " is not a valid slug. Ids may only contain lowercase letters, digits and dashes " +
+        "(1-81 characters, starting with a letter or digit) because the id becomes the " +
+        "products/<id>.html file name."
+    );
+  }
+  return id;
+}
 function listProductFiles() {
   const dir = path.join(ROOT, PRODUCTS_DATA_DIR);
   if (!fs.existsSync(dir)) return [];
@@ -204,7 +224,23 @@ function loadCatalog() {
   const config = readJson("assets/data/catalog-config.json");
   const products = productFiles.map(function (rel) {
     const p = readJson(rel);
-    if (!p.id) p.id = path.basename(rel, ".json");
+    const fileId = path.basename(rel, ".json");
+    if (!p.id) p.id = fileId;
+    validateProductId(p.id, rel);
+    /* The file name is the id the CMS wrote; a JSON body that claims another
+       id would publish a page under a name the catalog config, cart and
+       inventory ledger cannot see. */
+    if (p.id !== fileId) {
+      throw new Error(
+        "[build] " +
+          rel +
+          ": product id " +
+          JSON.stringify(p.id) +
+          " must match the file name (" +
+          fileId +
+          "). Rename the file or fix the id."
+      );
+    }
     return p;
   });
   const order = Array.isArray(config.productOrder) ? config.productOrder : [];
@@ -1527,6 +1563,78 @@ function formatEventMapDestination(ev) {
   return parts.length ? parts.join(", ") : "Landrum, SC";
 }
 
+/* Escapes a string for literal use inside `new RegExp(...)`. Needed wherever
+   CMS-supplied text is compiled into a pattern: an event location such as
+   "Asheville (NC" is an unbalanced group and would otherwise throw a
+   SyntaxError and fail the whole build. */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/* Works out an event's venue / street / note from whichever of the CMS
+   fields are filled in. Older entries carried the whole address inside
+   `note`, so when venue or address is blank the note is parsed for a
+   street-and-zip prefix. Module-level (not inside buildSiteData) so the
+   unit suite can feed it hostile locations directly. */
+function resolveEventDetails(ev) {
+  let venue = ev && ev.venue ? String(ev.venue).trim() : "";
+  let street = ev && ev.address ? String(ev.address).trim() : "";
+  const rawNote = ev && ev.note ? String(ev.note).trim() : "";
+  let note = rawNote;
+
+  if ((!venue || !street) && rawNote) {
+    const m = rawNote.match(/^([^.]+?\b(?:[A-Z]{2}\s+\d{5}|\d{5})\b)\.?\s*(.*)$/);
+    if (m) {
+      const addrPart = m[1].trim();
+      const rest = m[2] ? m[2].trim() : "";
+      const chunks = addrPart.split(/\s*,\s*/);
+      const locStr = ev && ev.location ? ev.location.toLowerCase() : "";
+      const zipStr = ev && ev.zip ? String(ev.zip).trim() : "";
+      const remaining = [];
+      for (let i = 0; i < chunks.length; i++) {
+        const c = chunks[i].trim();
+        const cLower = c.toLowerCase();
+        if (zipStr && c === zipStr) continue;
+        if (/^[A-Z]{2}\s+\d{5}$/i.test(c)) continue;
+        if (locStr && (locStr.indexOf(cLower) !== -1 || cLower.indexOf(locStr) !== -1)) continue;
+        if (/^(?:NC|SC|GA|TN|VA)\b/i.test(c) && /\d{5}/.test(c)) continue;
+        remaining.push(c);
+      }
+      if (!venue && !street) {
+        if (remaining.length >= 2) {
+          venue = remaining[0];
+          street = remaining.slice(1).join(", ");
+        } else if (remaining.length === 1) {
+          if (/\d/.test(remaining[0])) {
+            street = remaining[0];
+          } else {
+            venue = remaining[0];
+          }
+        }
+      } else if (!street && remaining.length) {
+        street = remaining.join(", ");
+      }
+      note = rest;
+    }
+  }
+
+  if (street && ev && ev.location) {
+    const locParts = ev.location.split(/\s*,\s*/);
+    for (let j = 0; j < locParts.length; j++) {
+      const lp = locParts[j].trim();
+      if (lp && street.indexOf(lp) !== -1) {
+        street = street.replace(new RegExp(",?\\s*" + escapeRegExp(lp) + "\\b", "gi"), "").trim();
+      }
+    }
+  }
+
+  return {
+    venue: venue,
+    street: street,
+    note: note
+  };
+}
+
 function generateGoogleMapsDirUrl(ev) {
   var dest = formatEventMapDestination(ev);
   return "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
@@ -1812,8 +1920,26 @@ function stripMarkersInsideAttributes(html) {
   });
 }
 
+/* Resolves a build output path and refuses anything that lands outside the
+   repository root. Every writer in this file goes through it, so an id or
+   slug that smuggles in "../" (or an absolute path) throws instead of
+   clobbering a file elsewhere in the tree. */
+function resolveOutputPath(relPath) {
+  const rootAbs = path.resolve(ROOT);
+  const full = path.resolve(rootAbs, String(relPath));
+  if (full === rootAbs || full.indexOf(rootAbs + path.sep) !== 0) {
+    throw new Error(
+      "[build] Refusing to write outside the repository: " +
+        JSON.stringify(relPath) +
+        " resolves to " +
+        full
+    );
+  }
+  return full;
+}
+
 function writeFile(relPath, contents) {
-  const full = path.join(ROOT, relPath);
+  const full = resolveOutputPath(relPath);
   const dir = path.dirname(full);
   try {
     if (!fs.existsSync(dir)) {
@@ -2180,6 +2306,9 @@ function buildSiteData() {
       }
       p.id = generateUniqueId(USED_PRODUCT_IDS, p.name, "product", idx);
     } else {
+      // products.json may be hand-written (no per-file catalog): the same
+      // slug rule applies before the id is ever used as a path.
+      validateProductId(p.id, "products.json product #" + (idx + 1));
       if (USED_PRODUCT_IDS.has(p.id)) {
         console.error(
           "\n[build] Duplicate product ID found: '" + p.id + "' on product '" + p.name + "'."
@@ -4006,65 +4135,6 @@ function buildSiteData() {
     past.push(ev);
   });
 
-  function resolveEventDetails(ev) {
-    let venue = ev && ev.venue ? String(ev.venue).trim() : "";
-    let street = ev && ev.address ? String(ev.address).trim() : "";
-    const rawNote = ev && ev.note ? String(ev.note).trim() : "";
-    let note = rawNote;
-
-    if ((!venue || !street) && rawNote) {
-      const m = rawNote.match(/^([^.]+?\b(?:[A-Z]{2}\s+\d{5}|\d{5})\b)\.?\s*(.*)$/);
-      if (m) {
-        const addrPart = m[1].trim();
-        const rest = m[2] ? m[2].trim() : "";
-        const chunks = addrPart.split(/\s*,\s*/);
-        const locStr = ev && ev.location ? ev.location.toLowerCase() : "";
-        const zipStr = ev && ev.zip ? String(ev.zip).trim() : "";
-        const remaining = [];
-        for (let i = 0; i < chunks.length; i++) {
-          const c = chunks[i].trim();
-          const cLower = c.toLowerCase();
-          if (zipStr && c === zipStr) continue;
-          if (/^[A-Z]{2}\s+\d{5}$/i.test(c)) continue;
-          if (locStr && (locStr.indexOf(cLower) !== -1 || cLower.indexOf(locStr) !== -1)) continue;
-          if (/^(?:NC|SC|GA|TN|VA)\b/i.test(c) && /\d{5}/.test(c)) continue;
-          remaining.push(c);
-        }
-        if (!venue && !street) {
-          if (remaining.length >= 2) {
-            venue = remaining[0];
-            street = remaining.slice(1).join(", ");
-          } else if (remaining.length === 1) {
-            if (/\d/.test(remaining[0])) {
-              street = remaining[0];
-            } else {
-              venue = remaining[0];
-            }
-          }
-        } else if (!street && remaining.length) {
-          street = remaining.join(", ");
-        }
-        note = rest;
-      }
-    }
-
-    if (street && ev && ev.location) {
-      const locParts = ev.location.split(/\s*,\s*/);
-      for (let j = 0; j < locParts.length; j++) {
-        const lp = locParts[j].trim();
-        if (lp && street.indexOf(lp) !== -1) {
-          street = street.replace(new RegExp(",?\\s*" + lp + "\\b", "gi"), "").trim();
-        }
-      }
-    }
-
-    return {
-      venue: venue,
-      street: street,
-      note: note
-    };
-  }
-
   const sortedPast = past.slice().sort(function (a, b) {
     const dateA = a.date || "1970-01-01";
     const dateB = b.date || "1970-01-01";
@@ -5806,7 +5876,7 @@ function buildSiteData() {
       htmlPages.push(journalPostPath(post));
     });
     htmlPages.forEach(function (page) {
-      const full = path.join(ROOT, page);
+      const full = resolveOutputPath(page);
       if (!fs.existsSync(full) || fs.statSync(full).isDirectory()) return;
       const html = fs.readFileSync(full, "utf8");
       const cleaned = stripMarkersInsideAttributes(html);
@@ -8956,6 +9026,11 @@ if (typeof module !== "undefined" && module.exports) {
     digestEnglish: digestEnglish,
     gitHistoryIsComplete: gitHistoryIsComplete,
     formatEventMapDestination: formatEventMapDestination,
+    resolveEventDetails: resolveEventDetails,
+    escapeRegExp: escapeRegExp,
+    PRODUCT_ID_RE: PRODUCT_ID_RE,
+    validateProductId: validateProductId,
+    resolveOutputPath: resolveOutputPath,
     generateGoogleMapsDirUrl: generateGoogleMapsDirUrl,
     generateAppleMapsDirUrl: generateAppleMapsDirUrl,
     loadCatalog: loadCatalog,

@@ -193,10 +193,15 @@ crons = ["7 * * * *"]
 #
 # Secrets, set in the dashboard or with `npx wrangler secret put NAME`, never as
 # [vars] entries: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY,
-# MAGIC_LINK_SECRET. That last one signs the unsubscribe and points links; with
-# it unset the Worker sends NO marketing email at all, which is the intended
-# behaviour rather than a bug -- an email with no working opt-out link is worse
-# than an unsent one.
+# MAGIC_LINK_SECRET, ADMIN_PASSWORD. MAGIC_LINK_SECRET signs the unsubscribe and
+# points links; with it unset the Worker sends NO marketing email at all, which
+# is the intended behaviour rather than a bug -- an email with no working
+# opt-out link is worse than an unsent one. ADMIN_PASSWORD is the one shared
+# password behind the owner's fulfilment dashboard (routes/fulfillment.js:
+# GET /api/unfulfilled-orders, POST /api/fulfill-order); with it unset both
+# routes answer 401 to everyone. Pick something long and random -- the routes
+# are limited to 5 attempts per IP per minute and compared in constant time,
+# but neither is a substitute for a strong secret.
 #
 # See workers/README.md for the full deploy checklist and docs/STATE-LAYER.md
 # for the architecture.

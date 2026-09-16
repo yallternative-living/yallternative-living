@@ -22,6 +22,8 @@ Netlify Functions) now live behind the same router:
 | `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED                       |
 | `POST /api/orders/request-link` | `{email}` -> emails a one-time order-history link; the SAME 200 for every address  |
 | `GET /api/orders?token=`      | the orders behind that link (newest 25) + points balance; burns the token           |
+| `GET /api/unfulfilled-orders` | the owner's dashboard: every `processing` order; `Authorization: Bearer <ADMIN_PASSWORD>`, 5/min per IP |
+| `POST /api/fulfill-order`     | `{payment_intent, tracking_url, status}` -> Stripe metadata (same password + limiter) |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
 CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
@@ -166,7 +168,9 @@ as "try this," not a guarantee.
 3. **Settings -> Variables and Secrets -> Add** -> `STRIPE_SECRET_KEY`,
    `STRIPE_WEBHOOK_SECRET` and `RESEND_API_KEY`, type **Secret** (same
    restricted-key guidance as Option B step 3; see "Turning the state layer on"
-   below for what each one is for).
+   below for what each one is for). Add `ADMIN_PASSWORD` the same way for the
+   fulfilment dashboard at `/admin/fulfillment.html`; leave it unset and those
+   two routes refuse everyone.
 4. **Settings -> Domains & Routes.** Optional -- see Option B step 5. If you do
    add a route, it is `yallternativeliving.com/api/*`, not just
    `/api/checkout`: the Worker answers five paths now.
