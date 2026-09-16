@@ -8,45 +8,50 @@
  * AUTH: one shared password (`ADMIN_PASSWORD`, a Worker Secret) sent as
  * `Authorization: Bearer <password>`. Two things protect that password:
  *
- *   - Every request to either route is rate-limited per client IP BEFORE the
- *     password is looked at (2026-09-16 audit: this was the only credentialed
- *     path in the Worker with no limiter, so a guess loop ran at line speed).
- *     The counter runs on every request, not only on failures, so a caller
- *     cannot dodge it by mixing in valid ones.
+ *   - Every request to either route is counted in ONE GLOBAL bucket before
+ *     the password is looked at. Not per client IP: this Worker is reachable
+ *     directly on its workers.dev hostname, and there a caller picks the
+ *     bucket by rotating X-Forwarded-For (routes/http.js clientIp() says so,
+ *     and says that is fine only where nothing is authorised by it -- a
+ *     password check is exactly the case it excludes). There is one owner,
+ *     so one shared budget costs her nothing and gives a guesser the same
+ *     ceiling whichever hostname or header he uses. The counter runs on
+ *     every request, not only on failures, so it cannot be dodged.
  *   - The compare is constant-time over SHA-256 digests, so neither the
  *     length of the secret nor the position of the first wrong byte leaks
  *     through response timing.
+ *
+ * The limiter FAILS CLOSED here (503), unlike every shopper-facing one: a
+ * counter that cannot count must not turn into unlimited guessing. The
+ * owner waits a minute; a guesser gets nothing.
  *
  * With `ADMIN_PASSWORD` unset both routes answer 401 for every caller: an
  * unset secret must never mean "no password required".
  */
 
-import { json, ClientError, clientIp, readJson } from "./http.js";
+import { json, ClientError, readJson } from "./http.js";
 import { checkRateLimit } from "../state/rate-limit.js";
 import { stripePost } from "./stripe.js";
-import { emailForHash, mergeShipment } from "../state/orders.js";
+import { emailForHash } from "../state/orders.js";
 import { SHIPPED_STATUSES } from "./ship-notice.js";
 import { safeUrl } from "../state/stripe-orders.js";
 
 /**
- * Attempts per client IP per minute across BOTH admin routes together. Five is
- * plenty for a human (one prompt, one list, a handful of "Mark Shipped"
- * clicks) and makes a brute-force of the password a non-starter. Fails OPEN
- * like every other limiter in the Worker: a counter that cannot count must not
- * lock the owner out of shipping.
+ * Requests per minute across BOTH admin routes together, all callers in one
+ * bucket. Thirty covers a Saturday after a market (one page load plus a
+ * "Mark Shipped" click per order) and caps a guesser at 30 tries a minute
+ * from the whole internet combined. The bucket key is a constant on purpose;
+ * see the file header for why it is not the client IP.
  */
-export const ADMIN_AUTH_RATE_LIMIT = { limit: 5, period: 60 };
+export const ADMIN_AUTH_RATE_LIMIT = { limit: 30, period: 60 };
+const ADMIN_AUTH_RATE_KEY = "admin-auth";
 
 /**
- * What the dashboard may write as `fulfillment_status`. The three shipped
- * words are the ones the ship-notice sweep and order-status.html understand;
- * `processing` is allowed too so an accidental "Mark Shipped" can be undone
- * from the same tool (the sweep ignores it, so it is written to D1 here
- * directly and the order reappears on the dashboard). Reverting does NOT
- * un-send a ship notice that already went out -- `order_emails` remembers it,
- * so shipping the same order again later sends no second email.
+ * What the dashboard may write as `fulfillment_status`: the words the
+ * ship-notice sweep and order-status.html understand, nothing else. Undoing
+ * a shipment is done in the Stripe Dashboard, where the metadata lives.
  */
-export const FULFILLMENT_STATUSES = [...SHIPPED_STATUSES, "processing"];
+export const FULFILLMENT_STATUSES = [...SHIPPED_STATUSES];
 
 /** Stripe PaymentIntent ids: `pi_` + alphanumerics. Anything else is not a path segment. */
 const PAYMENT_INTENT_RE = /^pi_[A-Za-z0-9]{1,255}$/;
@@ -83,21 +88,25 @@ async function verifyAdminAuth(request, env) {
   return timingSafeEqual(expected, provided);
 }
 
-/** @returns {Promise<boolean>} true when this client has used up its attempts */
-async function limited(request, env) {
-  const result = await checkRateLimit(env, `admin-auth:${clientIp(request)}`, {
-    ...ADMIN_AUTH_RATE_LIMIT,
-    failOpen: true
-  });
-  return !result.success;
-}
-
 /**
  * The limiter, then the password. Returns a Response to send when the caller
- * is refused, or null when they may proceed.
+ * is refused, or null when they may proceed. 429 when the shared budget is
+ * spent; 503 when the counter itself cannot answer (fail closed).
  */
 async function gate(request, env, origin) {
-  if (await limited(request, env)) {
+  const result = await checkRateLimit(env, ADMIN_AUTH_RATE_KEY, {
+    ...ADMIN_AUTH_RATE_LIMIT,
+    failOpen: false
+  });
+  if (!result.success) {
+    if (result.source === "none" || result.source === "error") {
+      return json(
+        { error: "The admin rate limiter is unavailable. Try again in a minute." },
+        503,
+        origin,
+        env
+      );
+    }
     return json(
       { error: "Too many attempts. Please wait a minute and try again." },
       429,
@@ -184,15 +193,12 @@ export async function handleFulfillOrder(request, env, origin) {
 
   const shippedAt = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-  const reverting = status === "processing";
-
   const params = new URLSearchParams();
   params.append("metadata[fulfillment_status]", status);
-  // Stripe deletes a metadata key given an empty value: a revert clears the
-  // stale link and date, while a shipped save without a link leaves whatever
-  // is already on the intent alone.
-  if (trackingUrl || reverting) params.append("metadata[tracking_url]", trackingUrl);
-  params.append("metadata[shipped_at]", reverting ? "" : shippedAt);
+  // A shipped save without a link leaves whatever is already on the intent
+  // alone (it may have been typed into the Stripe Dashboard).
+  if (trackingUrl) params.append("metadata[tracking_url]", trackingUrl);
+  params.append("metadata[shipped_at]", shippedAt);
 
   const updated = await stripePost(
     env,
@@ -203,18 +209,6 @@ export async function handleFulfillOrder(request, env, origin) {
   if (!updated) {
     // stripePost internally logs the error
     return json({ error: "Failed to update Stripe PaymentIntent" }, 500, origin, env);
-  }
-
-  // The hourly sweep merges shipped statuses into D1 on its own; a revert to
-  // `processing` it never looks at, so write that one straight away or the
-  // order would never come back onto the dashboard. Best effort: Stripe is
-  // the source of truth and already has it.
-  if (reverting && env.STATE_DB) {
-    try {
-      await mergeShipment(env.STATE_DB, { paymentIntent, status, trackingUrl: null });
-    } catch (err) {
-      console.error("fulfill-order: D1 revert failed:", err && err.message ? err.message : err);
-    }
   }
 
   return json({ success: true }, 200, origin, env);

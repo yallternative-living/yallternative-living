@@ -22,7 +22,7 @@ Netlify Functions) now live behind the same router:
 | `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED                       |
 | `POST /api/orders/request-link` | `{email}` -> emails a one-time order-history link; the SAME 200 for every address  |
 | `GET /api/orders?token=`      | the orders behind that link (newest 25) + points balance; burns the token           |
-| `GET /api/unfulfilled-orders` | the owner's dashboard: every `processing` order; `Authorization: Bearer <ADMIN_PASSWORD>`, 5/min per IP |
+| `GET /api/unfulfilled-orders` | the owner's dashboard: every `processing` order; `Authorization: Bearer <ADMIN_PASSWORD>`, 30/min shared across all callers, fails closed |
 | `POST /api/fulfill-order`     | `{payment_intent, tracking_url, status}` -> Stripe metadata (same password + limiter) |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and

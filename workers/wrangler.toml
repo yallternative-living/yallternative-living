@@ -200,7 +200,9 @@ crons = ["7 * * * *"]
 # password behind the owner's fulfilment dashboard (routes/fulfillment.js:
 # GET /api/unfulfilled-orders, POST /api/fulfill-order); with it unset both
 # routes answer 401 to everyone. Pick something long and random -- the routes
-# are limited to 5 attempts per IP per minute and compared in constant time,
+# share one global budget of 30 requests per minute (not per IP: the
+# workers.dev route lets a caller pick its own X-Forwarded-For bucket), fail
+# CLOSED when the counter is unavailable, and are compared in constant time,
 # but neither is a substitute for a strong secret.
 #
 # See workers/README.md for the full deploy checklist and docs/STATE-LAYER.md

@@ -99,7 +99,10 @@ async function main() {
   const env = {
     STATE_DB: db,
     STRIPE_SECRET_KEY: "sk_test_mock",
-    ADMIN_PASSWORD: "secret_admin_pw"
+    ADMIN_PASSWORD: "secret_admin_pw",
+    // The admin gate fails CLOSED without a counter, so the baseline env
+    // carries a permissive one; the fail-closed case is tested on its own.
+    RATE_LIMITER: makeLimiter()
   };
 
   await ensureSchema(env.STATE_DB);
@@ -129,16 +132,11 @@ async function main() {
 
   /* ------------------------------------------------ constants */
   assert(
-    ADMIN_AUTH_RATE_LIMIT &&
-      ADMIN_AUTH_RATE_LIMIT.limit === 5 &&
-      ADMIN_AUTH_RATE_LIMIT.period === 60,
-    "ADMIN_AUTH_RATE_LIMIT is 5 attempts per 60 seconds"
-  );
-  assert(
-    SHIPPED_STATUSES.every((s) => FULFILLMENT_STATUSES.includes(s)) &&
-      FULFILLMENT_STATUSES.includes("processing") &&
-      FULFILLMENT_STATUSES.length === SHIPPED_STATUSES.length + 1,
-    "FULFILLMENT_STATUSES is SHIPPED_STATUSES plus processing"
+    Array.isArray(FULFILLMENT_STATUSES) &&
+      FULFILLMENT_STATUSES.length === SHIPPED_STATUSES.length &&
+      SHIPPED_STATUSES.every((v) => FULFILLMENT_STATUSES.includes(v)) &&
+      !FULFILLMENT_STATUSES.includes("processing"),
+    "FULFILLMENT_STATUSES is exactly SHIPPED_STATUSES (no revert to processing)"
   );
 
   /* ------------------------------------------------ GET /api/unfulfilled-orders: auth */
@@ -204,8 +202,8 @@ async function main() {
       "429 carries the usual {error} shape"
     );
     assert(
-      limiter.calls.length === 1 && /^admin-auth:/.test(limiter.calls[0]),
-      "limiter key is admin-auth:<ip>"
+      limiter.calls.length === 1 && limiter.calls[0] === "admin-auth",
+      "limiter key is the one global bucket"
     );
 
     const postRes = await handleFulfillOrder(
@@ -242,13 +240,58 @@ async function main() {
     );
   }
   {
-    const ipLimiter = makeLimiter();
-    await handleUnfulfilledOrders(
-      request([...AUTH, ["X-Forwarded-For", "198.51.100.7"]]),
-      { ...env, RATE_LIMITER: ipLimiter },
+    // The bucket must not be pickable by the caller: on the workers.dev
+    // hostname a client sets X-Forwarded-For freely (routes/http.js), so a
+    // per-IP key would hand a guesser a fresh budget per header value.
+    const hdrLimiter = makeLimiter();
+    const spoofs = [
+      [["X-Forwarded-For", "198.51.100.7"]],
+      [["X-Forwarded-For", "203.0.113.9, 198.51.100.7"]],
+      [["CF-Connecting-IP", "192.0.2.4"]],
+      [
+        ["CF-Connecting-IP", "192.0.2.4"],
+        ["X-Forwarded-For", "10.0.0.1, 192.0.2.4"]
+      ]
+    ];
+    for (const extra of spoofs) {
+      await handleUnfulfilledOrders(
+        request([...AUTH, ...extra]),
+        { ...env, RATE_LIMITER: hdrLimiter },
+        ORIGIN
+      );
+    }
+    assert(
+      hdrLimiter.calls.length === spoofs.length &&
+        hdrLimiter.calls.every((k) => k === "admin-auth"),
+      "limiter key ignores X-Forwarded-For and CF-Connecting-IP entirely"
+    );
+  }
+  {
+    // Fail CLOSED: no counter binding at all -> 503, password never consulted.
+    const noLimiterEnv = { ...env };
+    delete noLimiterEnv.RATE_LIMITER;
+    const res = await handleUnfulfilledOrders(request(AUTH), noLimiterEnv, ORIGIN);
+    assert(res.status === 503, "no rate-limit backend answers 503, not 200");
+    const post = await handleFulfillOrder(
+      request(AUTH, { payment_intent: "pi_3TestMock0000", status: "shipped" }),
+      noLimiterEnv,
       ORIGIN
     );
-    assert(ipLimiter.calls[0] === "admin-auth:198.51.100.7", "limiter is keyed by the client IP");
+    assert(post.status === 503, "fulfill-order also fails closed without a counter");
+    // A Durable Object counter that throws is the same case.
+    const brokenDoEnv = {
+      ...noLimiterEnv,
+      RATE_LIMIT_COUNTER: {
+        idFromName: (n) => n,
+        get: () => ({
+          fetch: async () => {
+            throw new Error("object reset");
+          }
+        })
+      }
+    };
+    const errRes = await handleUnfulfilledOrders(request(AUTH), brokenDoEnv, ORIGIN);
+    assert(errRes.status === 503, "a counter that throws answers 503 (fail closed)");
   }
 
   /* ------------------------------------------------ POST /api/fulfill-order */
@@ -401,39 +444,19 @@ async function main() {
       "no tracking_url key sent when none given"
     );
 
-    // Reverting to processing: clears the shipped keys on Stripe and writes D1 now.
-    await env.STATE_DB.prepare(
-      "UPDATE orders SET status = 'shipped', tracking_url = 'https://x.y/z' WHERE payment_intent = ?"
-    )
-      .bind("pi_3TestMock0000")
-      .run();
+    // "processing" is not a fulfilment the dashboard may write: undoing a
+    // shipment happens in the Stripe Dashboard. Refused before Stripe is called.
     stripeCalls = [];
-    let revertRes = await handleFulfillOrder(
+    const revertRes = await handleFulfillOrder(
       request(AUTH, { payment_intent: "pi_3TestMock0000", status: "processing" }),
       env,
       ORIGIN
-    );
-    assert(revertRes.status === 200, "revert to processing is accepted");
-    const revertBody = stripeCalls[0].options.body;
+    ).catch((err) => ({ status: err.status || 400, clientError: true, message: err.message }));
     assert(
-      revertBody.includes("metadata%5Bfulfillment_status%5D=processing"),
-      "revert sends processing"
+      revertRes.status === 400 && revertRes.clientError,
+      "status processing is refused with a ClientError"
     );
-    assert(
-      revertBody.includes("metadata%5Btracking_url%5D=&") ||
-        revertBody.endsWith("metadata%5Btracking_url%5D="),
-      "revert clears tracking_url"
-    );
-    assert(/metadata%5Bshipped_at%5D=(&|$)/.test(revertBody), "revert clears shipped_at");
-    const row = await env.STATE_DB.prepare(
-      "SELECT status, tracking_url FROM orders WHERE payment_intent = ?"
-    )
-      .bind("pi_3TestMock0000")
-      .first();
-    assert(
-      row && row.status === "processing" && row.tracking_url === null,
-      "revert is written to D1 immediately"
-    );
+    assert(stripeCalls.length === 0, "a refused status never reaches Stripe");
 
     // Stripe refusing the write is a 500, not a success.
     global.fetch = async (url) => {

@@ -53,7 +53,16 @@
   }
 
   function showError(message) {
-    container.innerHTML = '<div class="error-msg">Error: ' + escapeHtml(message) + "</div>";
+    container.innerHTML =
+      '<div class="error-msg">Error: ' +
+      escapeHtml(message) +
+      ' <button type="button" id="retry-btn" class="btn-retry">Retry</button></div>';
+    var retry = document.getElementById("retry-btn");
+    if (retry) {
+      retry.addEventListener("click", function () {
+        window.location.reload();
+      });
+    }
   }
 
   function lock() {
