@@ -3,6 +3,11 @@ import { stripePost } from "./stripe.js";
 import { emailForHash } from "../state/orders.js";
 
 /**
+ * GET /api/unfulfilled-orders
+ * Returns a JSON array of all orders currently marked as 'processing'
+ * in the D1 orders table, joined with their original emails.
+ */
+/**
  * Simple password-based check for the admin endpoint.
  * Expects Authorization: Bearer <ADMIN_PASSWORD>
  */
@@ -13,11 +18,6 @@ function verifyAdminAuth(request, env) {
   return token === env.ADMIN_PASSWORD;
 }
 
-/**
- * GET /api/unfulfilled-orders
- * Returns a JSON array of all orders currently marked as 'processing'
- * in the D1 orders table, joined with their original emails.
- */
 export async function handleUnfulfilledOrders(request, env, origin) {
   if (!verifyAdminAuth(request, env)) {
     return json({ error: "Unauthorized" }, 401, origin, env);

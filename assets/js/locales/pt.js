@@ -74,6 +74,7 @@
     "home.nextPopUp": "PRÓXIMO POP-UP:",
     "home.days": "Dias,",
     "home.hours": "Horas,",
+    "home.hoursUntil": "Horas até",
     "home.minsUntil": "Minutos até",
     "footer.tagline": "Autocuidado artesanal para Black Sheep & Bold Hearts. Misturado, vertido e mexido em pequenos lotes.",
     "footer.disclaimer": "Autocuidado artesanal, não medicinal. Nada vendido aqui tem como objetivo diagnosticar, tratar, curar ou prevenir qualquer condição. Tem alguma preocupação real com a pele ou a saúde? Vá a um médico de verdade e depois se dê de presente algo bem cheiroso.",

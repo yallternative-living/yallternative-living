@@ -985,6 +985,20 @@
       "source": "assets/js/main.js",
       "verify": ["More Info / RSVP"],
       "note": "upcoming event card RSVP link text rendered by main.js"
+    },
+    {
+      "key": "home.hours",
+      "text": "Hours,",
+      "source": "assets/js/main.js",
+      "verify": ["Hours,"],
+      "note": "countdown ticker hours suffix rendered dynamically when event is under 24 hours away"
+    },
+    {
+      "key": "home.minsUntil",
+      "text": "Mins until",
+      "source": "assets/js/main.js",
+      "verify": ["Mins until"],
+      "note": "countdown ticker suffix rendered dynamically when event is under 24 hours away"
     }
   ]
 }
