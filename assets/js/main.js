@@ -1076,19 +1076,23 @@
   /* ---------- shared: CMS text into a CSS attribute selector ----------
      `input[name="' + name + '"]` throws a SyntaxError inside querySelector()
      the moment a quiz question name from content.json carries a `"` or `\`,
-     and one bad question then disables the whole quiz. CSS.escape() is the
-     platform answer; the fallback covers the test DOM (and any engine
-     without it) by escaping the two characters that can end the string. */
+     and one bad question then disables the whole quiz.
+
+     NOT CSS.escape(): that escapes an IDENTIFIER, and every caller here
+     interpolates into a QUOTED value. CSS.escape("1oz") is "\31 oz", which
+     inside quotes matches the literal text `1oz` no longer -- so a variant
+     value like 1oz or a question name with a space would silently stop
+     matching, which is worse than the throw this replaced. Inside a quoted
+     string only the quote and the backslash can end it, so those two are
+     the whole job. */
 
   /**
-   * Escapes a value for use inside a quoted CSS attribute selector.
+   * Escapes a value for use inside a DOUBLE-QUOTED CSS attribute selector.
    * @param {?string} value Raw attribute value (CMS content, URL hash, data-id).
    * @return {string} Selector-safe string.
    */
   function cssAttrEsc(value) {
-    var str = value == null ? "" : String(value);
-    if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(str);
-    return str.replace(/["\\]/g, "\\$&");
+    return String(value == null ? "" : value).replace(/["\\]/g, "\\$&");
   }
 
   /**

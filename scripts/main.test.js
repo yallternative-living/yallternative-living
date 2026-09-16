@@ -2535,6 +2535,52 @@ assert(
   resultsContainer.innerHTML.includes("Sweet Dreams Sleep Salve"),
   "Quiz still scores the checked answer through the escaped selector"
 );
+
+/* The escaper is for a QUOTED value, so it must leave alone every character
+   that only an IDENTIFIER escaper (CSS.escape) would touch. CSS.escape turns
+   "1 oz mood" into "\\31  oz mood", which inside quotes stops matching the
+   real attribute -- a silent wrong answer where the old code threw. Pin the
+   literal round-trip so that escaper can never come back. */
+const plainNameSection = createMockElement("section");
+plainNameSection.id = "apothecary-quiz-section";
+elementsById.set("apothecary-quiz-section", plainNameSection);
+const plainNameSelectors = [];
+plainNameSection.querySelector = (sel) => {
+  plainNameSelectors.push(sel);
+  if (sel.includes('input[name="1 oz mood"]:checked')) return mockRadioInput;
+  return null;
+};
+plainNameSection.querySelectorAll = (sel) => (sel === ".quiz-step" ? [step1El, step2El] : []);
+mockWindow.YL_CONTENT = {
+  site: {},
+  quiz: {
+    questions: [
+      {
+        id: "mood",
+        name: "1 oz mood",
+        options: [
+          { value: "calm", label: "Calm", scoreWeight: 10, recommendedProductIds: ["sleep-salve"] }
+        ]
+      }
+    ]
+  }
+};
+resultsContainer.innerHTML = "";
+resultsContainer.style.display = "";
+main.initApothecaryQuiz();
+plainNameSection.dispatchEvent({ type: "click", target: submitBtn });
+assert(
+  plainNameSelectors.some((sel) => sel.includes('input[name="1 oz mood"]:checked')),
+  "Quiz leaves a leading digit and spaces literal in the selector (not CSS.escape'd)"
+);
+assert(
+  !plainNameSelectors.some((sel) => /\\3[0-9] /.test(sel)),
+  "Quiz selector carries no identifier-style numeric escape"
+);
+assert(
+  resultsContainer.innerHTML.includes("Sweet Dreams Sleep Salve"),
+  "Quiz still scores a question whose name has a space and a leading digit"
+);
 elementsById.set("apothecary-quiz-section", quizSection);
 
 /* ---------- Event JSON-LD: the static copy must equal the runtime one ----------
