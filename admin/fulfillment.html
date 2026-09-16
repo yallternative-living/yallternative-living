@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Y'allternative Living — Fulfillment Dashboard</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  <!-- Same styles as the CMS for consistency -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      background: #f4f6f8;
+      color: #333;
+    }
+    .header {
+      background: #fff;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #dfe3e8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 500;
+    }
+    .header a {
+      color: #0070f3;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .card-header {
+      background: #fafbfc;
+      padding: 1rem;
+      border-bottom: 1px solid #dfe3e8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .order-date {
+      color: #637381;
+      font-size: 0.9rem;
+    }
+    .card-body {
+      padding: 1rem;
+    }
+    .items-list {
+      list-style: none;
+      margin: 0 0 1rem 0;
+      padding: 0;
+    }
+    .items-list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #f0f2f4;
+      display: flex;
+      justify-content: space-between;
+    }
+    .items-list li:last-child {
+      border-bottom: none;
+    }
+    .item-name {
+      font-weight: 500;
+    }
+    .item-qty {
+      color: #637381;
+    }
+    .fulfillment-form {
+      display: flex;
+      gap: 1rem;
+      background: #f9fafb;
+      padding: 1rem;
+      border-radius: 6px;
+      align-items: center;
+    }
+    .fulfillment-form input {
+      flex: 1;
+      padding: 0.5rem;
+      border: 1px solid #c4cdd5;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .fulfillment-form button {
+      background: #0070f3;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 1rem;
+    }
+    .fulfillment-form button:disabled {
+      background: #a4c9f3;
+      cursor: not-allowed;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 4rem 1rem;
+      color: #637381;
+    }
+    .error-msg {
+      color: #d92d20;
+      background: #fee4e2;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Fulfillment Dashboard</h1>
+    <a href="/admin/">&larr; Back to CMS</a>
+  </div>
+
+  <div class="container" id="app">
+    <div class="empty-state">Loading unfulfilled orders...</div>
+  </div>
+
+  <script>
+    (async function() {
+      const container = document.getElementById('app');
+
+      let adminPassword = sessionStorage.getItem('yl_admin_password');
+      if (!adminPassword) {
+        adminPassword = prompt("Please enter the fulfillment admin password:");
+        if (adminPassword) {
+          sessionStorage.setItem('yl_admin_password', adminPassword);
+        } else {
+          container.innerHTML = '<div class="error-msg">Authentication required to view fulfillment dashboard.</div>';
+          return;
+        }
+      }
+
+      function getAuthHeaders() {
+        return {
+          'Authorization': 'Bearer ' + adminPassword
+        };
+      }
+
+      try {
+        const res = await fetch('/api/unfulfilled-orders', { headers: getAuthHeaders() });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to load orders');
+        }
+
+        const orders = data.orders || [];
+
+        if (orders.length === 0) {
+          container.innerHTML = '<div class="empty-state"><h3>All caught up!</h3><p>There are no orders waiting to be fulfilled.</p></div>';
+          return;
+        }
+
+        container.innerHTML = '';
+
+        orders.forEach(order => {
+          let itemsHtml = '';
+          try {
+            const items = JSON.parse(order.line_items_json || '[]');
+            items.forEach(item => {
+              itemsHtml += `
+                <li>
+                  <span class="item-name">${escapeHtml(item.name)} ${item.variant ? `(${escapeHtml(item.variant)})` : ''}</span>
+                  <span class="item-qty">Qty: ${item.quantity}</span>
+                </li>`;
+            });
+          } catch(e) {
+            itemsHtml = '<li><em>Could not parse items</em></li>';
+          }
+
+          const date = new Date(order.created * 1000).toLocaleDateString();
+          const amount = (order.amount_total / 100).toFixed(2);
+
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <div class="card-header">
+              <div>
+                <strong>${escapeHtml(order.email)}</strong>
+                &bull; $${amount}
+              </div>
+              <div class="order-date">${date} &bull; ${escapeHtml(order.session_id.split('_').pop())}</div>
+            </div>
+            <div class="card-body">
+              <ul class="items-list">
+                ${itemsHtml}
+              </ul>
+              <form class="fulfillment-form" data-intent="${escapeHtml(order.payment_intent)}">
+                <input type="url" name="tracking" placeholder="Tracking URL (optional)" />
+                <button type="submit">Mark Shipped</button>
+              </form>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+        // Attach event listeners
+        document.querySelectorAll('.fulfillment-form').forEach(form => {
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = form.querySelector('button');
+            const input = form.querySelector('input');
+            const intent = form.getAttribute('data-intent');
+            const tracking = input.value;
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+              const res = await fetch('/api/fulfill-order', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...getAuthHeaders()
+                },
+                body: JSON.stringify({
+                  payment_intent: intent,
+                  tracking_url: tracking,
+                  status: 'shipped'
+                })
+              });
+
+              if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to update order');
+              }
+
+              // Remove the card on success
+              const card = form.closest('.card');
+              card.style.opacity = '0.5';
+              setTimeout(() => card.remove(), 300);
+
+              if (document.querySelectorAll('.card').length === 1) {
+                container.innerHTML = '<div class="empty-state"><h3>All caught up!</h3><p>There are no orders waiting to be fulfilled.</p></div>';
+              }
+
+            } catch (err) {
+              alert(err.message);
+              btn.disabled = false;
+              btn.textContent = 'Mark Shipped';
+            }
+          });
+        });
+
+      } catch (err) {
+        container.innerHTML = `<div class="error-msg">Error: ${escapeHtml(err.message)}</div>`;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+    })();
+  </script>
+</body>
+</html>
