@@ -35,6 +35,11 @@
       text-decoration: none;
       font-size: 0.9rem;
     }
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
     .container {
       max-width: 1000px;
       margin: 2rem auto;
@@ -123,158 +128,40 @@
       border-radius: 8px;
       margin-bottom: 1rem;
     }
+    .btn-retry {
+      margin-left: 0.75rem;
+      background: #fff;
+      color: #d92d20;
+      border: 1px solid #d92d20;
+      padding: 0.3rem 0.7rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>Fulfillment Dashboard</h1>
-    <a href="/admin/">&larr; Back to CMS</a>
+    <div class="header-actions">
+      <a href="/admin/">&larr; Back to CMS</a>
+    </div>
   </div>
 
   <div class="container" id="app">
     <div class="empty-state">Loading unfulfilled orders...</div>
   </div>
 
-  <script>
-    (async function() {
-      const container = document.getElementById('app');
+  <!-- Signing in is the CMS's GitHub sign-in, not a password: fulfillment.js
+       reuses the GitHub token Sveltia CMS stored at /admin/, and the Worker
+       checks it with GitHub before answering. Nothing is typed in here and
+       nothing is stored by this page. If she is signed out, the panel above
+       says so and links back to /admin/.
 
-      let adminPassword = sessionStorage.getItem('yl_admin_password');
-      if (!adminPassword) {
-        adminPassword = prompt("Please enter the fulfillment admin password:");
-        if (adminPassword) {
-          sessionStorage.setItem('yl_admin_password', adminPassword);
-        } else {
-          container.innerHTML = '<div class="error-msg">Authentication required to view fulfillment dashboard.</div>';
-          return;
-        }
-      }
-
-      function getAuthHeaders() {
-        return {
-          'Authorization': 'Bearer ' + adminPassword
-        };
-      }
-
-      try {
-        const res = await fetch('/api/unfulfilled-orders', { headers: getAuthHeaders() });
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to load orders');
-        }
-
-        const orders = data.orders || [];
-
-        if (orders.length === 0) {
-          container.innerHTML = '<div class="empty-state"><h3>All caught up!</h3><p>There are no orders waiting to be fulfilled.</p></div>';
-          return;
-        }
-
-        container.innerHTML = '';
-
-        orders.forEach(order => {
-          let itemsHtml = '';
-          try {
-            const items = JSON.parse(order.line_items_json || '[]');
-            items.forEach(item => {
-              itemsHtml += `
-                <li>
-                  <span class="item-name">${escapeHtml(item.name)} ${item.variant ? `(${escapeHtml(item.variant)})` : ''}</span>
-                  <span class="item-qty">Qty: ${item.quantity}</span>
-                </li>`;
-            });
-          } catch(e) {
-            itemsHtml = '<li><em>Could not parse items</em></li>';
-          }
-
-          const date = new Date(order.created * 1000).toLocaleDateString();
-          const amount = (order.amount_total / 100).toFixed(2);
-
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML = `
-            <div class="card-header">
-              <div>
-                <strong>${escapeHtml(order.email)}</strong>
-                &bull; $${amount}
-              </div>
-              <div class="order-date">${date} &bull; ${escapeHtml(order.session_id.split('_').pop())}</div>
-            </div>
-            <div class="card-body">
-              <ul class="items-list">
-                ${itemsHtml}
-              </ul>
-              <form class="fulfillment-form" data-intent="${escapeHtml(order.payment_intent)}">
-                <input type="url" name="tracking" placeholder="Tracking URL (optional)" />
-                <button type="submit">Mark Shipped</button>
-              </form>
-            </div>
-          `;
-          container.appendChild(card);
-        });
-
-        // Attach event listeners
-        document.querySelectorAll('.fulfillment-form').forEach(form => {
-          form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = form.querySelector('button');
-            const input = form.querySelector('input');
-            const intent = form.getAttribute('data-intent');
-            const tracking = input.value;
-
-            btn.disabled = true;
-            btn.textContent = 'Saving...';
-
-            try {
-              const res = await fetch('/api/fulfill-order', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...getAuthHeaders()
-                },
-                body: JSON.stringify({
-                  payment_intent: intent,
-                  tracking_url: tracking,
-                  status: 'shipped'
-                })
-              });
-
-              if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || 'Failed to update order');
-              }
-
-              // Remove the card on success
-              const card = form.closest('.card');
-              card.style.opacity = '0.5';
-              setTimeout(() => card.remove(), 300);
-
-              if (document.querySelectorAll('.card').length === 1) {
-                container.innerHTML = '<div class="empty-state"><h3>All caught up!</h3><p>There are no orders waiting to be fulfilled.</p></div>';
-              }
-
-            } catch (err) {
-              alert(err.message);
-              btn.disabled = false;
-              btn.textContent = 'Mark Shipped';
-            }
-          });
-        });
-
-      } catch (err) {
-        container.innerHTML = `<div class="error-msg">Error: ${escapeHtml(err.message)}</div>`;
-      }
-
-      function escapeHtml(str) {
-        return String(str)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
-      }
-    })();
-  </script>
+       That logic lives in fulfillment.js, not inline: the /admin/* CSP is
+       script-src 'self' with no hash, so an inline script (or an inline
+       on-click handler attribute) is blocked in production. Same-origin files
+       are allowed. See the header comment in fulfillment.js. -->
+  <script src="fulfillment.js" defer></script>
 </body>
 </html>

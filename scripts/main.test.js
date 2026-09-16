@@ -986,6 +986,51 @@ assert(cardMarkup.includes("iCal / Apple Calendar (.ics)"), "eventCardHTML inclu
 assert(cardMarkup.includes("Google Maps"), "eventCardHTML includes Google Maps link");
 assert(cardMarkup.includes("Apple Maps"), "eventCardHTML includes Apple Maps link");
 
+/* A comma-split piece of ev.location used to be compiled straight into a
+   RegExp inside resolveEventDetails(); "[" or "(" in a CMS location threw a
+   SyntaxError from eventCardHTML() and aborted the whole events list. */
+let bracketCardMarkup = "";
+let bracketCardThrew = false;
+try {
+  bracketCardMarkup = main.eventCardHTML({
+    id: "bracket-town",
+    name: "Bracket Town Market",
+    date: "2026-10-10",
+    dateLabel: "October 10, 2026",
+    location: "Mills River (Hendo) [NC",
+    zip: "28759",
+    venue: "Mills River Brewing Co",
+    address: "336 Banner Farm Rd, Mills River (Hendo) [NC"
+  });
+} catch {
+  bracketCardThrew = true;
+}
+assert(!bracketCardThrew, "eventCardHTML does not throw on a location containing [ and (");
+assert(
+  bracketCardMarkup.includes('<span class="event-street">336 Banner Farm Rd</span>'),
+  "eventCardHTML strips a bracketed location literally from the street line"
+);
+/* The escaping must not change what an ordinary "City, ST" location resolves
+   to: the note-derived venue/street/note split from the shipped data shape. */
+const plainLocationMarkup = main.eventCardHTML({
+  id: "plain-town",
+  name: "Plain Town Market",
+  date: "2026-10-11",
+  dateLabel: "October 11, 2026",
+  location: "Mills River, NC",
+  zip: "28759",
+  note: "Mills River Brewing Co, 336 Banner Farm Rd, Mills River, NC 28759. Free family fun."
+});
+assert(
+  plainLocationMarkup.includes('<span class="event-place">Mills River Brewing Co</span>') &&
+    plainLocationMarkup.includes('<span class="event-street">336 Banner Farm Rd</span>'),
+  "eventCardHTML still resolves a plain 'City, ST' location to the same venue and street"
+);
+assert(
+  plainLocationMarkup.includes("Free family fun.") && !plainLocationMarkup.includes("28759. Free"),
+  "eventCardHTML keeps only the note remainder after the address split"
+);
+
 /* 9. Milestone 3: Recently Viewed Products (R4) */
 mockLocalStorage.clear();
 main._resetState();
@@ -2151,6 +2196,91 @@ eq(
   "announcementBar renders nothing when showInHeader is false"
 );
 
+// Fold-into-#yl-countdown-ticker branch: the CMS links must pass the same
+// scheme filter as the create-a-bar branch. A javascript: link renders its
+// segment as plain text; an ordinary path still gets an anchor.
+const tickerEl = createMockElement("div");
+tickerEl.id = "yl-countdown-ticker";
+elementsById.set("yl-countdown-ticker", tickerEl);
+mockWindow.YL_CONTENT = {
+  site: {
+    announcement: {
+      enabled: true,
+      text: "Folded Announcement",
+      link: "javascript:alert(1)"
+    },
+    seasonalNotice: {
+      enabled: true,
+      showInHeader: true,
+      text: "Folded Seasonal Notice",
+      link: "javascript:alert(1)"
+    }
+  }
+};
+mockDocument.body.children.length = 0;
+main.announcementBar();
+eq(
+  mockDocument.body.children.length,
+  0,
+  "announcementBar folds into the existing ticker instead of creating a second bar"
+);
+assert(
+  tickerEl.innerHTML.includes("Folded Announcement") &&
+    tickerEl.innerHTML.includes("Folded Seasonal Notice"),
+  "announcementBar (folded) still renders both segment texts"
+);
+assert(
+  !tickerEl.innerHTML.includes("javascript:") && !tickerEl.innerHTML.includes("<a "),
+  "announcementBar (folded) renders a javascript: announcement/seasonal link as plain text"
+);
+assert(
+  tickerEl.children.every((seg) => seg.children.every((c) => c.tagName !== "A")),
+  "announcementBar (folded) appends no <a> for an unsafe link"
+);
+
+const tickerEl2 = createMockElement("div");
+tickerEl2.id = "yl-countdown-ticker";
+elementsById.set("yl-countdown-ticker", tickerEl2);
+mockWindow.YL_CONTENT = {
+  site: {
+    announcement: { enabled: true, text: "Folded Announcement", link: "/shop.html" },
+    seasonalNotice: {
+      enabled: true,
+      showInHeader: true,
+      text: "Folded Seasonal Notice",
+      link: "/events.html"
+    }
+  }
+};
+mockDocument.body.children.length = 0;
+main.announcementBar();
+assert(
+  tickerEl2.innerHTML.includes('<a href="/shop.html">Folded Announcement</a>'),
+  "announcementBar (folded) still wraps a safe announcement link in an anchor"
+);
+assert(
+  tickerEl2.innerHTML.includes('<a href="/events.html">Folded Seasonal Notice</a>'),
+  "announcementBar (folded) still wraps a safe seasonal link in an anchor"
+);
+elementsById.delete("yl-countdown-ticker");
+
+// The create-a-bar branch refuses the same links (it used to fall back to the
+// raw value when the filter returned "").
+mockWindow.YL_CONTENT = {
+  site: {
+    announcement: { enabled: true, text: "Unsafe Banner", link: "javascript:alert(1)" }
+  }
+};
+mockDocument.body.children.length = 0;
+main.announcementBar();
+renderedBar = mockDocument.body.children[0];
+assert(
+  renderedBar &&
+    renderedBar.textContent === "Unsafe Banner" &&
+    !renderedBar.innerHTML.includes("javascript:"),
+  "announcementBar (new bar) renders a javascript: link as plain text"
+);
+
 /* 2. Stock Badge Batch Date */
 console.log("\n--- Milestone 2: Stock Badge Batch Date Tests ---");
 const comingSoonWithBatch = {
@@ -2354,6 +2484,104 @@ assert(
   resultsContainer.innerHTML.includes('Earn <span class="pts-val">14</span> Alt-Points'),
   "Quiz renders loyalty points badge"
 );
+
+// A question name from content.json is interpolated into a CSS attribute
+// selector. A `"` in it used to throw a SyntaxError out of querySelector()
+// on submit and silently disable the quiz. The mock DOM has no CSS.escape,
+// so this exercises the fallback escaping and the real browser path is the
+// same call with the platform escaper.
+const quotedQuizSection = createMockElement("section");
+quotedQuizSection.id = "apothecary-quiz-section";
+elementsById.set("apothecary-quiz-section", quotedQuizSection);
+const quotedSelectors = [];
+quotedQuizSection.querySelector = (sel) => {
+  quotedSelectors.push(sel);
+  // Mirror the platform: an unescaped quote inside the quoted value is a
+  // malformed selector and querySelector() throws.
+  if (/name="[^"\\]*"[^\]]/.test(sel)) throw new SyntaxError("malformed selector: " + sel);
+  if (sel.includes('input[name="quiz\\"mood"]:checked')) return mockRadioInput;
+  return null;
+};
+quotedQuizSection.querySelectorAll = (sel) => (sel === ".quiz-step" ? [step1El, step2El] : []);
+mockWindow.YL_CONTENT = {
+  site: {},
+  quiz: {
+    questions: [
+      {
+        id: "mood",
+        name: 'quiz"mood',
+        options: [
+          { value: "calm", label: "Calm", scoreWeight: 10, recommendedProductIds: ["sleep-salve"] }
+        ]
+      }
+    ]
+  }
+};
+resultsContainer.innerHTML = "";
+resultsContainer.style.display = "";
+main.initApothecaryQuiz();
+let quotedQuizThrew = false;
+try {
+  quotedQuizSection.dispatchEvent({ type: "click", target: submitBtn });
+} catch {
+  quotedQuizThrew = true;
+}
+assert(!quotedQuizThrew, "Quiz submit does not throw when a question name contains a double quote");
+assert(
+  quotedSelectors.some((sel) => sel.includes('input[name="quiz\\"mood"]:checked')),
+  "Quiz escapes the question name before building the :checked selector"
+);
+assert(
+  resultsContainer.innerHTML.includes("Sweet Dreams Sleep Salve"),
+  "Quiz still scores the checked answer through the escaped selector"
+);
+
+/* The escaper is for a QUOTED value, so it must leave alone every character
+   that only an IDENTIFIER escaper (CSS.escape) would touch. CSS.escape turns
+   "1 oz mood" into "\\31  oz mood", which inside quotes stops matching the
+   real attribute -- a silent wrong answer where the old code threw. Pin the
+   literal round-trip so that escaper can never come back. */
+const plainNameSection = createMockElement("section");
+plainNameSection.id = "apothecary-quiz-section";
+elementsById.set("apothecary-quiz-section", plainNameSection);
+const plainNameSelectors = [];
+plainNameSection.querySelector = (sel) => {
+  plainNameSelectors.push(sel);
+  if (sel.includes('input[name="1 oz mood"]:checked')) return mockRadioInput;
+  return null;
+};
+plainNameSection.querySelectorAll = (sel) => (sel === ".quiz-step" ? [step1El, step2El] : []);
+mockWindow.YL_CONTENT = {
+  site: {},
+  quiz: {
+    questions: [
+      {
+        id: "mood",
+        name: "1 oz mood",
+        options: [
+          { value: "calm", label: "Calm", scoreWeight: 10, recommendedProductIds: ["sleep-salve"] }
+        ]
+      }
+    ]
+  }
+};
+resultsContainer.innerHTML = "";
+resultsContainer.style.display = "";
+main.initApothecaryQuiz();
+plainNameSection.dispatchEvent({ type: "click", target: submitBtn });
+assert(
+  plainNameSelectors.some((sel) => sel.includes('input[name="1 oz mood"]:checked')),
+  "Quiz leaves a leading digit and spaces literal in the selector (not CSS.escape'd)"
+);
+assert(
+  !plainNameSelectors.some((sel) => /\\3[0-9] /.test(sel)),
+  "Quiz selector carries no identifier-style numeric escape"
+);
+assert(
+  resultsContainer.innerHTML.includes("Sweet Dreams Sleep Salve"),
+  "Quiz still scores a question whose name has a space and a leading digit"
+);
+elementsById.set("apothecary-quiz-section", quizSection);
 
 /* ---------- Event JSON-LD: the static copy must equal the runtime one ----------
    scripts/build-site-data.js writes an Event block into events.html at build
@@ -2674,6 +2902,63 @@ eq(
     failGrid.innerHTML.includes("Test shea butter"),
     true,
     "renderUgcFeed: renders fallback post caption on error"
+  );
+
+  // 5. A Behold permalink is a third-party value: only an https instagram.com
+  //    URL earns a "View Post" link. Protocol-relative and foreign hosts get
+  //    the card with no anchor at all.
+  const hostGrid = createMockElement("div");
+  const hostSection = createMockElement("section");
+  hostSection.style = { display: "none" };
+  global.fetch = function () {
+    return Promise.resolve({
+      ok: true,
+      json: function () {
+        return Promise.resolve({
+          username: "yallternativeliving",
+          posts: [
+            {
+              id: "host-proto",
+              permalink: "//evil.example/x",
+              sizes: { medium: { mediaUrl: "https://behold.pictures/proto.webp" } },
+              caption: "Protocol-relative permalink"
+            },
+            {
+              id: "host-foreign",
+              permalink: "https://evil.example/x",
+              sizes: { medium: { mediaUrl: "https://behold.pictures/foreign.webp" } },
+              caption: "Foreign host permalink"
+            },
+            {
+              id: "host-ok",
+              permalink: "https://www.instagram.com/p/abc/",
+              sizes: { medium: { mediaUrl: "https://behold.pictures/ok.webp" } },
+              caption: "Instagram permalink"
+            }
+          ]
+        });
+      }
+    });
+  };
+  main.renderUgcFeed(hostGrid, hostSection);
+  await new Promise((r) => setTimeout(r, 20));
+
+  const hostCards = hostGrid.innerHTML.split('<div class="ugc-card reveal"').length - 1;
+  eq(hostCards, 3, "renderUgcFeed: every Behold post still renders a card");
+  eq(
+    hostGrid.innerHTML.includes("evil.example"),
+    false,
+    "renderUgcFeed: a protocol-relative or foreign-host permalink is dropped"
+  );
+  eq(
+    hostGrid.innerHTML.split("View Post").length - 1,
+    1,
+    "renderUgcFeed: only the instagram.com post gets a View Post link"
+  );
+  eq(
+    hostGrid.innerHTML.includes('href="https://www.instagram.com/p/abc/"'),
+    true,
+    "renderUgcFeed: an https instagram.com permalink keeps its View Post link"
   );
 
   global.fetch = origFetch;

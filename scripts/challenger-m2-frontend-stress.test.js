@@ -989,8 +989,8 @@ function setupAnnouncementDOM(hasCountdownTicker = false) {
   assert(seg !== null, "Countdown ticker contains .announcement-segment child");
   const linkInSeg = seg.querySelector("a");
   assert(
-    linkInSeg !== null && linkInSeg.href === "shop.html",
-    "Segment contains linked announcement text"
+    linkInSeg !== null && linkInSeg.href === "/shop.html",
+    "Segment contains linked announcement text (root-absolutized by rootAbsLink)"
   );
   assert(
     ticker.querySelector(".announcement-sep") !== null,
