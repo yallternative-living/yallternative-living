@@ -64,6 +64,26 @@
   translate: 0 0;
   visibility: visible;
   box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+
+  /* `visibility` is deliberately ABSENT from this transition list, and that
+     omission is the whole fix for a dead keyboard path. A transition starts
+     at progress 0, and visibility interpolates to its from-value there --
+     `hidden` -- so for the first frame after showPopover() the panel and
+     every control in it still computed to visibility:hidden, and Chromium
+     will not move focus into a hidden subtree. openDrawer()'s
+     `.yl-cart-close` focus() was therefore a silent no-op: the drawer
+     appeared, announced itself `aria-modal="true"`, and left focus out on
+     .cart-toggle (measured on the live site 2026-09-16 --
+     `drawerVis: "hidden"` at the instant focus() ran, `"visible"` 600ms
+     later). Transitions read the property list off the AFTER-change style,
+     so leaving visibility out here makes the open state apply immediately,
+     while closing falls back to the base rule -- which still carries
+     `visibility 0.32s` and so holds the panel visible for the whole
+     slide-out. Do not "tidy" this by re-inheriting the base list. */
+  transition:
+    translate 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    overlay 0.32s allow-discrete,
+    display 0.32s allow-discrete;
 }
 @starting-style {
   .yl-cart-drawer:popover-open {
@@ -94,10 +114,20 @@
   z-index: 9999;
   visibility: visible;
   box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+
+  /* Same omission, same reason, for the no-Popover-API path. */
+  transition:
+    translate 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    overlay 0.32s allow-discrete,
+    display 0.32s allow-discrete;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The open-state rules above out-specify a bare `.yl-cart-drawer`, so they
+     have to be named here too or the slide plays anyway. */
   .yl-cart-drawer,
+  .yl-cart-drawer:popover-open,
+  .yl-cart-drawer[data-open="true"],
   .yl-cart-drawer::backdrop {
     transition: none;
   }
