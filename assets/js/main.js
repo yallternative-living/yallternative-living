@@ -7873,6 +7873,32 @@
     try {
       var searchParams = new URLSearchParams(window.location.search);
       var urlConcern = searchParams.get("vibe") || searchParams.get("concern");
+      /* `vibe` means two different things. The shop's own filter uses the
+         catalog's concern ids (sleep-relaxation, dry-skin, ...), but the
+         apothecary quiz's FIRST QUESTION is also called `vibe`, with its own
+         vocabulary (gothic-calm, ritual-rest, ...). A link built from a quiz
+         answer therefore matched nothing and silently showed the whole
+         catalog (live audit, 2026-09-16).
+         Each quiz vibe now carries `shopConcern` in quiz.json naming the
+         shelf it opens, so the shop can honour both vocabularies. It is CMS
+         data, not a table in here, so the shop owner can retarget a vibe
+         without a developer; an unknown or misspelled value simply falls
+         through to the old no-op rather than filtering to the wrong shelf. */
+      if (urlConcern) {
+        var quizForVibe = (window.YL_CONTENT && window.YL_CONTENT.quiz) || null;
+        var vibeQuestions = (quizForVibe && quizForVibe.questions) || [];
+        for (var vq = 0; vq < vibeQuestions.length; vq++) {
+          var vibeOpts = (vibeQuestions[vq] && vibeQuestions[vq].options) || [];
+          for (var vo = 0; vo < vibeOpts.length; vo++) {
+            var vibeOpt = vibeOpts[vo] || {};
+            if (vibeOpt.value === urlConcern && typeof vibeOpt.shopConcern === "string") {
+              urlConcern = vibeOpt.shopConcern;
+              vq = vibeQuestions.length;
+              break;
+            }
+          }
+        }
+      }
       if (
         urlConcern &&
         concerns.some(function (c) {
