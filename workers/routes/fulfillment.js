@@ -5,28 +5,31 @@
  * the Stripe Dashboard would. The hourly ship-notice sweep then emails the
  * customer and merges the status into D1 (routes/ship-notice.js).
  *
- * AUTH: one shared password (`ADMIN_PASSWORD`, a Worker Secret) sent as
- * `Authorization: Bearer <password>`. Two things protect that password:
+ * AUTH: the owner's own GitHub sign-in -- the same one Sveltia CMS already
+ * uses at /admin/. The dashboard reads the token Sveltia stored
+ * (localStorage `sveltia-cms.user`, field `token`) and sends it as
+ * `Authorization: Bearer <gho_...>`; this Worker asks GitHub who that token
+ * belongs to and whether they may push to the shop's repository.
  *
- *   - Every request to either route is counted in ONE GLOBAL bucket before
- *     the password is looked at. Not per client IP: this Worker is reachable
- *     directly on its workers.dev hostname, and there a caller picks the
- *     bucket by rotating X-Forwarded-For (routes/http.js clientIp() says so,
- *     and says that is fine only where nothing is authorised by it -- a
- *     password check is exactly the case it excludes). There is one owner,
- *     so one shared budget costs her nothing and gives a guesser the same
- *     ceiling whichever hostname or header he uses. The counter runs on
- *     every request, not only on failures, so it cannot be dodged.
- *   - The compare is constant-time over SHA-256 digests, so neither the
- *     length of the secret nor the position of the first wrong byte leaks
- *     through response timing.
+ * There is NO shared password. There used to be (`ADMIN_PASSWORD`), and a
+ * shared secret on a public endpoint is guessable no matter how carefully it
+ * is compared -- so it is gone rather than kept as a fallback, because a
+ * fallback would have been the weakest link and the only one worth attacking.
  *
- * The limiter FAILS CLOSED here (503), unlike every shopper-facing one: a
- * counter that cannot count must not turn into unlimited guessing. The
- * owner waits a minute; a guesser gets nothing.
+ * Why `GET /repos/{owner}/{repo}` and `permissions.push`: the repository is
+ * PUBLIC, so any signed-in stranger's token also gets a 200 from that call --
+ * with `permissions.push === false`. The push bit, not the status code, is
+ * what separates the shop's owner from the rest of GitHub. One call, and the
+ * `public_repo` scope the CMS already asks for covers it.
  *
- * With `ADMIN_PASSWORD` unset both routes answer 401 for every caller: an
- * unset secret must never mean "no password required".
+ * Every request is still counted in ONE GLOBAL bucket, but the limiter is no
+ * longer the security boundary: a `gho_` token is not something you guess, so
+ * the bucket exists to cap what an anonymous caller can cost us in GitHub API
+ * calls and Worker time. It therefore fails OPEN, like every shopper-facing
+ * limiter here -- locking the owner out of shipping to protect a credential
+ * that cannot be brute-forced would be the wrong trade. Tokens that do not
+ * even look like GitHub tokens are refused before any network call, and both
+ * verdicts are cached briefly, so a flood costs GitHub nothing.
  */
 
 import { json, ClientError, readJson } from "./http.js";
@@ -39,12 +42,33 @@ import { safeUrl } from "../state/stripe-orders.js";
 /**
  * Requests per minute across BOTH admin routes together, all callers in one
  * bucket. Thirty covers a Saturday after a market (one page load plus a
- * "Mark Shipped" click per order) and caps a guesser at 30 tries a minute
- * from the whole internet combined. The bucket key is a constant on purpose;
- * see the file header for why it is not the client IP.
+ * "Mark Shipped" click per order). The key is a constant on purpose: on the
+ * workers.dev hostname a caller picks its own X-Forwarded-For, so a per-IP
+ * bucket would be per-attacker-string (routes/http.js clientIp()).
  */
 export const ADMIN_AUTH_RATE_LIMIT = { limit: 30, period: 60 };
 const ADMIN_AUTH_RATE_KEY = "admin-auth";
+
+/** The repository whose push access grants the dashboard. Overridable per env. */
+const DEFAULT_GITHUB_REPO = "yallternative-living/yallternative-living";
+
+/**
+ * GitHub token shapes (docs: "about authentication to GitHub"). `gho_` is what
+ * the CMS OAuth flow mints; the others are accepted so a maintainer can use a
+ * personal access token by hand. Anything else never reaches api.github.com.
+ */
+const GITHUB_TOKEN_RE = /^(?:gho|ghp|ghu|ghs|github_pat)_[A-Za-z0-9_]{20,255}$/;
+
+/** How long a verified (or rejected) token is trusted without asking GitHub again. */
+const TOKEN_CACHE_MS = 5 * 60 * 1000;
+
+/**
+ * token digest -> { ok, login, expires }. Per-isolate and therefore
+ * best-effort: a cold isolate just asks GitHub again. It exists so one
+ * dashboard session (a list plus a dozen "Mark Shipped" clicks) costs a
+ * single API call, and so a flood of the same bad token costs none.
+ */
+const tokenCache = new Map();
 
 /**
  * What the dashboard may write as `fulfillment_status`: the words the
@@ -61,63 +85,111 @@ const TRACKING_URL_MAX = 500;
 
 const encoder = new TextEncoder();
 
-async function sha256(value) {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Byte-for-byte compare that never exits early. Both inputs are 32-byte digests. */
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-  return diff === 0;
-}
-
-/**
- * Password check for the admin routes. Expects `Authorization: Bearer <ADMIN_PASSWORD>`.
- * Fails closed when the secret is unset or the token is empty.
- * @returns {Promise<boolean>}
- */
-async function verifyAdminAuth(request, env) {
-  const secret = env && typeof env.ADMIN_PASSWORD === "string" ? env.ADMIN_PASSWORD : "";
-  if (!secret) return false;
+function bearerToken(request) {
   const auth = request.headers.get("Authorization") || "";
-  const token = auth.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return false;
-  const [expected, provided] = await Promise.all([sha256(secret), sha256(token)]);
-  return timingSafeEqual(expected, provided);
+  return auth.replace(/^Bearer\s+/i, "").trim();
+}
+
+function repoOf(env) {
+  return (
+    (env && typeof env.GITHUB_REPO === "string" && env.GITHUB_REPO.trim()) || DEFAULT_GITHUB_REPO
+  );
 }
 
 /**
- * The limiter, then the password. Returns a Response to send when the caller
- * is refused, or null when they may proceed. 429 when the shared budget is
- * spent; 503 when the counter itself cannot answer (fail closed).
+ * Ask GitHub whether this token may push to the shop's repository.
+ *
+ * @returns {Promise<{ok: boolean, status: number, login: string}>}
+ *   `ok` true only when GitHub reports push access. `status` is what the
+ *   caller should answer: 401 for a token GitHub will not accept, 403 for a
+ *   real account without push, 503 when GitHub itself could not be reached.
+ */
+async function verifyGitHubPush(token, env) {
+  const res = await fetch(`https://api.github.com/repos/${repoOf(env)}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      // api.github.com rejects a request with no User-Agent outright.
+      "User-Agent": "yallternative-fulfillment"
+    }
+  });
+  if (res.status === 401) return { ok: false, status: 401, login: "" };
+  if (!res.ok) {
+    // 403 here is OUR problem (rate limit, bad User-Agent), not the caller's
+    // permissions -- a stranger's token gets 200 with push:false instead.
+    console.error(`fulfillment: GitHub refused the permission check (${res.status})`);
+    return { ok: false, status: res.status === 404 ? 401 : 503, login: "" };
+  }
+  const body = await res.json().catch(() => null);
+  const perms = body && body.permissions;
+  const login = (body && body.owner && body.owner.login) || "";
+  // Defensive: absent `permissions` is treated as no permission, never as yes.
+  if (!perms || perms.push !== true) return { ok: false, status: 403, login };
+  return { ok: true, status: 200, login };
+}
+
+/**
+ * The bearer token, checked for shape, then against GitHub, then cached.
+ * @returns {Promise<{ok: boolean, status: number}>}
+ */
+async function verifyAdminAuth(request, env, now = Date.now()) {
+  const token = bearerToken(request);
+  if (!token || !GITHUB_TOKEN_RE.test(token)) return { ok: false, status: 401 };
+
+  const key = await sha256Hex(token);
+  const hit = tokenCache.get(key);
+  if (hit && hit.expires > now) return { ok: hit.ok, status: hit.status };
+
+  const result = await verifyGitHubPush(token, env);
+  // A 503 is about GitHub, not about this token, so it is never cached.
+  if (result.status !== 503) {
+    tokenCache.set(key, { ok: result.ok, status: result.status, expires: now + TOKEN_CACHE_MS });
+    if (tokenCache.size > 64) {
+      for (const [k, v] of tokenCache) if (v.expires <= now) tokenCache.delete(k);
+    }
+  }
+  return { ok: result.ok, status: result.status };
+}
+
+/**
+ * The limiter, then the GitHub check. Returns a Response to send when the
+ * caller is refused, or null when they may proceed.
  */
 async function gate(request, env, origin) {
-  const result = await checkRateLimit(env, ADMIN_AUTH_RATE_KEY, {
+  const limit = await checkRateLimit(env, ADMIN_AUTH_RATE_KEY, {
     ...ADMIN_AUTH_RATE_LIMIT,
-    failOpen: false
+    // Fails OPEN: the credential is a GitHub token, not a guessable secret,
+    // so this bucket is cost control and must not lock the owner out.
+    failOpen: true
   });
-  if (!result.success) {
-    if (result.source === "none" || result.source === "error") {
-      return json(
-        { error: "The admin rate limiter is unavailable. Try again in a minute." },
-        503,
-        origin,
-        env
-      );
-    }
+  if (!limit.success) {
     return json(
-      { error: "Too many attempts. Please wait a minute and try again." },
+      { error: "Too many requests. Please wait a minute and try again." },
       429,
       origin,
       env
     );
   }
-  if (!(await verifyAdminAuth(request, env))) {
-    return json({ error: "Unauthorized" }, 401, origin, env);
+  const auth = await verifyAdminAuth(request, env);
+  if (auth.ok) return null;
+  if (auth.status === 403) {
+    return json(
+      { error: "That GitHub account cannot manage this shop's orders." },
+      403,
+      origin,
+      env
+    );
   }
-  return null;
+  if (auth.status === 503) {
+    return json({ error: "Could not reach GitHub to check your sign-in." }, 503, origin, env);
+  }
+  return json({ error: "Sign in to the CMS with GitHub first." }, 401, origin, env);
 }
 
 /**

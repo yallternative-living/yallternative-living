@@ -83,6 +83,15 @@ SITE_ORIGIN = "https://yallternativeliving.com"
 # the build when the two disagree.
 UMAMI_WEBSITE_ID = "a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb"
 
+# Who may use the fulfilment dashboard: anyone with PUSH access to this
+# repository, checked live against GitHub on every request
+# (routes/fulfillment.js). Not a secret -- it is the public repo the site is
+# built from. The repository being public is exactly why the check reads
+# `permissions.push` and not merely a 200: a signed-in stranger can read it
+# too. Rename the repo and this must change with it, or the dashboard locks
+# everyone out (401/403), which is the safe direction to fail.
+GITHUB_REPO = "yallternative-living/yallternative-living"
+
 # --- The market register (Square) --------------------------------------------
 # workers/routes/square-webhook.js makes the Square POS a second writer to the
 # inventory ledger: a sale rung up at a market counts the same shelf down that
@@ -193,17 +202,18 @@ crons = ["7 * * * *"]
 #
 # Secrets, set in the dashboard or with `npx wrangler secret put NAME`, never as
 # [vars] entries: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY,
-# MAGIC_LINK_SECRET, ADMIN_PASSWORD. MAGIC_LINK_SECRET signs the unsubscribe and
-# points links; with it unset the Worker sends NO marketing email at all, which
-# is the intended behaviour rather than a bug -- an email with no working
-# opt-out link is worse than an unsent one. ADMIN_PASSWORD is the one shared
-# password behind the owner's fulfilment dashboard (routes/fulfillment.js:
-# GET /api/unfulfilled-orders, POST /api/fulfill-order); with it unset both
-# routes answer 401 to everyone. Pick something long and random -- the routes
-# share one global budget of 30 requests per minute (not per IP: the
-# workers.dev route lets a caller pick its own X-Forwarded-For bucket), fail
-# CLOSED when the counter is unavailable, and are compared in constant time,
-# but neither is a substitute for a strong secret.
+# MAGIC_LINK_SECRET. It signs the unsubscribe and points links; with it unset
+# the Worker sends NO marketing email at all, which is the intended behaviour
+# rather than a bug -- an email with no working opt-out link is worse than an
+# unsent one.
+#
+# The fulfilment dashboard needs NO secret. It used to take a shared
+# ADMIN_PASSWORD; that is deleted, not retired to a fallback, because a shared
+# password on a public endpoint is guessable however carefully it is compared.
+# The dashboard now sends the owner's own GitHub token (the one Sveltia CMS
+# already holds) and routes/fulfillment.js asks GitHub whether that account may
+# push to the GITHUB_REPO var above. If ADMIN_PASSWORD is still set in the
+# Cloudflare dashboard from before, delete it there: nothing reads it now.
 #
 # See workers/README.md for the full deploy checklist and docs/STATE-LAYER.md
 # for the architecture.

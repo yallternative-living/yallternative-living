@@ -40,15 +40,6 @@
       gap: 1rem;
       align-items: center;
     }
-    .header-actions button {
-      background: #fff;
-      color: #333;
-      border: 1px solid #c4cdd5;
-      padding: 0.35rem 0.75rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
     .container {
       max-width: 1000px;
       margin: 2rem auto;
@@ -154,7 +145,6 @@
     <h1>Fulfillment Dashboard</h1>
     <div class="header-actions">
       <a href="/admin/">&larr; Back to CMS</a>
-      <button type="button" id="lock-btn" title="Forget the password and reload">Lock</button>
     </div>
   </div>
 
@@ -162,10 +152,16 @@
     <div class="empty-state">Loading unfulfilled orders...</div>
   </div>
 
-  <!-- The dashboard logic lives in fulfillment.js, not inline: the /admin/*
-       CSP is script-src 'self' with no hash, so an inline script (or an
-       inline on-click handler attribute) is blocked in production. Same-origin files are
-       allowed. See the header comment in fulfillment.js. -->
+  <!-- Signing in is the CMS's GitHub sign-in, not a password: fulfillment.js
+       reuses the GitHub token Sveltia CMS stored at /admin/, and the Worker
+       checks it with GitHub before answering. Nothing is typed in here and
+       nothing is stored by this page. If she is signed out, the panel above
+       says so and links back to /admin/.
+
+       That logic lives in fulfillment.js, not inline: the /admin/* CSP is
+       script-src 'self' with no hash, so an inline script (or an inline
+       on-click handler attribute) is blocked in production. Same-origin files
+       are allowed. See the header comment in fulfillment.js. -->
   <script src="fulfillment.js" defer></script>
 </body>
 </html>

@@ -10,11 +10,17 @@
  * blocked outright in production, and so is any inline on-click attribute. Every
  * handler here is attached with addEventListener for the same reason.
  *
- * THE PASSWORD NEVER TOUCHES STORAGE. It is asked for on every page load and
- * kept in a closure variable for the life of the page only. An earlier
- * version stashed it in web storage (session-scoped) on the public site origin, where any
- * script injection anywhere on the storefront could have read it back
- * (2026-09-16 audit). The "Lock" button drops it and reloads, which re-prompts.
+ * AUTH IS THE CMS SIGN-IN -- THERE IS NO DASHBOARD PASSWORD ANY MORE. The
+ * shared password was deleted outright on 2026-09-16 (no fallback: a fallback
+ * password would keep exactly the weakness being removed). Instead this page
+ * reuses the GitHub token Sveltia CMS already stored when the owner signed in
+ * at /admin/, and the Worker verifies that token with GitHub and requires push
+ * access to the shop repository before it answers. See readGitHubToken() for
+ * where the token comes from. Nothing on this page ever WRITES to storage; that
+ * one read is the only storage access here.
+ *
+ * Every request goes to same-origin /api/* only, so the /admin/* CSP needs no
+ * connect-src change.
  *
  * Everything the Worker returns is rendered through escapeHtml() before it
  * is put into innerHTML -- order emails, product names and variants are all
@@ -24,14 +30,43 @@
   "use strict";
 
   var container = document.getElementById("app");
-  var lockButton = document.getElementById("lock-btn");
   if (!container) return;
 
-  var adminPassword = "";
+  /** Where Sveltia CMS keeps the signed-in user. See readGitHubToken(). */
+  var USER_STORAGE_KEY = "sveltia-cms.user";
+
+  var SIGN_IN_LINK = '<a href="/admin/">Sign in to the CMS</a>';
+
+  var LOADING_STATE = '<div class="empty-state">Loading unfulfilled orders...</div>';
 
   var EMPTY_STATE =
     '<div class="empty-state"><h3>All caught up!</h3>' +
     "<p>There are no orders waiting to be fulfilled.</p></div>";
+
+  // Plain-English copy: a shop owner reads this page, not a developer. The
+  // Worker's own {error} text is developer-facing, so these replace it for the
+  // statuses we understand (401 / 403 / 429).
+  var SIGNED_OUT_HEADING = "You are signed out";
+  var SIGNED_OUT_TEXT =
+    "This dashboard uses the same GitHub sign-in as the CMS. " +
+    "Sign in there, then come back to this page.";
+
+  var EXPIRED_HEADING = "Your sign-in has expired";
+  var EXPIRED_TEXT =
+    "Your GitHub sign-in has expired or you have been signed out. " +
+    "Sign in to the CMS again, then come back to this page.";
+
+  var NO_ACCESS_HEADING = "This account cannot manage orders";
+  var NO_ACCESS_TEXT =
+    "This GitHub account does not have permission to manage this shop's orders. " +
+    "Sign in with the GitHub account that owns the shop, then try again.";
+
+  var BUSY_TEXT = "That was a lot of requests at once. Wait about a minute, then try again.";
+
+  var GENERIC_TEXT = "Something went wrong. Please try again.";
+
+  /** Alerts cannot hold a link, so the address is spelled out instead. */
+  var CMS_ADDRESS_HINT = " The CMS sign-in is at /admin/ on this site.";
 
   function escapeHtml(str) {
     return String(str)
@@ -42,8 +77,52 @@
       .replace(/'/g, "&#039;");
   }
 
-  function authHeaders(extra) {
-    var headers = { Authorization: "Bearer " + adminPassword };
+  /**
+   * The GitHub token Sveltia CMS stored when the owner signed in at /admin/.
+   *
+   * Sveltia keeps the signed-in user in localStorage under the key
+   * "sveltia-cms.user", as JSON: {backendName, id, name, login, email,
+   * avatarURL, profileURL, bot, token}. The GitHub token is a bare string at
+   * the top level (`.token`, a gho_... value). localStorage is origin-scoped
+   * and not path-scoped, so /admin/fulfillment.html reads what
+   * /admin/index.html wrote.
+   *
+   * The quirk that shapes the check below: signing OUT does not remove the key,
+   * it overwrites it with the literal `{}`. That parses perfectly well and
+   * yields an object with NO `token`, so "did it parse?" is the wrong question
+   * -- the token itself has to be a non-empty string. Never signed in at all
+   * and getItem returns null; in private mode or with site data blocked the
+   * read itself throws, hence the try/catch.
+   *
+   * @returns {string|null} the token, or null whenever there is not a usable one
+   */
+  function readGitHubToken() {
+    var raw;
+    try {
+      raw = window.localStorage.getItem(USER_STORAGE_KEY);
+    } catch (e) {
+      return null;
+    }
+    if (!raw) return null;
+
+    var user;
+    try {
+      user = JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+    if (!user || typeof user.token !== "string" || !user.token) return null;
+    return user.token;
+  }
+
+  /**
+   * Builds the request headers. The token is read at CALL time, not once at
+   * load time, so signing in from another tab is picked up by the next action
+   * here without reloading this page.
+   */
+  function getAuthHeaders(extra) {
+    var token = readGitHubToken();
+    var headers = { Authorization: "Bearer " + (token || "") };
     if (extra) {
       Object.keys(extra).forEach(function (key) {
         headers[key] = extra[key];
@@ -52,25 +131,36 @@
     return headers;
   }
 
+  function wireRetry(handler) {
+    var retry = document.getElementById("retry-btn");
+    if (retry) retry.addEventListener("click", handler);
+  }
+
+  /**
+   * The signed-out / wrong-account state: an explanation, the CMS sign-in link
+   * and a button that re-runs the load once she has signed in.
+   */
+  function showSignInNeeded(heading, message) {
+    container.innerHTML =
+      '<div class="empty-state"><h3>' +
+      escapeHtml(heading) +
+      "</h3><p>" +
+      escapeHtml(message) +
+      "</p><p>" +
+      SIGN_IN_LINK +
+      '</p><p><button type="button" id="retry-btn" class="btn-retry">Check again</button></p></div>';
+    wireRetry(start);
+  }
+
   function showError(message) {
     container.innerHTML =
       '<div class="error-msg">Error: ' +
       escapeHtml(message) +
       ' <button type="button" id="retry-btn" class="btn-retry">Retry</button></div>';
-    var retry = document.getElementById("retry-btn");
-    if (retry) {
-      retry.addEventListener("click", function () {
-        window.location.reload();
-      });
-    }
+    wireRetry(start);
   }
 
-  function lock() {
-    adminPassword = "";
-    window.location.reload();
-  }
-
-  /** Reads the Worker's `{error}` body, falling back to a generic line. */
+  /** Reads the Worker's `{error}` body, keeping the status for the copy below. */
   function errorFrom(res) {
     return res
       .json()
@@ -80,8 +170,39 @@
       .then(function (data) {
         var message =
           data && data.error ? String(data.error) : "Request failed (" + res.status + ")";
-        return new Error(message);
+        var err = new Error(message);
+        err.status = res.status;
+        return err;
       });
+  }
+
+  /**
+   * Renders whatever went wrong. 401 (no/expired/rejected token) and 403 (valid
+   * token, but no push access to the shop repo) get the sign-in state; 429 and
+   * everything else (503 included) get the error box with Retry. Every branch
+   * paints something -- leaving "Loading unfulfilled orders..." on screen for
+   * ever would be the bug.
+   */
+  function showFailure(err) {
+    var status = err && err.status;
+    if (status === 401) {
+      showSignInNeeded(EXPIRED_HEADING, EXPIRED_TEXT);
+    } else if (status === 403) {
+      showSignInNeeded(NO_ACCESS_HEADING, NO_ACCESS_TEXT);
+    } else if (status === 429) {
+      showError(BUSY_TEXT);
+    } else {
+      showError(err && err.message ? err.message : GENERIC_TEXT);
+    }
+  }
+
+  /** The same mapping, worded for the alert a failed "Mark Shipped" raises. */
+  function failureMessage(err) {
+    var status = err && err.status;
+    if (status === 401) return EXPIRED_TEXT + CMS_ADDRESS_HINT;
+    if (status === 403) return NO_ACCESS_TEXT + CMS_ADDRESS_HINT;
+    if (status === 429) return BUSY_TEXT;
+    return err && err.message ? err.message : GENERIC_TEXT;
   }
 
   function itemsHtml(order) {
@@ -164,7 +285,7 @@
 
     fetch("/api/fulfill-order", {
       method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json" }),
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         payment_intent: paymentIntent,
         tracking_url: tracking,
@@ -185,14 +306,16 @@
         }, 300);
       })
       .catch(function (err) {
-        window.alert(err && err.message ? err.message : "Failed to update order");
+        // Never fail silently: a 401 or 403 has to reach her in words, not just
+        // leave the button stuck on "Saving...".
+        window.alert(failureMessage(err));
         button.disabled = false;
         button.textContent = "Mark Shipped";
       });
   }
 
   function loadOrders() {
-    fetch("/api/unfulfilled-orders", { headers: authHeaders() })
+    fetch("/api/unfulfilled-orders", { headers: getAuthHeaders() })
       .then(function (res) {
         if (!res.ok) {
           return errorFrom(res).then(function (err) {
@@ -212,21 +335,22 @@
           container.appendChild(renderOrder(order));
         });
       })
-      .catch(function (err) {
-        showError(err && err.message ? err.message : "Failed to load orders");
-      });
+      .catch(showFailure);
   }
 
-  if (lockButton) lockButton.addEventListener("click", lock);
-
-  var entered = window.prompt("Please enter the fulfillment admin password:");
-  if (!entered) {
-    container.innerHTML =
-      '<div class="error-msg">Authentication required to view the fulfillment dashboard. ' +
-      "Reload the page to try again.</div>";
-    return;
+  /**
+   * Entry point, and what "Check again" / "Retry" re-run. No token means no
+   * request at all -- just the sign-in state, so a signed-out visit never sits
+   * on the loading line.
+   */
+  function start() {
+    if (!readGitHubToken()) {
+      showSignInNeeded(SIGNED_OUT_HEADING, SIGNED_OUT_TEXT);
+      return;
+    }
+    container.innerHTML = LOADING_STATE;
+    loadOrders();
   }
-  adminPassword = entered;
-  entered = "";
-  loadOrders();
+
+  start();
 })();

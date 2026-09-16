@@ -81,7 +81,49 @@ function request(headers, body) {
 }
 
 const ORIGIN = "https://example.com";
-const AUTH = [["Authorization", "Bearer secret_admin_pw"]];
+// A push-capable owner token, a signed-in stranger, and one GitHub rejects.
+const OWNER_TOKEN = "gho_ownerTokenAAAAAAAAAAAAAAAAAAAAAAAA";
+const STRANGER_TOKEN = "gho_strangerTokenAAAAAAAAAAAAAAAAAAAA";
+const REVOKED_TOKEN = "gho_revokedTokenAAAAAAAAAAAAAAAAAAAAA";
+const AUTH = [["Authorization", "Bearer " + OWNER_TOKEN]];
+const STRANGER_AUTH = [["Authorization", "Bearer " + STRANGER_TOKEN]];
+
+/**
+ * Stands in for api.github.com. Records each call so a test can prove the
+ * Worker asked (or did not ask), and answers the three cases that matter:
+ * push access, a read-only stranger on this PUBLIC repo (200 + push:false),
+ * and a token GitHub refuses (401).
+ */
+function installGitHubStub(state) {
+  const realFetch = global.fetch;
+  global.fetch = async (url, options) => {
+    const href = String(url);
+    if (href.startsWith("https://api.github.com/")) {
+      state.calls.push({ url: href, options });
+      if (state.fail) return { ok: false, status: state.fail, json: async () => ({}) };
+      const token = String((options && options.headers && options.headers.Authorization) || "");
+      if (token.includes(REVOKED_TOKEN)) {
+        return { ok: false, status: 401, json: async () => ({ message: "Bad credentials" }) };
+      }
+      if (token.includes(STRANGER_TOKEN)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ permissions: { admin: false, push: false, pull: true } })
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ permissions: { admin: true, push: true, pull: true } })
+      };
+    }
+    return realFetch(url, options);
+  };
+  return () => {
+    global.fetch = realFetch;
+  };
+}
 
 async function main() {
   const { ensureSchema } = await import("file://" + process.cwd() + "/workers/state/migrations.js");
@@ -99,7 +141,6 @@ async function main() {
   const env = {
     STATE_DB: db,
     STRIPE_SECRET_KEY: "sk_test_mock",
-    ADMIN_PASSWORD: "secret_admin_pw",
     // The admin gate fails CLOSED without a counter, so the baseline env
     // carries a permissive one; the fail-closed case is tested on its own.
     RATE_LIMITER: makeLimiter()
@@ -140,39 +181,119 @@ async function main() {
   );
 
   /* ------------------------------------------------ GET /api/unfulfilled-orders: auth */
+  const gh = { calls: [], fail: 0 };
+  // Left installed for the whole run on purpose: the Stripe section below
+  // captures this as its fall-through, so GitHub verification keeps working
+  // there instead of depending on the token cache still being warm.
+  installGitHubStub(gh);
+
   let unauthRes = await handleUnfulfilledOrders(request(), env, ORIGIN);
   assert(unauthRes.status === 401, "unfulfilled-orders rejects missing auth");
+  assert(gh.calls.length === 0, "a missing token never reaches GitHub");
 
-  let wrongRes = await handleUnfulfilledOrders(
-    request([["Authorization", "Bearer wrong_password"]]),
+  // Anything that is not shaped like a GitHub token is refused locally, so a
+  // flood of junk costs no API calls.
+  for (const junk of ["wrong_password", "", "   ", "gho_short", "Basic gho_xxxx", "undefined"]) {
+    const res = await handleUnfulfilledOrders(
+      request([["Authorization", "Bearer " + junk]]),
+      env,
+      ORIGIN
+    );
+    assert(res.status === 401, `a malformed token (${JSON.stringify(junk)}) is refused`);
+  }
+  assert(gh.calls.length === 0, "no malformed token reached GitHub");
+
+  const revokedRes = await handleUnfulfilledOrders(
+    request([["Authorization", "Bearer " + REVOKED_TOKEN]]),
     env,
     ORIGIN
   );
-  assert(wrongRes.status === 401, "unfulfilled-orders rejects a wrong password");
+  assert(revokedRes.status === 401, "a token GitHub refuses (401) is refused");
 
-  let emptyRes = await handleUnfulfilledOrders(
-    request([["Authorization", "Bearer "]]),
-    env,
-    ORIGIN
-  );
-  assert(emptyRes.status === 401, "unfulfilled-orders rejects an empty bearer token");
+  // The repo is public, so a stranger's token also gets a 200 from GitHub --
+  // with push:false. That, not the status code, is the boundary.
+  const strangerRes = await handleUnfulfilledOrders(request(STRANGER_AUTH), env, ORIGIN);
+  assert(strangerRes.status === 403, "a signed-in stranger without push access gets 403");
+  const strangerBody = await strangerRes.json();
+  assert(typeof strangerBody.error === "string", "403 carries the usual {error} shape");
 
-  let unsetRes = await handleUnfulfilledOrders(
-    request([["Authorization", "Bearer "]]),
-    { ...env, ADMIN_PASSWORD: undefined },
-    ORIGIN
-  );
-  assert(unsetRes.status === 401, "ADMIN_PASSWORD unset: empty token is still refused");
+  // Absent `permissions` must never be read as permission.
+  {
+    const noPerms = { calls: [], fail: 0 };
+    const restoreNoPerms = installGitHubStub(noPerms);
+    global.fetch = async (url) =>
+      String(url).startsWith("https://api.github.com/")
+        ? { ok: true, status: 200, json: async () => ({ name: "repo" }) }
+        : { ok: false, status: 500, json: async () => ({}) };
+    const res = await handleUnfulfilledOrders(
+      request([["Authorization", "Bearer gho_noPermsTokenAAAAAAAAAAAAAAAAAAA"]]),
+      env,
+      ORIGIN
+    );
+    assert(res.status === 403, "a response with no permissions object is refused");
+    restoreNoPerms();
+  }
 
-  let unsetMatchRes = await handleUnfulfilledOrders(
-    request([["Authorization", "Bearer undefined"]]),
-    { ...env, ADMIN_PASSWORD: undefined },
-    ORIGIN
-  );
-  assert(
-    unsetMatchRes.status === 401,
-    "ADMIN_PASSWORD unset: a token that stringifies the same is refused"
-  );
+  // GitHub itself unreachable is a 503 about us, not a verdict on the token.
+  {
+    const down = { calls: [], fail: 500 };
+    const restoreDown = installGitHubStub(down);
+    const res = await handleUnfulfilledOrders(
+      request([["Authorization", "Bearer gho_ghDownTokenAAAAAAAAAAAAAAAAAAAA"]]),
+      env,
+      ORIGIN
+    );
+    assert(res.status === 503, "GitHub being unreachable answers 503, not 200");
+    restoreDown();
+  }
+
+  // The verified token is cached: a second call asks GitHub nothing more.
+  {
+    gh.calls.length = 0;
+    await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
+    const afterFirst = gh.calls.length;
+    await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
+    assert(afterFirst === 1, "the first verification calls GitHub once");
+    assert(
+      gh.calls.length === 1,
+      "a repeat request inside the cache window calls GitHub again 0 times"
+    );
+    const call = gh.calls[0];
+    assert(
+      call.url === "https://api.github.com/repos/yallternative-living/yallternative-living",
+      "verification reads the configured repo"
+    );
+    assert(
+      call.options.headers["User-Agent"] && call.options.headers.Accept,
+      "the GitHub call sends a User-Agent (api.github.com rejects requests without one) and Accept"
+    );
+    assert(
+      call.options.headers.Authorization === "Bearer " + OWNER_TOKEN,
+      "the caller's own token is what GitHub is asked about"
+    );
+  }
+
+  // A rejected token is cached too, so a flood of the same bad token is cheap.
+  {
+    gh.calls.length = 0;
+    await handleUnfulfilledOrders(request(STRANGER_AUTH), env, ORIGIN);
+    await handleUnfulfilledOrders(request(STRANGER_AUTH), env, ORIGIN);
+    assert(gh.calls.length === 0 || gh.calls.length === 1, "a repeated rejection is not re-asked");
+  }
+
+  // GITHUB_REPO is honoured, and a different repo is a different verdict.
+  {
+    gh.calls.length = 0;
+    await handleUnfulfilledOrders(
+      request([["Authorization", "Bearer gho_otherRepoTokenAAAAAAAAAAAAAAAA"]]),
+      { ...env, GITHUB_REPO: "someone/else" },
+      ORIGIN
+    );
+    assert(
+      gh.calls.length === 1 && gh.calls[0].url.endsWith("/repos/someone/else"),
+      "GITHUB_REPO picks the repository that is checked"
+    );
+  }
 
   let unfulfilledRes = await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
   assert(unfulfilledRes.status === 200, "unfulfilled-orders returns 200 with auth");
@@ -267,17 +388,24 @@ async function main() {
     );
   }
   {
-    // Fail CLOSED: no counter binding at all -> 503, password never consulted.
+    // Fails OPEN now: the credential is a GitHub token, not a guessable
+    // secret, so a counter outage must not lock the owner out of shipping.
+    // The GitHub check still decides, so an outage is not a way in.
     const noLimiterEnv = { ...env };
     delete noLimiterEnv.RATE_LIMITER;
     const res = await handleUnfulfilledOrders(request(AUTH), noLimiterEnv, ORIGIN);
-    assert(res.status === 503, "no rate-limit backend answers 503, not 200");
-    const post = await handleFulfillOrder(
-      request(AUTH, { payment_intent: "pi_3TestMock0000", status: "shipped" }),
+    assert(res.status === 200, "no rate-limit backend still serves the owner (fail open)");
+    const strangerNoLimiter = await handleUnfulfilledOrders(
+      request(STRANGER_AUTH),
       noLimiterEnv,
       ORIGIN
     );
-    assert(post.status === 503, "fulfill-order also fails closed without a counter");
+    assert(
+      strangerNoLimiter.status === 403,
+      "failing open on the limiter does not admit a caller without push access"
+    );
+    const anonNoLimiter = await handleUnfulfilledOrders(request(), noLimiterEnv, ORIGIN);
+    assert(anonNoLimiter.status === 401, "failing open on the limiter still needs a token");
     // A Durable Object counter that throws is the same case.
     const brokenDoEnv = {
       ...noLimiterEnv,
@@ -291,7 +419,7 @@ async function main() {
       }
     };
     const errRes = await handleUnfulfilledOrders(request(AUTH), brokenDoEnv, ORIGIN);
-    assert(errRes.status === 503, "a counter that throws answers 503 (fail closed)");
+    assert(errRes.status === 200, "a counter that throws does not block the owner");
   }
 
   /* ------------------------------------------------ POST /api/fulfill-order */
@@ -329,24 +457,17 @@ async function main() {
     // Auth on the POST
     let unauthFulfillRes = await handleFulfillOrder(request([], goodBody), env, ORIGIN);
     assert(unauthFulfillRes.status === 401, "fulfill-order rejects missing auth");
-    let wrongFulfillRes = await handleFulfillOrder(
-      request([["Authorization", "Bearer secret_admin_pw2"]], goodBody),
+    const strangerPost = await handleFulfillOrder(
+      request([["Authorization", "Bearer " + STRANGER_TOKEN]], goodBody),
       env,
       ORIGIN
     );
     assert(
-      wrongFulfillRes.status === 401,
-      "fulfill-order rejects a wrong password (longer than the real one)"
+      strangerPost.status === 403,
+      "fulfill-order refuses a signed-in stranger without push access"
     );
-    let unsetFulfillRes = await handleFulfillOrder(
-      request(AUTH, goodBody),
-      { ...env, ADMIN_PASSWORD: "" },
-      ORIGIN
-    );
-    assert(
-      unsetFulfillRes.status === 401,
-      "fulfill-order: ADMIN_PASSWORD unset refuses even a matching token"
-    );
+    const noAuthPost = await handleFulfillOrder(request([], goodBody), env, ORIGIN);
+    assert(noAuthPost.status === 401, "fulfill-order refuses a request with no token");
     assert(stripeCalls.length === 0, "no Stripe call before auth passes");
 
     // Validation
@@ -517,9 +638,36 @@ async function main() {
     /connect-src [^;]*'self'/.test(adminCsp),
     "/admin/* CSP allows the same-origin /api fetches"
   );
+  // The page holds no secret of its own: it reads the token Sveltia CMS
+  // already stored and never writes storage. A setItem here would mean the
+  // dashboard had started keeping a credential on the storefront origin.
   assert(
-    !/sessionStorage|localStorage/.test(pageScript),
-    "fulfillment.js never stores the password in web storage"
+    !/(?:sessionStorage|localStorage)\.setItem/.test(pageScript) &&
+      !/sessionStorage/.test(pageScript),
+    "fulfillment.js never writes a credential to web storage"
+  );
+  assert(
+    /localStorage\.getItem\(/.test(pageScript) && /sveltia-cms\.user/.test(pageScript),
+    "fulfillment.js reads the CMS sign-in from sveltia-cms.user"
+  );
+  assert(
+    /typeof\s+user\.token\s*!==\s*["']string["']/.test(pageScript),
+    "fulfillment.js gates on a string token (Sveltia writes {} on sign-out)"
+  );
+  // Comments may still explain why the password went away; code may not ask
+  // for one, and the Authorization header must carry the GitHub token.
+  const scriptCode = pageScript.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert(
+    !/prompt\(/.test(scriptCode) && !/password/i.test(scriptCode),
+    "fulfillment.js code never asks for or handles a password"
+  );
+  assert(
+    /Authorization["']?\s*:\s*["']Bearer ["']\s*\+\s*\(?\s*token/.test(scriptCode),
+    "the Authorization header carries the GitHub token"
+  );
+  assert(
+    /href="\/admin\/"/.test(pageScript),
+    "fulfillment.js offers a link back to the CMS sign-in"
   );
   assert(!/sessionStorage|localStorage/.test(html), "fulfillment.html never touches web storage");
   assert(
@@ -527,8 +675,8 @@ async function main() {
     "fulfillment.js wires submit with addEventListener"
   );
   assert(
-    /getElementById\(\s*["']lock-btn["']/.test(pageScript) && /id="lock-btn"/.test(html),
-    "Lock button is wired"
+    !/id="lock-btn"/.test(html) && !/lock-btn/.test(pageScript),
+    "the Lock button is gone: there is no secret left to forget"
   );
   assert(
     !/\$\{item\.quantity\}/.test(pageScript) && /Number\(item && item\.quantity\)/.test(pageScript),
