@@ -58,15 +58,30 @@ jobs:
       - name: Check If Event Rollover Is Needed
         id: check-events
         run: |
-          set -uo pipefail
+          set -euo pipefail
           # check-events-rollover.js exits 0 = rollover needed, 1 = nothing expired,
-          # 2 = events-data.js is missing/tampered (the `if` treats 2 as "no rollover";
-          # the error text is still printed to the log).
-          if node scripts/check-events-rollover.js; then
-            echo "rollover_needed=true" >> $GITHUB_OUTPUT
-          else
-            echo "rollover_needed=false" >> $GITHUB_OUTPUT
-          fi
+          # 2 = assets/js/events-data.js is missing, not in the generated format or not
+          # valid JSON. The exit code is captured explicitly rather than folded into an
+          # `if`, because `if node ...; then ... else` treats 2 exactly like 1 and a
+          # missing or tampered data file would then report "no rollover" in green --
+          # a check that has stopped checking. Only 0 and 1 are answers; anything else
+          # fails the job loudly.
+          set +e
+          node scripts/check-events-rollover.js
+          code=$?
+          set -e
+          case "$code" in
+            0)
+              echo "rollover_needed=true" >> "$GITHUB_OUTPUT"
+              ;;
+            1)
+              echo "rollover_needed=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error title=Event rollover check could not run::scripts/check-events-rollover.js exited with code $code (expected 0 = rollover needed or 1 = nothing expired; 2 = assets/js/events-data.js is missing or malformed). Regenerate it with 'node scripts/build-site-data.js' and re-run."
+              exit 1
+              ;;
+          esac
 
       - name: Check Build Hook Secret
         id: check-secret
