@@ -1749,7 +1749,7 @@ window.YL_IMAGES = {
     key: "assets/img/placeholder-coming-soon-1200.png",
     width: 1200,
     height: 1200,
-    size: 28948,
+    size: 167567,
     variants: {
       avif: [
         {
@@ -1785,7 +1785,7 @@ window.YL_IMAGES = {
     key: "assets/img/placeholder-coming-soon-og.jpg",
     width: 1200,
     height: 630,
-    size: 18826,
+    size: 66274,
     variants: {
       avif: [
         {
