@@ -22,6 +22,21 @@
  * ungated: a colour-contrast regression in dark mode could ship green. Both
  * themes are asserted here, so 37 pages means 74 scans.
  *
+ * A second phase then scans INTERACTIVE STATES at 390x844 (see
+ * INTERACTIVE_STATES). Everything above only ever looked at a page at rest at
+ * the default viewport, and three real failures shipped straight through that
+ * blind spot in one audit: the cart drawer's dead keyboard path, a background
+ * that was never inert behind an aria-modal dialog, and a 3.59:1 "More"
+ * heading that only exists once main.js has appended it and is only displayed
+ * below 1024px with the nav drawer open. A gate that cannot open a menu
+ * cannot see any of that.
+ *
+ * Each interactive state names the element it opens and ASSERTS that element
+ * is present before it scans: an absent opener fails the run by name. That is
+ * deliberate and non-negotiable (AGENTS.md "Checks that stop checking") --
+ * a state scan that quietly finds nothing to open would report the greenest
+ * possible result for a page whose menu had been deleted.
+ *
  * Manages its own static server on port 8084, so nothing external needs to be
  * running first.
  *
@@ -269,10 +284,225 @@ const INCOMPLETE_BASELINE = {
   "welcome.html [light]": 14
 };
 
+/* ---------------------------------------------------------------------------
+   Phase 2: interactive states.
+
+   Phase 1 loads a page and scans it exactly as it arrives. Most of this site's
+   accessibility surface is not on screen at that moment -- the nav drawer, the
+   cart drawer -- and the 2026-09-16 audit found three real failures living in
+   precisely that gap. So: a second, much smaller pass at a phone viewport that
+   OPENS things first.
+
+   The viewport matters on its own. `.nav-secondary` is `display: none` above
+   1024px, so the "More" heading whose contrast failed at 3.59:1 does not exist
+   in a layout sense at the default size -- axe would have found nothing to
+   measure however many times phase 1 ran.
+
+   Each entry's `open` runs in the page and must THROW if the thing it is
+   supposed to open is not there. That throw fails the whole gate, by name.
+   The temptation with a state scan is to write `const t = document.querySelector(
+   ".nav-toggle"); if (t) t.click();` -- which turns into a green scan of a
+   closed page the day the selector changes, i.e. a check that has stopped
+   checking (AGENTS.md). `assertPresent` below is the only way to reach an
+   element here. */
+const INTERACTIVE_VIEWPORT = { width: 390, height: 844 };
+
+const OPEN_HELPERS = `
+  function assertPresent(selector, what) {
+    var el = document.querySelector(selector);
+    if (!el) throw new Error("expected " + what + " (" + selector + ") -- not on the page");
+    return el;
+  }
+  function assertAll(selector, min, what) {
+    var els = document.querySelectorAll(selector);
+    if (els.length < min) {
+      throw new Error(
+        "expected at least " + min + " " + what + " (" + selector + "), found " + els.length
+      );
+    }
+    return els;
+  }
+`;
+
+const INTERACTIVE_STATES = [
+  {
+    /* The mobile layout at rest. Cheap, and it is the control the two states
+       below are read against: a violation that shows up here is a layout
+       problem, not something the opening did. */
+    name: "mobile @390",
+    pages: ["index.html", "shop.html"],
+    settle: 300,
+    open: `
+      ${OPEN_HELPERS}
+      assertPresent(".nav-toggle", "the mobile nav toggle");
+      assertPresent(".cart-toggle", "the cart button");
+      return "at rest";
+    `
+  },
+  {
+    name: "nav open @390",
+    pages: ["index.html", "shop.html"],
+    settle: 400,
+    open: `
+      ${OPEN_HELPERS}
+      var toggle = assertPresent(".nav-toggle", "the mobile nav toggle");
+      if (!document.querySelector(".nav-links.open")) toggle.click();
+      assertPresent(".nav-links.open", "the nav panel, open");
+      /* main.js appends these three and their "More" heading at init. The
+         heading is the element whose light-theme contrast failed; asserting it
+         is what stops this scan going green over a drawer that no longer has
+         it. */
+      assertPresent(".nav-secondary-heading", "the nav drawer's More heading");
+      assertAll(".nav-secondary a", 3, "secondary nav links");
+      return "nav open";
+    `
+  },
+  {
+    name: "cart drawer open @390",
+    pages: ["shop.html", "products/miracle-balm.html"],
+    settle: 700,
+    open: `
+      ${OPEN_HELPERS}
+      /* An item, then the drawer -- an EMPTY drawer renders a sentence and one
+         button and would scan clean while the 18 controls that matter (the
+         quantity steppers, Remove, the gift-card and promo forms, Checkout)
+         were never built. */
+      var add = assertPresent(".yl-add-item, [data-yl-add]", "an Add to Cart button");
+      add.click();
+      var drawer = assertPresent("#yl-cart-drawer", "the cart drawer");
+      if (!drawer.matches(":popover-open") && drawer.getAttribute("data-open") !== "true") {
+        throw new Error("the cart drawer did not open after Add to Cart");
+      }
+      assertAll("#yl-cart-drawer .yl-cart-line", 1, "cart lines in the open drawer");
+      assertPresent("#yl-cart-drawer .yl-cart-checkout", "the drawer's Checkout button");
+      return "drawer open, " + document.querySelectorAll(
+        "#yl-cart-drawer button, #yl-cart-drawer a[href], #yl-cart-drawer input," +
+        " #yl-cart-drawer select, #yl-cart-drawer textarea"
+      ).length + " controls";
+    `
+  }
+];
+
+/* Budgets for the phase-2 labels, same contract as INCOMPLETE_BASELINE: read
+   off a real run, never guessed, and a rise is a new blind spot to look at
+   rather than a number to bump. */
+const INTERACTIVE_INCOMPLETE_BASELINE = {
+  /* The mobile-at-rest scans carry the same page chrome as the phase-1 pass
+     and scale with the UGC feed the same way (6 cards on both pages, each
+     with one media badge axe cannot resolve), so they take the same object
+     form. The bases differ from phase 1's because a 390px layout composites
+     a different set of overlays: index 37 (vs 40 at the default viewport),
+     shop 112 (vs 107). Measured 2026-09-16. */
+  "index.html [dark] {mobile @390}": {
+    base: 37,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
+  "index.html [light] {mobile @390}": {
+    base: 37,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
+  "shop.html [dark] {mobile @390}": {
+    base: 112,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
+  "shop.html [light] {mobile @390}": {
+    base: 112,
+    perElement: [{ selector: ".ugc-card", allowance: 1 }]
+  },
+  /* With a drawer open the counts COLLAPSE, and that is expected rather than
+     suspicious: the panel covers the page and axe stops trying to resolve the
+     contrast of content it can see is obscured. What is left is the drawer's
+     own chrome. If one of these ever climbs back towards the at-rest number,
+     the drawer has stopped covering the page -- which is itself worth
+     looking at. Measured 2026-09-16. */
+  "index.html [dark] {nav open @390}": 3,
+  "index.html [light] {nav open @390}": 3,
+  "shop.html [dark] {nav open @390}": 4,
+  "shop.html [light] {nav open @390}": 4,
+  "shop.html [dark] {cart drawer open @390}": 6,
+  "shop.html [light] {cart drawer open @390}": 6,
+  "products/miracle-balm.html [dark] {cart drawer open @390}": 5,
+  "products/miracle-balm.html [light] {cart drawer open @390}": 5
+};
+const INTERACTIVE_INCOMPLETE_DEFAULT = 0;
+
+function interactiveBaselineFor(label) {
+  if (Object.prototype.hasOwnProperty.call(INTERACTIVE_INCOMPLETE_BASELINE, label)) {
+    return INTERACTIVE_INCOMPLETE_BASELINE[label];
+  }
+  return INTERACTIVE_INCOMPLETE_DEFAULT;
+}
+
+/* Phase-2 labels carry a "{state}" suffix; phase-1 labels do not. The final
+   budget sweep walks one map of every label, so it has to ask the right
+   table -- feeding an interactive label to baselineFor() would silently pin
+   it at the phase-1 default. */
+function budgetFor(label) {
+  return /\{[^}]+\}$/.test(label) ? interactiveBaselineFor(label) : baselineFor(label);
+}
+
+/* Runs axe on whatever is currently on `page` and records the result under
+   `label`. Shared by both phases so they cannot drift apart. Returns the
+   number of violations found. */
+async function scanAndRecord(page, label, axeSource, incompleteByPage, pin) {
+  await page.evaluate(axeSource);
+  const result = await page.evaluate(async (tags) => {
+    // eslint-disable-next-line no-undef
+    return await axe.run(document, { runOnly: { type: "tag", values: tags } });
+  }, AXE_TAGS);
+
+  const incomplete = result.incomplete || [];
+  const incompleteNodes = incomplete.reduce((n, v) => n + v.nodes.length, 0);
+  incompleteByPage[label] = {
+    rules: incomplete.map((v) => v.id).sort(),
+    nodes: incompleteNodes,
+    extra: 0
+  };
+  if (pin && typeof pin === "object") {
+    const counts = await page.evaluate(
+      (selectors) => selectors.map((sel) => document.querySelectorAll(sel).length),
+      pin.perElement.map((e) => e.selector)
+    );
+    incompleteByPage[label].extra = counts.reduce(
+      (n, c, i) => n + c * pin.perElement[i].allowance,
+      0
+    );
+  }
+  if (incomplete.length) {
+    console.log(
+      `  ~ ${label} -- ${incompleteNodes} node(s) axe could not decide, ` +
+        `across ${incomplete.length} rule(s): ${incomplete
+          .map((v) => v.id)
+          .sort()
+          .join(", ")}`
+    );
+  }
+
+  if (!result.violations.length) return 0;
+  console.log(`  ✗ ${label} -- ${result.violations.length} violation(s):`);
+  result.violations.forEach((v) => {
+    console.log(`      [${v.impact}] ${v.id}: ${v.help}`);
+    console.log(`        ${v.helpUrl}`);
+    v.nodes.slice(0, 5).forEach((n) => console.log(`        -> ${n.target.join(", ")}`));
+    if (v.nodes.length > 5) {
+      console.log(`        -> ...and ${v.nodes.length - 5} more node(s)`);
+    }
+  });
+  return result.violations.length;
+}
+
 (async () => {
   const pages = collectPages();
   if (!pages.length) {
     console.error("No HTML pages found to scan -- aborting rather than reporting a false pass.");
+    process.exit(1);
+  }
+
+  /* An empty or page-less state list would make phase 2 a no-op that still
+     printed a pass, which is the exact failure mode AGENTS.md catalogues. */
+  const interactiveScanCount = INTERACTIVE_STATES.reduce((n, st) => n + st.pages.length, 0);
+  if (!INTERACTIVE_STATES.length || !interactiveScanCount) {
+    console.error("No interactive states to scan -- aborting rather than reporting a false pass.");
     process.exit(1);
   }
 
@@ -281,7 +511,8 @@ const INCOMPLETE_BASELINE = {
   const boundPort = server.address().port;
   console.log(
     `Starting Accessibility Gate (axe-core, WCAG 2.2 AA) on ${pages.length} pages ` +
-      `x ${THEMES.length} themes (${pages.length * THEMES.length} scans)...`
+      `x ${THEMES.length} themes (${pages.length * THEMES.length} scans), plus ` +
+      `${interactiveScanCount * THEMES.length} interactive-state scans...`
   );
 
   let browser = await puppeteer.launch({
@@ -351,12 +582,6 @@ const INCOMPLETE_BASELINE = {
             await page.evaluate((t) => {
               document.documentElement.setAttribute("data-theme", t);
             }, theme);
-            await page.evaluate(axeSource);
-            const result = await page.evaluate(async (tags) => {
-              // eslint-disable-next-line no-undef
-              return await axe.run(document, { runOnly: { type: "tag", values: tags } });
-            }, AXE_TAGS);
-
             const label = `${pageName} [${theme}]`;
 
             /* axe "incomplete" results are checks axe could not finish, not
@@ -374,61 +599,103 @@ const INCOMPLETE_BASELINE = {
                result would be a gate that lies in the other direction. What IS
                enforced is that the count does not grow -- a new incomplete is
                a new blind spot, and the baseline below is what makes adding
-               one a deliberate act rather than an accident. */
-            const incomplete = result.incomplete || [];
-            const incompleteNodes = incomplete.reduce((n, v) => n + v.nodes.length, 0);
-            incompleteByPage[label] = {
-              rules: incomplete.map((v) => v.id).sort(),
-              nodes: incompleteNodes,
-              extra: 0
-            };
-            /* A pin may be an object: a base for the page chrome plus an
-               allowance per element matching a selector, for pages whose
-               node count follows CMS data (see the events.html entry). The
-               elements are counted on the page axe just scanned. */
-            const pin = baselineFor(label);
-            if (pin && typeof pin === "object") {
-              const counts = await page.evaluate(
-                (selectors) => selectors.map((sel) => document.querySelectorAll(sel).length),
-                pin.perElement.map((e) => e.selector)
-              );
-              incompleteByPage[label].extra = counts.reduce(
-                (n, c, i) => n + c * pin.perElement[i].allowance,
-                0
-              );
-            }
-            if (incomplete.length) {
-              console.log(
-                `  ~ ${label} -- ${incompleteNodes} node(s) axe could not decide, ` +
-                  `across ${incomplete.length} rule(s): ${incomplete
-                    .map((v) => v.id)
-                    .sort()
-                    .join(", ")}`
-              );
-            }
+               one a deliberate act rather than an accident.
 
-            if (!result.violations.length) {
-              console.log(`  ✓ ${label}`);
-            } else {
-              violationCount += result.violations.length;
-              console.log(`  ✗ ${label} -- ${result.violations.length} violation(s):`);
-              result.violations.forEach((v) => {
-                console.log(`      [${v.impact}] ${v.id}: ${v.help}`);
-                console.log(`        ${v.helpUrl}`);
-                v.nodes
-                  .slice(0, 5)
-                  .forEach((n) => console.log(`        -> ${n.target.join(", ")}`));
-                if (v.nodes.length > 5) {
-                  console.log(`        -> ...and ${v.nodes.length - 5} more node(s)`);
-                }
-              });
-            }
+               A pin may be an object: a base for the page chrome plus an
+               allowance per element matching a selector, for pages whose node
+               count follows CMS data (see the events.html entry). */
+            const found = await scanAndRecord(
+              page,
+              label,
+              axeSource,
+              incompleteByPage,
+              baselineFor(label)
+            );
+            if (found) violationCount += found;
+            else console.log(`  ✓ ${label}`);
             scanned = true;
           } catch (err) {
             if (attempts >= 3) {
               throw err;
             }
             await new Promise((r) => setTimeout(r, 200));
+          } finally {
+            await page.close().catch(() => {});
+          }
+        }
+      }
+    }
+
+    /* ---- Phase 2: interactive states (see INTERACTIVE_STATES above) ---- */
+    console.log(
+      `\nScanning ${interactiveScanCount} interactive-state view(s) at ` +
+        `${INTERACTIVE_VIEWPORT.width}x${INTERACTIVE_VIEWPORT.height} ` +
+        `(${INTERACTIVE_STATES.length} state(s) x ${THEMES.length} themes)...`
+    );
+    for (const state of INTERACTIVE_STATES) {
+      for (const pageName of state.pages) {
+        if (!fs.existsSync(path.join(ROOT, pageName))) {
+          throw new Error(
+            `Interactive state "${state.name}" names ${pageName}, which does not exist. ` +
+              "Point it at a page that does rather than letting the state go unscanned."
+          );
+        }
+        for (const theme of THEMES) {
+          if (!browser.connected) {
+            browser = await puppeteer.launch({
+              headless: true,
+              protocolTimeout: 120000,
+              args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu"
+              ]
+            });
+          }
+          const label = `${pageName} [${theme}] {${state.name}}`;
+          const page = await browser.newPage();
+          try {
+            await page.setViewport(INTERACTIVE_VIEWPORT);
+            await page.evaluateOnNewDocument((t) => {
+              try {
+                window.localStorage.setItem("yl-theme", t);
+              } catch {
+                /* storage unavailable -- the attribute set after load still applies */
+              }
+            }, theme);
+            await page.goto(`http://127.0.0.1:${boundPort}/${pageName}`, {
+              waitUntil: "networkidle2",
+              timeout: 30000
+            });
+            await page.evaluate((t) => {
+              document.documentElement.setAttribute("data-theme", t);
+            }, theme);
+
+            /* If this throws -- because the toggle, the panel, the Add to Cart
+               button or the drawer's own contents are not there -- the whole
+               gate fails with the message, by name. It is never caught and
+               downgraded to a skip. */
+            let note;
+            try {
+              note = await page.evaluate(`(function () {${state.open}})()`);
+            } catch (err) {
+              throw new Error(
+                `Interactive state "${state.name}" could not be reached on ${label}: ` +
+                  `${err.message}`
+              );
+            }
+            await new Promise((r) => setTimeout(r, state.settle || 300));
+
+            const found = await scanAndRecord(
+              page,
+              label,
+              axeSource,
+              incompleteByPage,
+              interactiveBaselineFor(label)
+            );
+            if (found) violationCount += found;
+            else console.log(`  ✓ ${label} -- ${note}`);
           } finally {
             await page.close().catch(() => {});
           }
@@ -448,7 +715,7 @@ const INCOMPLETE_BASELINE = {
     .sort()
     .forEach((label) => {
       const seen = incompleteByPage[label].nodes;
-      const pin = baselineFor(label);
+      const pin = budgetFor(label);
       const budget =
         pin && typeof pin === "object" ? pin.base + incompleteByPage[label].extra : pin;
       if (seen > budget) {
@@ -483,16 +750,20 @@ const INCOMPLETE_BASELINE = {
     process.exit(1);
   }
 
+  const scanTotal = Object.keys(incompleteByPage).length;
   if (violationCount) {
     console.log(
-      `Accessibility gate FAILED: ${violationCount} violation(s) across ${pages.length} pages ` +
-        `x ${THEMES.length} themes.`
+      `Accessibility gate FAILED: ${violationCount} violation(s) across ${scanTotal} scans ` +
+        `(${pages.length} pages x ${THEMES.length} themes, plus ` +
+        `${interactiveScanCount * THEMES.length} interactive-state scans).`
     );
     console.log("==================================================");
     process.exit(1);
   }
   console.log(
-    `Accessibility gate PASSED: 0 violations across ${pages.length} pages x ${THEMES.length} themes.`
+    `Accessibility gate PASSED: 0 violations across ${scanTotal} scans ` +
+      `(${pages.length} pages x ${THEMES.length} themes, plus ` +
+      `${interactiveScanCount * THEMES.length} interactive-state scans).`
   );
   console.log("==================================================");
   process.exit(0);

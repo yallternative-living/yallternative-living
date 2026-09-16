@@ -1657,6 +1657,15 @@ const ROUTES = {
   // MAGIC_LINK_SECRET requirement as the retention routes, same 503 without.
   "/orders/request-link": handleOrdersRequestLink,
   "/orders": handleOrdersList,
+  // Both fulfilment routes are listed here even though this one is GET-only
+  // and is answered by its own branch below. The router's `known` check is
+  // `hasOwnProperty(ROUTES, route)`, so a route missing from this table 404s
+  // before any method branch runs -- which is exactly what happened to
+  // /unfulfilled-orders between 2026-09-15 and 2026-09-16: the handler
+  // existed, the GET branch existed, and the dashboard still got a 404,
+  // because the unit tests called the handler directly and never went
+  // through the router. scripts/worker-http.test.js now drives fetch().
+  "/unfulfilled-orders": handleUnfulfilledOrders,
   "/fulfill-order": handleFulfillOrder
 };
 

@@ -2338,6 +2338,92 @@ assert(
       global.fetch = undefined;
     }
 
+    /* ---- Drawer focus management + background inert ----------------------
+       The drawer declares role="dialog" aria-modal="true", which is a promise
+       that the page behind it is unavailable. Until 2026-09-16 it was not
+       kept: openDrawer()'s focus() landed on a node that was still inside a
+       visibility:hidden subtree for one frame and did nothing, nothing was
+       ever made inert, and a forward Tab from the cart button walked ~200
+       background controls before reaching a drawer that sits at the end of
+       <body> -- Checkout was unreachable going forwards. These assert the
+       three halves of the fix: focus goes in, the background goes inert, and
+       both are undone on close. */
+    {
+      // Earlier suites leave the drawer open; start from a known state.
+      YLCart.close();
+
+      const drawerEl = mockDocument.body.children.find((el) => el.id === "yl-cart-drawer");
+      assert(!!drawerEl, "the cart drawer is in the document");
+      const closeBtn = drawerEl.querySelector(".yl-cart-close");
+
+      /* This Node DOM has no page chrome of its own, so without a landmark to
+         mark there would be nothing for setBackgroundInert to do and every
+         assertion below would pass over an empty list (AGENTS.md: "an absent
+         subject is a failure, not an exemption"). */
+      const landmark = createMockElement("main");
+      mockDocument.body.appendChild(landmark);
+      // Something inert for its own reasons must still be inert afterwards.
+      const alreadyInert = createMockElement("div");
+      alreadyInert.setAttribute("inert", "");
+      mockDocument.body.appendChild(alreadyInert);
+
+      // Give the mock DOM just enough of a focus model to observe.
+      const focusable = (el) => {
+        el.focus = () => {
+          mockDocument.activeElement = el;
+        };
+        return el;
+      };
+      focusable(closeBtn);
+      const opener = focusable(createMockElement("button"));
+      mockDocument.activeElement = opener;
+
+      YLCart.open();
+      assert(
+        mockDocument.activeElement === closeBtn,
+        "opening the drawer moves focus to its close button"
+      );
+      assert(landmark.hasAttribute("inert"), "...and the page behind it goes inert");
+      eq(
+        landmark.getAttribute("data-yl-cart-inert"),
+        "1",
+        "...marked, so only what the cart made inert is released again"
+      );
+      assert(!drawerEl.hasAttribute("inert"), "...and never the drawer itself");
+
+      YLCart.close();
+      assert(!landmark.hasAttribute("inert"), "closing the drawer releases the background");
+      assert(!landmark.hasAttribute("data-yl-cart-inert"), "...and clears the marker with it");
+      assert(
+        alreadyInert.hasAttribute("inert"),
+        "...leaving alone anything that was inert for its own reasons"
+      );
+      assert(
+        mockDocument.activeElement === opener,
+        "closing returns focus to whatever opened the drawer"
+      );
+
+      /* Add to Cart auto-opens the drawer. The audit measured
+         document.activeElement becoming <body> on this path; it has to route
+         through the same focus handling as the cart button. */
+      const addBtn = focusable(createMockElement("button"));
+      mockDocument.activeElement = addBtn;
+      YLCart.addItem({ id: "focus-probe", name: "Focus Probe", price: 5 });
+      assert(
+        mockDocument.activeElement === closeBtn,
+        "an add that auto-opens the drawer puts focus inside it, not on <body>"
+      );
+      YLCart.close();
+      assert(
+        mockDocument.activeElement === addBtn,
+        "...and closing hands focus back to the Add to Cart button"
+      );
+
+      const kids = mockDocument.body.children;
+      [landmark, alreadyInert].forEach((el) => kids.splice(kids.indexOf(el), 1));
+      delete mockDocument.activeElement;
+    }
+
     // Clean up
     mockWindow.YL_PRODUCTS = null;
     storage.clear();

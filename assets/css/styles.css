@@ -856,16 +856,30 @@ section {
   display: none;
 }
 
+/* "More", the divider label above FAQ/Reviews/Policies in the open mobile
+   drawer. It used to be `color: var(--paper-dim); opacity: 0.7`, and the
+   opacity was the problem: it composites the text against the panel rather
+   than dimming it in isolation, so in LIGHT theme #5b4d3d over #faf5ea
+   rendered as #8b7f71 -- 3.59:1 at 11.2px bold, under the 4.5:1 that size
+   needs (measured at 390px, light theme only; dark theme passed either way).
+   Nothing at rest shows this, which is why it survived the a11y gate: the
+   element only exists once main.js has appended it, and it is only displayed
+   below the 1024px breakpoint with the drawer open.
+
+   The dimming now lives in the colour instead of in `opacity`, so the text
+   composites at full strength (light 7.50:1, dark 10.35:1) -- and the rule
+   above it keeps its old weight via color-mix, because `opacity` was dimming
+   that border too and dropping it outright would have darkened the divider.
+   --paper-dim itself is untouched: it is used in ~40 other places. */
 .nav-secondary-heading {
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 700;
   color: var(--paper-dim);
-  opacity: 0.7;
   margin-top: 12px;
   padding-top: 16px;
-  border-top: 1px solid var(--hide);
+  border-top: 1px solid color-mix(in srgb, var(--hide) 70%, transparent);
   width: 100%;
 }
 

@@ -302,6 +302,7 @@ window.YL_CONTENT = {
         "options": [
           {
             "value": "gothic-calm",
+            "shopConcern": "sleep-relaxation",
             "label": "Southern Gothic Calm",
             "description": "Quiet dusk, lavender, sleep & dark cedar",
             "recommendedProductIds": [
@@ -317,6 +318,7 @@ window.YL_CONTENT = {
           },
           {
             "value": "ritual-rest",
+            "shopConcern": "sleep-relaxation",
             "label": "Ritual Rest",
             "description": "Heavy shea moisture, bath tea & deep unwind",
             "recommendedProductIds": [
@@ -332,6 +334,7 @@ window.YL_CONTENT = {
           },
           {
             "value": "hexing-energy",
+            "shopConcern": "daily-glow",
             "label": "Hexing Energy",
             "description": "Spellwork accessories, shimmer oil & bold vibes",
             "recommendedProductIds": [
@@ -347,6 +350,7 @@ window.YL_CONTENT = {
           },
           {
             "value": "daily-soothe",
+            "shopConcern": "dry-skin",
             "label": "Everyday Softness",
             "description": "Everyday miracle balms, scrubs & skin armor",
             "recommendedProductIds": [

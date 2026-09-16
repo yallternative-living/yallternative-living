@@ -1920,6 +1920,17 @@
 
   var drawer, itemsEl, footEl, liveEl, dispatchEl, dispatchLiveEl, seasonalNoticeEl;
   var lastDispatchMessage = null;
+  /* Whatever had focus when the drawer opened -- the cart button, an Add to
+     Cart button -- so close can hand it back instead of dumping the shopper
+     at the top of the document. */
+  var drawerOpener = null;
+  /* Mirrors the panel's open state for THIS module. `popover="auto"` closes
+     on a backdrop click and on the browser's own Escape without ever calling
+     closeDrawer(), so the open/close side effects (inert, focus) hang off the
+     popover `toggle` event as well as off these two functions, and both
+     entry points are idempotent. Without that, one light-dismiss left the
+     whole page inert and the site unusable. */
+  var drawerIsOpen = false;
 
   function ensureDrawer() {
     if (drawer) return;
@@ -1950,6 +1961,17 @@
     footEl = drawer.querySelector("#yl-cart-foot");
 
     drawer.querySelector(".yl-cart-close").addEventListener("click", closeDrawer);
+
+    /* The single source of truth for "the drawer just opened / just closed".
+       It fires for every path the browser owns as well as for showPopover()
+       and hidePopover(), which is what makes the inert bookkeeping safe. */
+    if (typeof drawer.addEventListener === "function") {
+      drawer.addEventListener("toggle", function (e) {
+        var next = e && e.newState;
+        if (next === "open") handleDrawerOpened();
+        else if (next === "closed") handleDrawerClosed();
+      });
+    }
 
     drawer.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
@@ -2048,9 +2070,171 @@
     }
   }
 
-  function openDrawer() {
+  function nextFrame(fn) {
+    if (typeof root.requestAnimationFrame === "function") {
+      root.requestAnimationFrame(fn);
+    } else if (typeof setTimeout === "function") {
+      setTimeout(fn, 16);
+    }
+  }
+
+  /* popover="auto" shows the drawer but leaves focus on whatever opened it
+     (unlike <dialog>.showModal(), which moves focus in for you). Without
+     this, a keyboard user hits Enter on the cart button, the drawer appears,
+     and their focus is still out on the header -- the next Tab continues
+     through the page behind the drawer instead of into it, and a screen
+     reader never announces that anything opened. Move focus to the close
+     button, which is both the first control and the escape hatch.
+
+     The retry is not paranoia, it is the bug this function shipped with for
+     months. cart.css held the closed panel at `visibility: hidden` and
+     transitioned `visibility` over the 0.32s slide; a transition starts at
+     progress 0, which for visibility is still `hidden`, so at the instant
+     showPopover() returned the close button sat in a hidden subtree and
+     Chromium refused to focus it. The call did nothing, silently, and
+     `document.activeElement` stayed on `.cart-toggle`. cart.css now leaves
+     `visibility` out of the OPEN direction's transition list so the first
+     attempt succeeds; this re-attempts on the next frame anyway, because a
+     focus() whose result is never checked is exactly how that shipped. */
+  function focusDrawer(attemptsLeft) {
+    if (!drawerIsOpen || !drawer) return;
+    var closeBtn =
+      typeof drawer.querySelector === "function" ? drawer.querySelector(".yl-cart-close") : null;
+    if (!closeBtn || typeof closeBtn.focus !== "function") return;
+    if (document.activeElement === closeBtn) return;
+    try {
+      closeBtn.focus({ preventScroll: true });
+    } catch {
+      closeBtn.focus();
+    }
+    if (document.activeElement === closeBtn) return;
+    var left = typeof attemptsLeft === "number" ? attemptsLeft : 2;
+    if (left <= 0) return;
+    nextFrame(function () {
+      focusDrawer(left - 1);
+    });
+  }
+
+  /* Everything on the page except the drawer's own machinery goes inert
+     while the drawer is open. `aria-modal="true"` promises a screen reader
+     that the page behind is unavailable; without inert that promise was a
+     lie in both directions -- a forward Tab from the cart button walked
+     ~200 background controls before reaching a drawer that sits at the end
+     of <body> (160 presses were not enough to get there), so Checkout was
+     effectively unreachable going forwards. Only what this code made inert
+     is released again, so an element inert for its own reasons stays that
+     way -- the same contract as syncNavInert() in main.js. */
+  function setBackgroundInert(on) {
+    var body = document.body;
+    var kids = body && body.children ? body.children : null;
+    if (!kids || typeof kids.length !== "number") return;
+    Array.prototype.forEach.call(kids, function (el) {
+      if (!el || typeof el.setAttribute !== "function") return;
+      // The panel itself and the two aria-live regions live in <body> too.
+      if (el === drawer || el === liveEl || el === dispatchLiveEl) return;
+      var tag = el.tagName;
+      if (tag === "SCRIPT" || tag === "STYLE" || tag === "LINK" || tag === "TEMPLATE") return;
+      if (on) {
+        if (!el.hasAttribute("inert")) {
+          el.setAttribute("inert", "");
+          el.setAttribute("data-yl-cart-inert", "1");
+        }
+      } else if (el.getAttribute("data-yl-cart-inert") === "1") {
+        el.removeAttribute("inert");
+        el.removeAttribute("data-yl-cart-inert");
+      }
+    });
+  }
+
+  function rememberOpener(opener) {
+    var candidate = opener && typeof opener.focus === "function" ? opener : null;
+    if (!candidate) {
+      var active = document.activeElement;
+      if (
+        active &&
+        typeof active.focus === "function" &&
+        active !== document.body &&
+        !(drawer && typeof drawer.contains === "function" && drawer.contains(active))
+      ) {
+        candidate = active;
+      }
+    }
+    if (candidate) drawerOpener = candidate;
+  }
+
+  function restoreOpenerFocus() {
+    var opener = drawerOpener;
+    drawerOpener = null;
+    if (!opener || typeof opener.focus !== "function") return;
+    // A line removed from the drawer can take its own Add button with it.
+    if (typeof document.contains === "function" && !document.contains(opener)) return;
+    try {
+      opener.focus({ preventScroll: true });
+    } catch {
+      opener.focus();
+    }
+  }
+
+  /* An open modal <dialog> is already its own modal context: showModal() makes
+     the rest of the document inert at the browser level, so the page behind is
+     not reachable whatever this module does. It is also a place a shopper is
+     deliberately left standing -- the global search modal stays open after its
+     inline "+ Add" precisely so several things can be added in a row
+     (puppeteer_tests.js 9.7). Taking focus out of that list into the drawer,
+     and marking the dialog inert on the way past, would lose the shopper's
+     place in it and kill the modal's keyboard navigation outright. While one
+     is open the drawer stays a passive surface: it renders, it is on top, and
+     it leaves focus and the background exactly where they are. */
+  function modalDialogOpen() {
+    if (!document || typeof document.querySelector !== "function") return false;
+    var dlg;
+    try {
+      dlg = document.querySelector("dialog[open]");
+    } catch {
+      return false;
+    }
+    return !!dlg && dlg !== drawer;
+  }
+
+  /* Whether THIS open took focus and the background, so close undoes exactly
+     what open did. */
+  var drawerClaimedPage = false;
+
+  function handleDrawerOpened() {
+    if (drawerIsOpen) return;
+    drawerIsOpen = true;
+    if (modalDialogOpen()) {
+      drawerClaimedPage = false;
+      return;
+    }
+    drawerClaimedPage = true;
+    setBackgroundInert(true);
+    focusDrawer();
+  }
+
+  function handleDrawerClosed() {
+    if (!drawerIsOpen) return;
+    drawerIsOpen = false;
+    if (!drawerClaimedPage) {
+      drawerOpener = null;
+      return;
+    }
+    drawerClaimedPage = false;
+    // Inert first: focus() on an element still inside an inert subtree is a
+    // no-op, which is the same class of silent failure as the bug above.
+    setBackgroundInert(false);
+    restoreOpenerFocus();
+  }
+
+  /* `opener` is optional -- the element to hand focus back to on close. Left
+     out, the element that currently has focus is used, which is right for
+     every real path (the cart button, an Add to Cart button). YLCart.open is
+     exported as this function, so an accidental Event argument is rejected by
+     the typeof-focus test rather than stored. */
+  function openDrawer(opener) {
     ensureDrawer();
     render();
+    rememberOpener(opener);
     if (typeof drawer.showPopover === "function") {
       try {
         drawer.showPopover();
@@ -2060,21 +2244,9 @@
     } else {
       drawer.setAttribute("data-open", "true");
     }
-    /* popover="auto" shows the drawer but leaves focus on whatever opened it
-       (unlike <dialog>.showModal(), which moves focus in for you). Without
-       this, a keyboard user hits Enter on the cart button, the drawer appears,
-       and their focus is still out on the header -- the next Tab continues
-       through the page behind the drawer instead of into it, and a screen
-       reader never announces that anything opened. Move focus to the close
-       button, which is both the first control and the escape hatch. */
-    var closeBtn = drawer.querySelector(".yl-cart-close");
-    if (closeBtn) {
-      try {
-        closeBtn.focus({ preventScroll: true });
-      } catch {
-        closeBtn.focus();
-      }
-    }
+    /* The popover `toggle` event fires asynchronously, so do the open work
+       now and let that listener find it already done. */
+    handleDrawerOpened();
   }
 
   /* Netlify's redirect rule forces /shop onto /shop.html, so the pathname is
@@ -2096,6 +2268,7 @@
     } else {
       drawer.removeAttribute("data-open");
     }
+    handleDrawerClosed();
   }
 
   function physicalSubtotal(items) {

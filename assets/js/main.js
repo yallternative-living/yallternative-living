@@ -357,6 +357,25 @@
     });
   }
 
+  /* ---------- Skip link target ---------- */
+  /* "Skip to main content" points at #main-content, which is a plain <main>
+     and therefore not focusable. Chromium happens to move the sequential
+     focus start point to the fragment target, so Tab after the skip
+     genuinely continues inside the page -- but that is a Chromium
+     behaviour, not a guarantee: in the engines that do not implement it the
+     link scrolls and focus stays on the link, so the next Tab walks straight
+     back into the header the visitor just asked to skip. `tabindex="-1"`
+     makes the target programmatically focusable and settles it everywhere.
+
+     It is set here rather than in markup because #main-content is written by
+     hand in 16 top-level pages AND generated into 24 more by
+     scripts/build-site-data.js; one line at runtime covers all 40 without a
+     40-file sweep. An author-supplied tabindex is left alone. */
+  var skipTarget = document.getElementById("main-content");
+  if (skipTarget && !skipTarget.hasAttribute("tabindex")) {
+    skipTarget.setAttribute("tabindex", "-1");
+  }
+
   /* ---------- Mobile nav ---------- */
   var navToggle = document.querySelector(".nav-toggle");
   var navLinks = document.querySelector(".nav-links");
@@ -3306,6 +3325,13 @@
     if (!select) return;
     var opt = select.options[select.selectedIndex];
     if (!opt) return;
+    /* A sold-out size is rendered `disabled`, so a mouse or keyboard user
+       cannot choose it -- but script can (`select.value = "S"`), and this
+       handler is what copies the choice onto the Add button's
+       data-item-custom1-value. Without this guard that path put a sold-out
+       variant in the cart (live audit, 2026-09-16). The options list the
+       button advertises already omits it; this makes the two agree. */
+    if (opt.disabled || opt.getAttribute("aria-disabled") === "true") return;
     var delta = parseFloat(opt.getAttribute("data-delta")) || 0;
     var basePrice = parseFloat(select.getAttribute("data-base-price")) || 0;
     var newPrice = basePrice + delta;
@@ -7847,6 +7873,32 @@
     try {
       var searchParams = new URLSearchParams(window.location.search);
       var urlConcern = searchParams.get("vibe") || searchParams.get("concern");
+      /* `vibe` means two different things. The shop's own filter uses the
+         catalog's concern ids (sleep-relaxation, dry-skin, ...), but the
+         apothecary quiz's FIRST QUESTION is also called `vibe`, with its own
+         vocabulary (gothic-calm, ritual-rest, ...). A link built from a quiz
+         answer therefore matched nothing and silently showed the whole
+         catalog (live audit, 2026-09-16).
+         Each quiz vibe now carries `shopConcern` in quiz.json naming the
+         shelf it opens, so the shop can honour both vocabularies. It is CMS
+         data, not a table in here, so the shop owner can retarget a vibe
+         without a developer; an unknown or misspelled value simply falls
+         through to the old no-op rather than filtering to the wrong shelf. */
+      if (urlConcern) {
+        var quizForVibe = (window.YL_CONTENT && window.YL_CONTENT.quiz) || null;
+        var vibeQuestions = (quizForVibe && quizForVibe.questions) || [];
+        for (var vq = 0; vq < vibeQuestions.length; vq++) {
+          var vibeOpts = (vibeQuestions[vq] && vibeQuestions[vq].options) || [];
+          for (var vo = 0; vo < vibeOpts.length; vo++) {
+            var vibeOpt = vibeOpts[vo] || {};
+            if (vibeOpt.value === urlConcern && typeof vibeOpt.shopConcern === "string") {
+              urlConcern = vibeOpt.shopConcern;
+              vq = vibeQuestions.length;
+              break;
+            }
+          }
+        }
+      }
       if (
         urlConcern &&
         concerns.some(function (c) {
@@ -9752,7 +9804,11 @@
             ) {
               score += typeof opt.scoreWeight === "number" ? opt.scoreWeight : 6;
             }
-            if (opt.matchFeatured && (item.id === "shimmer-oil" || item.featured)) {
+            /* `item.featured` alone, never a hardcoded id: shimmer-oil is
+               already featured in products.json, so naming it here changed
+               nothing except to make un-featuring it in the CMS silently not
+               work. The CMS owns which product is featured. */
+            if (opt.matchFeatured && item.featured) {
               score += typeof opt.scoreWeight === "number" ? opt.scoreWeight : 3;
             }
           });

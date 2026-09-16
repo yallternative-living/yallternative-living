@@ -683,6 +683,59 @@ async function main() {
     "quantity is coerced before render"
   );
 
+  /* ---------------------------------------------- the ROUTER, not the handler
+     Every assertion above calls the handler directly, which is how
+     /unfulfilled-orders shipped 404ing for a day: the handler was correct,
+     the GET branch was correct, and the route was missing from checkout.js's
+     ROUTES table, so the router's `known` check refused it before either ran.
+     These drive the real fetch() entry point so the wiring itself is covered. */
+  const workerModule = await import("file://" + path.join(ROOT, "workers/checkout.js"));
+  const worker = workerModule.default || workerModule;
+  const routerEnv = { ...env, STATE_DB: null, STRIPE_SECRET_KEY: "" };
+  const routerCtx = { waitUntil() {}, passThroughOnException() {} };
+
+  for (const url of [
+    "https://yallternativeliving.com/api/unfulfilled-orders",
+    "https://yallternative-checkout.workers.dev/unfulfilled-orders"
+  ]) {
+    const res = await worker.fetch(
+      new Request(url, { method: "GET", headers: { Origin: ORIGIN } }),
+      routerEnv,
+      routerCtx
+    );
+    assert(res.status !== 404, `the router knows GET ${url} (not a 404)`);
+    const body = await res.json();
+    assert(
+      body && body.error !== "Not Found",
+      `GET ${url} is answered by its handler, not the unknown-route branch`
+    );
+  }
+
+  const postToGetRoute = await worker.fetch(
+    new Request("https://yallternativeliving.com/api/unfulfilled-orders", {
+      method: "POST",
+      headers: { Origin: ORIGIN, "Content-Type": "application/json" },
+      body: "{}"
+    }),
+    routerEnv,
+    routerCtx
+  );
+  assert(
+    postToGetRoute.status === 405,
+    "the router keeps /unfulfilled-orders GET-only (405 on POST)"
+  );
+
+  const fulfillRouted = await worker.fetch(
+    new Request("https://yallternativeliving.com/api/fulfill-order", {
+      method: "POST",
+      headers: { Origin: ORIGIN, "Content-Type": "application/json" },
+      body: JSON.stringify({ payment_intent: "pi_3TestMock0000", status: "shipped" })
+    }),
+    routerEnv,
+    routerCtx
+  );
+  assert(fulfillRouted.status !== 404, "the router knows POST /api/fulfill-order");
+
   if (failed === 0) {
     console.log(`✓ worker-fulfillment.test.js passed (${passed} assertions)`);
   } else {

@@ -2438,6 +2438,23 @@ singletons:
                   required: false
                 }
               - { name: icon, label: "Emoji", widget: string, required: false }
+              - {
+                  name: shopConcern,
+                  label: "Shop shelf this answer opens",
+                  widget: select,
+                  required: false,
+                  options:
+                    [
+                      "sleep-relaxation",
+                      "sore-muscles",
+                      "dry-skin",
+                      "outdoor-defense",
+                      "daily-glow"
+                    ],
+                  hint: "Only used by the first question (Vibe). A shop link like
+                    /shop.html?vibe=gothic-calm opens this shelf. Leave blank and
+                    the link shows the whole shop instead."
+                }
               - name: recommendedProductIds
                 label: "Recommended products"
                 widget: list
