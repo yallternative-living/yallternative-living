@@ -346,6 +346,8 @@ days after the box does instead of a few days after they paid. So if you mark
 something shipped at 2:05 and the customer has nothing by 2:10, that is normal;
 by 3:10 it should be there.
 
+> **💡 The Easy Way:** Instead of logging into Stripe, you can use the **Fulfillment Dashboard** built right into your CMS! Click the blue "Fulfillment Dashboard" button in the top right of the `/admin` page. It will prompt you for the `ADMIN_PASSWORD` (set in Cloudflare), then show you every unshipped order. Paste your tracking links there and click "Mark Shipped" to push the update to Stripe automatically.
+
 **Put the status and the tracking link in the same save.** The email only sends
 once per order — on purpose, so fixing a typo later cannot mail somebody twice —
 so a tracking link added afterwards will show on their order page but will not
