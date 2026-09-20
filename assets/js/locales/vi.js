@@ -569,7 +569,6 @@
     "auto.farmersMarketsPrideEvents.377246": "Chợ nông sản, sự kiện Pride, và mọi nơi chốn bà con cần một chút lấp lánh cùng bản lĩnh. Bàn xếp của tụi này di chuyển suốt mùa. Hãy theo dõi Instagram và TikTok @yallternativeliving để cập nhật lịch trình đặng ghé mua tận nơi nghen.",
     "auto.filterReviewsByStar.aa14fc": "Lọc đánh giá theo số sao",
     "auto.findUsInThe.fab1d4": "Tìm Tụi Này Ngoài Đời",
-    "auto.fleaMarket.7e194c": "Chợ trời",
     "auto.followYallternativelivingOnInstagram.e11f8f": "Theo dõi @yallternativeliving trên Instagram và TikTok để xem lịch pop-up cập nhật liên tục. Đó là nơi tụi này thông báo chính xác chiếc bàn sẽ ghé tới đâu tiếp theo.",
     "auto.followYallternativelivingOnSocials.6c540c": "Theo dõi @yallternativeliving trên mạng xã hội để coi tụi này sắp ghé đâu tiếp theo.",
     "auto.followAlongForThe.28d8d0": "Theo Dõi Để Cập Nhật Lịch Trực Tiếp",
@@ -848,7 +847,7 @@
     "auto.materials.2402ea": "Chất liệu",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living trên mạng xã hội",
     "auto.freeDowntownArtsMusic.3f38cd": "Lễ hội nghệ thuật & âm nhạc miễn phí tại trung tâm — ghé qua bàn của tụi này nhé.",
-    "auto.twoDayPunkFlea.cd4ed3": "Chợ trời punk hai ngày."
+    "auto.freeFamilyFunLive.1f6fec": "Vui chơi gia đình miễn phí & biểu diễn trực tiếp, tiếp nối là thi nhảy ngựa Grand Prix."
   }
 };
 

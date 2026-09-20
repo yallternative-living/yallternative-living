@@ -569,7 +569,6 @@
     "auto.farmersMarketsPrideEvents.377246": "农贸集市、Pride 活动，以及任何大家需要一点闪光与韧劲的地方。这一季我们的折叠桌到处巡回出摊。在 Instagram 和 TikTok 上关注 @yallternativeliving 获取日程安排，这样你就能来现场选购了。",
     "auto.filterReviewsByStar.aa14fc": "按星级筛选评价",
     "auto.findUsInThe.fab1d4": "寻找野生的我们",
-    "auto.fleaMarket.7e194c": "跳蚤市场",
     "auto.followYallternativelivingOnInstagram.e11f8f": "在 Instagram 和 TikTok 上关注 @yallternativeliving，获取实时快闪出摊日程。我们的桌子下一次落脚在哪儿，都会清清楚楚发在那儿。",
     "auto.followYallternativelivingOnSocials.6c540c": "在社交平台上关注 @yallternativeliving，看看我们接下来奔向何方。",
     "auto.followAlongForThe.28d8d0": "关注我们，获取实时日程",
@@ -848,7 +847,7 @@
     "auto.materials.2402ea": "材质",
     "auto.yallternativeLivingOnSocial.e86ad9": "社交媒体上的 Y'allternative Living",
     "auto.freeDowntownArtsMusic.3f38cd": "市中心免费艺术音乐节——欢迎来找我们的摊位。",
-    "auto.twoDayPunkFlea.cd4ed3": "为期两天的朋克跳蚤市场。"
+    "auto.freeFamilyFunLive.1f6fec": "免费家庭娱乐与现场表演，随后是大奖赛障碍赛马。"
   }
 };
 

@@ -569,7 +569,6 @@
     "auto.farmersMarketsPrideEvents.377246": "파머스 마켓, 프라이드 행사, 그리고 반짝임과 뚝심이 필요한 모든 곳으로 찾아갑니다. 시즌 내내 저희 접이식 테이블은 부지런히 자리를 옮겨가요. 직접 오셔서 쇼핑하실 수 있도록 인스타그램과 틱톡 @yallternativeliving에서 일정을 팔로우해 보세요.",
     "auto.filterReviewsByStar.aa14fc": "별점으로 리뷰 필터링",
     "auto.findUsInThe.fab1d4": "현장에서 만나요",
-    "auto.fleaMarket.7e194c": "플리마켓",
     "auto.followYallternativelivingOnInstagram.e11f8f": "실시간 팝업 일정을 확인하시려면 인스타그램과 틱톡에서 @yallternativeliving을 팔로우해 주세요. 저희 테이블이 다음에 어디에 자리 잡을지 정확히 공지해 드려요.",
     "auto.followYallternativelivingOnSocials.6c540c": "저희가 다음에는 어디로 향할지 소셜 미디어에서 @yallternativeliving을 팔로우하고 확인해 보세요.",
     "auto.followAlongForThe.28d8d0": "실시간 일정 확인을 위해 팔로우하기",
@@ -848,7 +847,7 @@
     "auto.materials.2402ea": "소재",
     "auto.yallternativeLivingOnSocial.e86ad9": "소셜 미디어 속 Y'allternative Living",
     "auto.freeDowntownArtsMusic.3f38cd": "무료 다운타운 예술 & 음악 페스티벌 — 저희 부스를 찾아와 주세요.",
-    "auto.twoDayPunkFlea.cd4ed3": "이틀 동안 열리는 펑크 플리마켓."
+    "auto.freeFamilyFunLive.1f6fec": "온 가족이 무료로 즐기는 다채로운 놀거리와 라이브 공연, 그리고 그랑프리 쇼점핑 경기가 이어져요."
   }
 };
 

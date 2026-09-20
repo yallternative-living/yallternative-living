@@ -569,7 +569,6 @@
     "auto.farmersMarketsPrideEvents.377246": "Farmers markets, Pride events, and everywhere else folks need a little glitter and grit. We keep our folding table moving through the season. Follow along on Instagram and TikTok @yallternativeliving for the schedule so you can shop in person.",
     "auto.filterReviewsByStar.aa14fc": "Filter reviews by star rating",
     "auto.findUsInThe.fab1d4": "Find Us In The Wild",
-    "auto.fleaMarket.7e194c": "Flea Market",
     "auto.followYallternativelivingOnInstagram.e11f8f": "Follow @yallternativeliving on Instagram and TikTok for the real-time pop-up schedule. That's where we post exactly where the table's landing next.",
     "auto.followYallternativelivingOnSocials.6c540c": "Follow @yallternativeliving on socials to see where we're heading next.",
     "auto.followAlongForThe.28d8d0": "Follow Along For The Live Schedule",
@@ -848,7 +847,7 @@
     "auto.materials.2402ea": "Materials",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living On Social",
     "auto.freeDowntownArtsMusic.3f38cd": "Free downtown arts & music festival — come find our table.",
-    "auto.twoDayPunkFlea.cd4ed3": "Two-day punk flea market."
+    "auto.freeFamilyFunLive.1f6fec": "Free family fun & live entertainment, followed by Grand Prix show jumping."
   }
 };
 

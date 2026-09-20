@@ -569,7 +569,6 @@
     "auto.farmersMarketsPrideEvents.377246": "Feiras de produtores, eventos do Orgulho e em qualquer outro lugar onde o pessoal precise de um pouco de glitter e garra. A nossa mesa dobrável não para quieta durante a temporada. Acompanhe no Instagram e no TikTok @yallternativeliving para ver a programação e poder comprar pessoalmente.",
     "auto.filterReviewsByStar.aa14fc": "Filtrar avaliações por estrelas",
     "auto.findUsInThe.fab1d4": "Encontre a gente por aí",
-    "auto.fleaMarket.7e194c": "Mercado de Pulgas",
     "auto.followYallternativelivingOnInstagram.e11f8f": "Siga @yallternativeliving no Instagram e no TikTok para conferir a programação de pop-ups em tempo real. É lá que a gente posta exatamente onde a mesa vai parar da próxima vez.",
     "auto.followYallternativelivingOnSocials.6c540c": "Siga @yallternativeliving nas redes sociais para ver onde será a nossa próxima parada.",
     "auto.followAlongForThe.28d8d0": "Acompanhe para ver a programação em tempo real",
@@ -848,7 +847,7 @@
     "auto.materials.2402ea": "Materiais",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living nas redes sociais",
     "auto.freeDowntownArtsMusic.3f38cd": "Festival gratuito de arte e música no centro — venha encontrar a nossa mesa.",
-    "auto.twoDayPunkFlea.cd4ed3": "Feira de pulgas punk de dois dias."
+    "auto.freeFamilyFunLive.1f6fec": "Diversão gratuita para a família e entretenimento ao vivo, seguidos de salto Grand Prix."
   }
 };
 

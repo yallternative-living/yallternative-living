@@ -569,7 +569,6 @@
     "auto.farmersMarketsPrideEvents.377246": "Mercados de agricultores, eventos de Pride y cualquier otro lugar donde la gente necesite un poco de brillo y agallas. Nuestra mesa plegable no para en toda la temporada. Síguenos en Instagram y TikTok @yallternativeliving para ver el calendario y comprar en persona.",
     "auto.filterReviewsByStar.aa14fc": "Filtrar reseñas por calificación de estrellas",
     "auto.findUsInThe.fab1d4": "Encuéntranos por ahí",
-    "auto.fleaMarket.7e194c": "Mercado de pulgas",
     "auto.followYallternativelivingOnInstagram.e11f8f": "Sigue a @yallternativeliving en Instagram y TikTok para ver el calendario de pop-ups en tiempo real. Ahí publicamos exactamente dónde aterrizará la mesa la próxima vez.",
     "auto.followYallternativelivingOnSocials.6c540c": "Sigue a @yallternativeliving en redes para ver a dónde vamos.",
     "auto.followAlongForThe.28d8d0": "Síguenos para ver el calendario en vivo",
@@ -848,7 +847,7 @@
     "auto.materials.2402ea": "Materiales",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living en redes sociales",
     "auto.freeDowntownArtsMusic.3f38cd": "Festival gratuito de arte y música en el centro — ven a buscar nuestra mesa.",
-    "auto.twoDayPunkFlea.cd4ed3": "Mercado de pulgas punk de dos días."
+    "auto.freeFamilyFunLive.1f6fec": "Diversión familiar gratis y entretenimiento en vivo, seguidos de salto ecuestre Grand Prix."
   }
 };
 
