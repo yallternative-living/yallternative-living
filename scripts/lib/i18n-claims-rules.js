@@ -771,15 +771,20 @@ function claimPromptFragment(code) {
  * the one key, the batch survives, and the test stays the backstop.
  * ------------------------------------------------------------------------ */
 
-/* By KEY and TERM, never class-wide. The footer tagline says "for the black
-   sheep & bold hearts" in lower case -- the collection's words used as a
-   description -- and models reach for the capitalised form because the
-   glossary protects that string. A copy nit, not a fabricated name. Listing it
-   this way keeps "Unbothered" from being invented into eight languages the day
-   some other line says "an unbothered kind of calm". */
+/* Terms that are safe to match case-insensitively across ANY key where the
+   English source text contains the words. "Black Sheep & Bold Hearts" is a
+   distinct 5-word brand idiom that models often capitalize even when CMS
+   or storefront copy writes it in lowercase. Allowing it by term ensures that
+   whenever Savanna writes or edits copy in the CMS using this phrase, it
+   translates without requiring fragile per-key SHA allowlists. Single common
+   dictionary words like "Unbothered" stay strictly key-bound via
+   BRAND_CASE_ALLOWLIST so ordinary adjectives never trigger brand insertions. */
+const BRAND_CASE_TERMS = new Set(["Black Sheep & Bold Hearts"]);
+
 const BRAND_CASE_ALLOWLIST = {
   "footer.tagline": ["Black Sheep & Bold Hearts"],
-  "auto.whileYouWaitOn.8fe280": ["Black Sheep & Bold Hearts"]
+  "auto.whileYouWaitOn.8fe280": ["Black Sheep & Bold Hearts"],
+  "auto.thePerfectGiftFor.057d2a": ["Black Sheep & Bold Hearts"]
 };
 
 /** Everything the glossary calls a name: protected terms plus the brand category. */
@@ -799,12 +804,12 @@ function insertedBrandTerms(key, en, value, glossary) {
   const found = [];
   brandTerms(glossary).forEach(function (term) {
     if (!term || english.indexOf(term) !== -1) return;
-    /* Allowlisted only where the English carries the same words in another
-       case -- not as a blanket pass for the key. */
-    if (
-      allowed.indexOf(term) !== -1 &&
-      english.toLowerCase().indexOf(String(term).toLowerCase()) !== -1
-    ) {
+    /* Allowlisted where the English carries the same words in another
+       case (either by term for multi-word idioms like "Black Sheep & Bold Hearts",
+       or by specific key for single-word brand names like "Unbothered") -- not
+       as a blanket pass for the key. */
+    const isAllowed = BRAND_CASE_TERMS.has(term) || allowed.indexOf(term) !== -1;
+    if (isAllowed && english.toLowerCase().indexOf(String(term).toLowerCase()) !== -1) {
       return;
     }
     if (translated.indexOf(term) !== -1 && found.indexOf(term) === -1) found.push(term);
@@ -824,6 +829,7 @@ module.exports = {
   keyIsExempt: keyIsExempt,
   claimOffenses: claimOffenses,
   claimPromptFragment: claimPromptFragment,
+  BRAND_CASE_TERMS: BRAND_CASE_TERMS,
   BRAND_CASE_ALLOWLIST: BRAND_CASE_ALLOWLIST,
   brandTerms: brandTerms,
   insertedBrandTerms: insertedBrandTerms

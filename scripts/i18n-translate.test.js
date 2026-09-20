@@ -1408,7 +1408,7 @@ async function runPins() {
   };
 
   const invented = check(
-    "auto.thePerfectGiftFor.057d2a",
+    "auto.giftFor.eeeeee",
     "The perfect gift for the person who has everything.",
     "Das perfekte Geschenk von Black Sheep & Bold Hearts für alle."
   );
@@ -1452,6 +1452,25 @@ async function runPins() {
       "Handgemachte Selbstpflege für Black Sheep & Bold Hearts."
     ) === null,
     "the allowlisted footer tagline case still passes"
+  );
+
+  assert(
+    check(
+      "auto.thePerfectGiftFor.057d2a",
+      "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500.",
+      "Das perfekte Geschenk für Black Sheep & Bold Hearts. Wählen Sie einen beliebigen Betrag."
+    ) === null,
+    "the allowlisted gift card blurb case still passes"
+  );
+
+  /* Any new CMS key containing the brand idiom in lowercase passes automatically */
+  assert(
+    check(
+      "auto.newCmsCopy.999999",
+      "Crafted for the black sheep & bold hearts everywhere.",
+      "Gemacht für Black Sheep & Bold Hearts überall."
+    ) === null,
+    "brand idiom passes case-insensitively on any new CMS key"
   );
 
   /* ...and the allowlist is not a blanket pass for the key. Same key, English

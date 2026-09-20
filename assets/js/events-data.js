@@ -7,19 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "id": "saturday-night-lights-2026-09-19",
-      "date": "2026-09-19",
-      "dateLabel": "September 19, 2026 · Saturday, 4pm–9pm",
-      "name": "Saturday Night Lights",
-      "type": "Festival",
-      "location": "Mill Spring, NC",
-      "zip": "28756",
-      "venue": "Tryon International",
-      "address": "25 International Blvd",
-      "url": "https://resort.tryon.com/events/saturday-night-lights-september19-thwdz",
-      "note": "Free family fun & live entertainment, followed by Grand Prix show jumping."
-    },
-    {
       "id": "fall-family-festival-market-2026-09-26",
       "date": "2026-09-26",
       "dateLabel": "September 26, 2026 · Saturday, 3pm–8pm",
@@ -45,6 +32,19 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "id": "saturday-night-lights-2026-09-19",
+      "date": "2026-09-19",
+      "dateLabel": "September 19, 2026 · Saturday, 4pm–9pm",
+      "name": "Saturday Night Lights",
+      "type": "Festival",
+      "location": "Mill Spring, NC",
+      "venue": "Tryon International",
+      "address": "25 International Blvd",
+      "zip": "28756",
+      "url": "https://resort.tryon.com/events/saturday-night-lights-september19-thwdz",
+      "note": "Free family fun & live entertainment, followed by Grand Prix show jumping."
+    },
     {
       "id": "mrb-renaissance-festival-2026-09-12",
       "date": "2026-09-12",

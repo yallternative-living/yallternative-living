@@ -17,21 +17,20 @@ name: i18n bot
 # pushes.
 # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpaths
 on:
-  # Four times a day: picks up keys an earlier run left behind (a provider
-  # 503 storm, a dead key that has since been fixed, a batch that timed out).
+  # Once daily (4:23 UTC / 11:23 PM Eastern / 8:23 PM Pacific):
+  # Automatically translates CMS updates published to main by cms-publish.yml
+  # (since GitHub Actions GITHUB_TOKEN pushes do not trigger on:push workflows,
+  # a daily cron ensures CMS edits are translated without manual dispatch).
   # A run with nothing to do commits nothing.
-  #
-  # --concurrency 8 (below) is one call per target locale in flight. The
-  # locales of a batch are independent calls and the results are applied in a
-  # fixed order, so a concurrent run writes byte-identical files to a serial
-  # one -- pinned by scripts/i18n-translate.test.js. Nine locales made the
-  # serial version take hours.
   schedule:
-    - cron: "23 */6 * * *"
+    - cron: "23 4 * * *"
+  # Also triggers immediately on human pushes or PR merges that touch CMS data files
   push:
     branches: [main]
     paths:
       - "assets/data/products.json"
+      - "assets/data/products/**"
+      - "assets/data/catalog-config.json"
       - "assets/data/content.json"
       - "assets/data/events.json"
       - "assets/data/quiz.json"
@@ -42,7 +41,7 @@ on:
       dry_run:
         description: "Run everything, commit nothing, upload the would-be diff as an artifact"
         type: boolean
-        default: true
+        default: false
 
 # QUEUE, do not cancel. A job that commits must never be killed mid-write, and
 # two runs must never interleave. `queue: max` (up to 100 pending, FIFO) shipped
@@ -355,10 +354,6 @@ jobs:
             lines.push("Run: " + process.env.RUN_URL);
             console.log(lines.join("\n"));
           ')
-          if [ -z "$BODY" ]; then
-            echo "Nothing was dropped and no model fell back -- no issue to file."
-            exit 0
-          fi
           # Matched on the exact title rather than through GitHub's search
           # syntax: the title contains a colon, which `in:title` reads as an
           # operator, and a fuzzy match would comment on the wrong issue.
@@ -370,8 +365,17 @@ jobs:
               if (hit) console.log(hit.number);
             });
           ')
+          if [ -z "$BODY" ]; then
+            if [ -n "$EXISTING" ]; then
+              echo "Nothing dropped. Closing existing issue #$EXISTING."
+              gh issue close "$EXISTING" --comment "All strings successfully translated and verified. Closing tracking issue."
+            else
+              echo "Nothing was dropped and no model fell back -- no issue to file."
+            fi
+            exit 0
+          fi
           if [ -n "$EXISTING" ]; then
-            gh issue comment "$EXISTING" --body "$BODY"
+            gh issue edit "$EXISTING" --body "$BODY"
           else
             gh issue create --title "$TITLE" --body "$BODY"
           fi

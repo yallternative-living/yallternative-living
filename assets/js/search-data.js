@@ -1520,21 +1520,6 @@ window.YL_SEARCH_INDEX = {
   ],
   "events": [
     {
-      "id": "saturday-night-lights-2026-09-19",
-      "name": "Saturday Night Lights",
-      "title": "Saturday Night Lights",
-      "date": "2026-09-19",
-      "dateLabel": "September 19, 2026 · Saturday, 4pm–9pm",
-      "endDate": null,
-      "type": "Festival",
-      "location": "Mill Spring, NC",
-      "zip": "28756",
-      "note": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
-      "description": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
-      "isUpcoming": true,
-      "url": "events.html#saturday-night-lights-2026-09-19"
-    },
-    {
       "id": "fall-family-festival-market-2026-09-26",
       "name": "Fall Family Festival & Market",
       "title": "Fall Family Festival & Market",
@@ -1563,6 +1548,21 @@ window.YL_SEARCH_INDEX = {
       "description": "Pop-up market table with handmade salves, soaks & soaps.",
       "isUpcoming": true,
       "url": "events.html#autumn-apothecary-faire"
+    },
+    {
+      "id": "saturday-night-lights-2026-09-19",
+      "name": "Saturday Night Lights",
+      "title": "Saturday Night Lights",
+      "date": "2026-09-19",
+      "dateLabel": "September 19, 2026 · Saturday, 4pm–9pm",
+      "endDate": null,
+      "type": "Festival",
+      "location": "Mill Spring, NC",
+      "zip": "28756",
+      "note": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
+      "description": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
+      "isUpcoming": false,
+      "url": "events.html#saturday-night-lights-2026-09-19"
     },
     {
       "id": "mrb-renaissance-festival-2026-09-12",
