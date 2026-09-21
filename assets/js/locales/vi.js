@@ -847,7 +847,8 @@
     "auto.materials.2402ea": "Chất liệu",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living trên mạng xã hội",
     "auto.freeDowntownArtsMusic.3f38cd": "Lễ hội nghệ thuật & âm nhạc miễn phí tại trung tâm — ghé qua bàn của tụi này nhé.",
-    "auto.freeFamilyFunLive.1f6fec": "Vui chơi gia đình miễn phí & biểu diễn trực tiếp, tiếp nối là thi nhảy ngựa Grand Prix."
+    "auto.freeFamilyFunLive.1f6fec": "Vui chơi gia đình miễn phí & biểu diễn trực tiếp, tiếp nối là thi nhảy ngựa Grand Prix.",
+    "auto.thePerfectGiftFor.057d2a": "Món quà hoàn hảo cho Black Sheep & Bold Hearts. Chọn bất kỳ số tiền nào từ $10 đến $500. Không có hạn sử dụng, gửi thẳng vào hộp thư đến của họ."
   }
 };
 

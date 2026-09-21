@@ -847,7 +847,8 @@
     "auto.materials.2402ea": "소재",
     "auto.yallternativeLivingOnSocial.e86ad9": "소셜 미디어 속 Y'allternative Living",
     "auto.freeDowntownArtsMusic.3f38cd": "무료 다운타운 예술 & 음악 페스티벌 — 저희 부스를 찾아와 주세요.",
-    "auto.freeFamilyFunLive.1f6fec": "온 가족이 무료로 즐기는 다채로운 놀거리와 라이브 공연, 그리고 그랑프리 쇼점핑 경기가 이어져요."
+    "auto.freeFamilyFunLive.1f6fec": "온 가족이 무료로 즐기는 다채로운 놀거리와 라이브 공연, 그리고 그랑프리 쇼점핑 경기가 이어져요.",
+    "auto.thePerfectGiftFor.057d2a": "Black Sheep & Bold Hearts를 위한 완벽한 선물이에요. $10부터 $500까지 원하는 금액을 선택해 보세요. 유효기간 없이 받은편지함으로 바로 전송돼요."
   }
 };
 
