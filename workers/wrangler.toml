@@ -211,9 +211,15 @@ crons = ["7 * * * *"]
 # ADMIN_PASSWORD; that is deleted, not retired to a fallback, because a shared
 # password on a public endpoint is guessable however carefully it is compared.
 # The dashboard now sends the owner's own GitHub token (the one Sveltia CMS
-# already holds) and routes/fulfillment.js asks GitHub whether that account may
-# push to the GITHUB_REPO var above. If ADMIN_PASSWORD is still set in the
-# Cloudflare dashboard from before, delete it there: nothing reads it now.
+# already holds) and routes/fulfillment.js asks GitHub whether that token is
+# scoped to push (public_repo/repo) and its account may push to the GITHUB_REPO
+# var above. If ADMIN_PASSWORD is still set in the Cloudflare dashboard from
+# before, delete it there: nothing reads it now.
+#
+# Recommended, optional: GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET -- the CMS
+# OAuth app's pair, the same two the cms-auth Worker holds -- set in the
+# dashboard (the secret as a Secret). With them the dashboard accepts only
+# tokens that app issued. Set both or neither: the id alone refuses everyone.
 #
 # See workers/README.md for the full deploy checklist and docs/STATE-LAYER.md
 # for the architecture.

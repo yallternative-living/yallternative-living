@@ -9,27 +9,44 @@
  * uses at /admin/. The dashboard reads the token Sveltia stored
  * (localStorage `sveltia-cms.user`, field `token`) and sends it as
  * `Authorization: Bearer <gho_...>`; this Worker asks GitHub who that token
- * belongs to and whether they may push to the shop's repository.
+ * belongs to and whether it may push to the shop's repository.
  *
  * There is NO shared password. There used to be (`ADMIN_PASSWORD`), and a
  * shared secret on a public endpoint is guessable no matter how carefully it
  * is compared -- so it is gone rather than kept as a fallback, because a
  * fallback would have been the weakest link and the only one worth attacking.
  *
- * Why `GET /repos/{owner}/{repo}` and `permissions.push`: the repository is
- * PUBLIC, so any signed-in stranger's token also gets a 200 from that call --
- * with `permissions.push === false`. The push bit, not the status code, is
- * what separates the shop's owner from the rest of GitHub. One call, and the
- * `public_repo` scope the CMS already asks for covers it.
+ * WHAT GITHUB IS ASKED, AND WHY EACH QUESTION
  *
- * Every request is still counted in ONE GLOBAL bucket, but the limiter is no
- * longer the security boundary: a `gho_` token is not something you guess, so
- * the bucket exists to cap what an anonymous caller can cost us in GitHub API
- * calls and Worker time. It therefore fails OPEN, like every shopper-facing
- * limiter here -- locking the owner out of shipping to protect a credential
- * that cannot be brute-forced would be the wrong trade. Tokens that do not
- * even look like GitHub tokens are refused before any network call, and both
- * verdicts are cached briefly, so a flood costs GitHub nothing.
+ * 1. What can this TOKEN do? `permissions.push` on a repository describes the
+ *    ACCOUNT's role, not the token: a "Sign in with GitHub" token some other
+ *    site holds for the owner, minted with no scopes at all, reports the same
+ *    push:true. So the token's own scopes must include `public_repo` (what the
+ *    CMS asks for) or `repo`. Only classic tokens -- `gho_` from an OAuth app,
+ *    `ghp_` typed by hand -- report scopes, so only those shapes are accepted.
+ *    A token that passes can already push to the shop's repository, so this
+ *    dashboard grants it nothing it could not take anyway.
+ * 2. Which APP issued it? Optional and stronger: with GITHUB_CLIENT_ID and
+ *    GITHUB_CLIENT_SECRET set (the CMS OAuth app's own, the pair
+ *    cms-auth/sveltia-auth.js holds) the token is checked through
+ *    `POST /applications/{client_id}/token`, which only answers for tokens
+ *    that app issued. Every other app's token -- even one scoped `repo` --
+ *    is then refused. Set the id without the secret and every request is
+ *    refused (503): half a configuration fails closed.
+ * 3. May the account push? `GET /repos/{owner}/{repo}` and `permissions.push`.
+ *    The repository is PUBLIC, so any signed-in stranger's token also gets a
+ *    200 from that call -- with push:false. The push bit, not the status code,
+ *    separates the shop's owner from the rest of GitHub.
+ *
+ * COST CONTROL, NOT A LOCK. A token that does not look like a GitHub token is
+ * refused before anything else runs, and a verdict GitHub already gave is
+ * served from a short per-isolate cache; neither touches the limiter. Only a
+ * request that would actually go to GitHub is counted, in ONE GLOBAL bucket
+ * that fails OPEN. Counting everything let anyone lock the owner out with 30
+ * header-less requests a minute. What is left: a caller who keeps sending 30
+ * well-formed fake tokens a minute (each costing a real GitHub round trip)
+ * can still hold the bucket, and an owner whose token is not cached in that
+ * isolate waits it out -- the Stripe Dashboard stays available meanwhile.
  */
 
 import { json, ClientError, readJson } from "./http.js";
@@ -40,11 +57,12 @@ import { SHIPPED_STATUSES } from "./ship-notice.js";
 import { safeUrl } from "../state/stripe-orders.js";
 
 /**
- * Requests per minute across BOTH admin routes together, all callers in one
- * bucket. Thirty covers a Saturday after a market (one page load plus a
- * "Mark Shipped" click per order). The key is a constant on purpose: on the
- * workers.dev hostname a caller picks its own X-Forwarded-For, so a per-IP
- * bucket would be per-attacker-string (routes/http.js clientIp()).
+ * GitHub verifications per minute across BOTH admin routes together, all
+ * callers in one bucket. Only a request that reaches GitHub is counted (see
+ * gate()), so the owner's cached session never spends it. The key is a
+ * constant on purpose: on the workers.dev hostname a caller picks its own
+ * X-Forwarded-For, so a per-IP bucket would be per-attacker-string
+ * (routes/http.js clientIp()).
  */
 export const ADMIN_AUTH_RATE_LIMIT = { limit: 30, period: 60 };
 const ADMIN_AUTH_RATE_KEY = "admin-auth";
@@ -53,20 +71,33 @@ const ADMIN_AUTH_RATE_KEY = "admin-auth";
 const DEFAULT_GITHUB_REPO = "yallternative-living/yallternative-living";
 
 /**
- * GitHub token shapes (docs: "about authentication to GitHub"). `gho_` is what
- * the CMS OAuth flow mints; the others are accepted so a maintainer can use a
- * personal access token by hand. Anything else never reaches api.github.com.
+ * Classic GitHub token shapes (docs: "about authentication to GitHub"): `gho_`
+ * is what the CMS OAuth flow mints, `ghp_` a classic personal access token.
+ * Fine-grained (`github_pat_`), GitHub App (`ghu_`, `ghs_`) tokens are refused
+ * here because GitHub reports no scopes for them, and scopes are check 1 above.
+ * Anything else never reaches api.github.com.
  */
-const GITHUB_TOKEN_RE = /^(?:gho|ghp|ghu|ghs|github_pat)_[A-Za-z0-9_]{20,255}$/;
+const GITHUB_TOKEN_RE = /^(?:gho|ghp)_[A-Za-z0-9_]{20,255}$/;
 
-/** How long a verified (or rejected) token is trusted without asking GitHub again. */
-const TOKEN_CACHE_MS = 5 * 60 * 1000;
+/** Classic scopes that include pushing to a public repository. */
+const PUSH_SCOPES = ["repo", "public_repo"];
 
 /**
- * token digest -> { ok, login, expires }. Per-isolate and therefore
+ * How long a verdict is trusted without asking GitHub again. A yes is kept
+ * one minute, so a revoked token or a removed collaborator stops working
+ * quickly; a no is kept five, so a flood of the same bad token stays free.
+ */
+const TOKEN_OK_CACHE_MS = 60 * 1000;
+const TOKEN_REFUSED_CACHE_MS = 5 * 60 * 1000;
+
+/** Entries past this are dropped oldest-first, so a flood cannot grow the map. */
+const TOKEN_CACHE_MAX = 256;
+
+/**
+ * token digest -> { ok, status, login, expires }. Per-isolate and therefore
  * best-effort: a cold isolate just asks GitHub again. It exists so one
  * dashboard session (a list plus a dozen "Mark Shipped" clicks) costs a
- * single API call, and so a flood of the same bad token costs none.
+ * couple of API calls, and so a flood of the same bad token costs none.
  */
 const tokenCache = new Map();
 
@@ -82,6 +113,8 @@ const PAYMENT_INTENT_RE = /^pi_[A-Za-z0-9]{1,255}$/;
 
 /** Matches the `tracking_url` column budget in state/orders.js and safeUrl(). */
 const TRACKING_URL_MAX = 500;
+
+const GITHUB_API = "https://api.github.com";
 
 const encoder = new TextEncoder();
 
@@ -101,23 +134,110 @@ function repoOf(env) {
   );
 }
 
+function githubHeaders(authorization) {
+  return {
+    Authorization: authorization,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    // api.github.com rejects a request with no User-Agent outright.
+    "User-Agent": "yallternative-fulfillment"
+  };
+}
+
+/** `X-OAuth-Scopes: public_repo, read:user` -> ["public_repo", "read:user"]. */
+function parseScopes(header) {
+  return String(header || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /**
- * Ask GitHub whether this token may push to the shop's repository.
+ * Who the token belongs to and what it may do, without trusting which app
+ * issued it: `GET /user` answers with the login, and its `X-OAuth-Scopes`
+ * header lists the token's scopes.
+ *
+ * @returns {Promise<{status: number, login: string, scopes: string[]}>}
+ *   status 200 when GitHub accepted the token, 401 when it did not, 503 when
+ *   GitHub could not be asked.
+ */
+async function identifyToken(token) {
+  const res = await fetch(`${GITHUB_API}/user`, { headers: githubHeaders(`Bearer ${token}`) });
+  if (res.status === 401) return { status: 401, login: "", scopes: [] };
+  if (!res.ok) {
+    // 403 here is OUR problem (rate limit, bad User-Agent), not the caller's.
+    console.error(`fulfillment: GitHub refused the identity check (${res.status})`);
+    return { status: 503, login: "", scopes: [] };
+  }
+  const body = await res.json().catch(() => null);
+  return {
+    status: 200,
+    login: (body && typeof body.login === "string" && body.login) || "",
+    scopes: parseScopes(res.headers.get("X-OAuth-Scopes"))
+  };
+}
+
+/**
+ * The same answer, but only for a token the CMS's own OAuth app issued:
+ * `POST /applications/{client_id}/token`, authenticated as the app. GitHub
+ * answers 404 for a token any other app issued (or one that is not valid).
+ */
+async function identifyAppToken(token, clientId, clientSecret) {
+  const res = await fetch(`${GITHUB_API}/applications/${encodeURIComponent(clientId)}/token`, {
+    method: "POST",
+    headers: {
+      ...githubHeaders(`Basic ${btoa(`${clientId}:${clientSecret}`)}`),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ access_token: token })
+  });
+  if (res.status === 404 || res.status === 422) return { status: 401, login: "", scopes: [] };
+  if (!res.ok) {
+    // 401 here means OUR client id / secret are wrong -- a configuration
+    // problem, never a verdict on the caller's token.
+    console.error(`fulfillment: GitHub refused the OAuth app token check (${res.status})`);
+    return { status: 503, login: "", scopes: [] };
+  }
+  const body = await res.json().catch(() => null);
+  const user = body && body.user;
+  return {
+    status: 200,
+    login: (user && typeof user.login === "string" && user.login) || "",
+    scopes: body && Array.isArray(body.scopes) ? body.scopes.map(String) : []
+  };
+}
+
+/**
+ * Ask GitHub whether this token may push to the shop's repository: checks 1-3
+ * in the file header, in that order, stopping at the first no.
  *
  * @returns {Promise<{ok: boolean, status: number, login: string}>}
- *   `ok` true only when GitHub reports push access. `status` is what the
- *   caller should answer: 401 for a token GitHub will not accept, 403 for a
- *   real account without push, 503 when GitHub itself could not be reached.
+ *   `ok` true only when every check passed. `status` is what the caller
+ *   should answer: 401 for a token GitHub (or the CMS app) will not accept,
+ *   403 for a real token without the scope or the push access, 503 when
+ *   GitHub could not be reached or this Worker is misconfigured.
  */
 async function verifyGitHubPush(token, env) {
-  const res = await fetch(`https://api.github.com/repos/${repoOf(env)}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      // api.github.com rejects a request with no User-Agent outright.
-      "User-Agent": "yallternative-fulfillment"
+  const clientId = env && typeof env.GITHUB_CLIENT_ID === "string" && env.GITHUB_CLIENT_ID.trim();
+  let identity;
+  if (clientId) {
+    const clientSecret = env.GITHUB_CLIENT_SECRET;
+    if (typeof clientSecret !== "string" || !clientSecret) {
+      console.error("fulfillment: GITHUB_CLIENT_ID is set without GITHUB_CLIENT_SECRET");
+      return { ok: false, status: 503, login: "" };
     }
+    identity = await identifyAppToken(token, clientId, clientSecret);
+  } else {
+    identity = await identifyToken(token);
+  }
+  if (identity.status !== 200) return { ok: false, status: identity.status, login: "" };
+  const login = identity.login;
+  if (!identity.scopes.some((s) => PUSH_SCOPES.includes(s))) {
+    return { ok: false, status: 403, login };
+  }
+
+  const res = await fetch(`${GITHUB_API}/repos/${repoOf(env)}`, {
+    headers: githubHeaders(`Bearer ${token}`)
   });
   if (res.status === 401) return { ok: false, status: 401, login: "" };
   if (!res.ok) {
@@ -128,68 +248,73 @@ async function verifyGitHubPush(token, env) {
   }
   const body = await res.json().catch(() => null);
   const perms = body && body.permissions;
-  const login = (body && body.owner && body.owner.login) || "";
   // Defensive: absent `permissions` is treated as no permission, never as yes.
   if (!perms || perms.push !== true) return { ok: false, status: 403, login };
   return { ok: true, status: 200, login };
 }
 
-/**
- * The bearer token, checked for shape, then against GitHub, then cached.
- * @returns {Promise<{ok: boolean, status: number}>}
- */
-async function verifyAdminAuth(request, env, now = Date.now()) {
-  const token = bearerToken(request);
-  if (!token || !GITHUB_TOKEN_RE.test(token)) return { ok: false, status: 401 };
-
-  const key = await sha256Hex(token);
-  const hit = tokenCache.get(key);
-  if (hit && hit.expires > now) return { ok: hit.ok, status: hit.status };
-
-  const result = await verifyGitHubPush(token, env);
-  // A 503 is about GitHub, not about this token, so it is never cached.
-  if (result.status !== 503) {
-    tokenCache.set(key, { ok: result.ok, status: result.status, expires: now + TOKEN_CACHE_MS });
-    if (tokenCache.size > 64) {
-      for (const [k, v] of tokenCache) if (v.expires <= now) tokenCache.delete(k);
-    }
+function cacheVerdict(key, result, now) {
+  const ttl = result.ok ? TOKEN_OK_CACHE_MS : TOKEN_REFUSED_CACHE_MS;
+  tokenCache.set(key, {
+    ok: result.ok,
+    status: result.status,
+    login: result.login,
+    expires: now + ttl
+  });
+  if (tokenCache.size > TOKEN_CACHE_MAX) {
+    for (const [k, v] of tokenCache) if (v.expires <= now) tokenCache.delete(k);
+    // Still over after the expired ones went: drop the oldest (Map keeps
+    // insertion order), so a flood of distinct tokens cannot grow it.
+    while (tokenCache.size > TOKEN_CACHE_MAX) tokenCache.delete(tokenCache.keys().next().value);
   }
-  return { ok: result.ok, status: result.status };
 }
 
 /**
- * The limiter, then the GitHub check. Returns a Response to send when the
- * caller is refused, or null when they may proceed.
+ * The bearer token: shape check and cache first -- both free, neither
+ * counted -- then the global bucket, then GitHub, then cached.
+ * @returns {Promise<{ok: boolean, status: number, login: string}>} status 429
+ *   when the bucket is full; otherwise as verifyGitHubPush().
  */
-async function gate(request, env, origin) {
+async function verifyAdminAuth(request, env, now = Date.now()) {
+  const token = bearerToken(request);
+  if (!token || !GITHUB_TOKEN_RE.test(token)) return { ok: false, status: 401, login: "" };
+
+  const key = await sha256Hex(token);
+  const hit = tokenCache.get(key);
+  if (hit && hit.expires > now) return { ok: hit.ok, status: hit.status, login: hit.login };
+
   const limit = await checkRateLimit(env, ADMIN_AUTH_RATE_KEY, {
     ...ADMIN_AUTH_RATE_LIMIT,
     // Fails OPEN: the credential is a GitHub token, not a guessable secret,
     // so this bucket is cost control and must not lock the owner out.
     failOpen: true
   });
-  if (!limit.success) {
-    return json(
-      { error: "Too many requests. Please wait a minute and try again." },
-      429,
-      origin,
-      env
-    );
-  }
+  if (!limit.success) return { ok: false, status: 429, login: "" };
+
+  const result = await verifyGitHubPush(token, env);
+  // A 503 is about GitHub or this Worker, not about this token: never cached.
+  if (result.status !== 503) cacheVerdict(key, result, now);
+  return result;
+}
+
+/** What each refusal says; anything else from verifyAdminAuth() is a 401. */
+const REFUSALS = {
+  401: "Sign in to the CMS with GitHub first.",
+  403: "That GitHub account cannot manage this shop's orders.",
+  429: "Too many requests. Please wait a minute and try again.",
+  503: "Could not reach GitHub to check your sign-in."
+};
+
+/**
+ * Returns `{refused}` with the Response to send when the caller is refused,
+ * or `{refused: null, login}` -- the GitHub login, for the audit log line --
+ * when they may proceed.
+ */
+async function gate(request, env, origin) {
   const auth = await verifyAdminAuth(request, env);
-  if (auth.ok) return null;
-  if (auth.status === 403) {
-    return json(
-      { error: "That GitHub account cannot manage this shop's orders." },
-      403,
-      origin,
-      env
-    );
-  }
-  if (auth.status === 503) {
-    return json({ error: "Could not reach GitHub to check your sign-in." }, 503, origin, env);
-  }
-  return json({ error: "Sign in to the CMS with GitHub first." }, 401, origin, env);
+  if (auth.ok) return { refused: null, login: auth.login };
+  const status = REFUSALS[auth.status] ? auth.status : 401;
+  return { refused: json({ error: REFUSALS[status] }, status, origin, env), login: "" };
 }
 
 /**
@@ -198,7 +323,7 @@ async function gate(request, env, origin) {
  * in the D1 orders table, joined with their original emails.
  */
 export async function handleUnfulfilledOrders(request, env, origin) {
-  const refused = await gate(request, env, origin);
+  const { refused, login } = await gate(request, env, origin);
   if (refused) return refused;
   if (!env.STATE_DB) return json({ error: "No database available" }, 503, origin, env);
 
@@ -216,6 +341,10 @@ export async function handleUnfulfilledOrders(request, env, origin) {
     }
   }
 
+  // Customer emails just left the building: say to whom, in the Worker log.
+  console.log(
+    `fulfillment: ${login || "(unknown login)"} listed ${orders.length} unfulfilled order(s)`
+  );
   return json({ orders }, 200, origin, env);
 }
 
@@ -232,7 +361,7 @@ export async function handleUnfulfilledOrders(request, env, origin) {
  * rather than silently dropped, so the owner notices before the customer does.
  */
 export async function handleFulfillOrder(request, env, origin) {
-  const refused = await gate(request, env, origin);
+  const { refused, login } = await gate(request, env, origin);
   if (refused) return refused;
   if (!env.STRIPE_SECRET_KEY) {
     return json({ error: "Stripe not configured" }, 503, origin, env);
@@ -282,6 +411,9 @@ export async function handleFulfillOrder(request, env, origin) {
     // stripePost internally logs the error
     return json({ error: "Failed to update Stripe PaymentIntent" }, 500, origin, env);
   }
+
+  // The audit trail: which GitHub account marked which order, and how.
+  console.log(`fulfillment: ${login || "(unknown login)"} set ${paymentIntent} to ${status}`);
 
   return json({ success: true }, 200, origin, env);
 }
