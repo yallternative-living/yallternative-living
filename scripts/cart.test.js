@@ -2419,6 +2419,45 @@ assert(
         "...and closing hands focus back to the Add to Cart button"
       );
 
+      /* The browser can close the drawer on its own: showModal() on the
+         Cmd+K search dialog hides every open auto popover and then focuses
+         inside the dialog IN THE SAME CALL. The dialog is a <body> child the
+         cart made inert, so the release has to happen on the synchronous
+         `beforetoggle`, not wait for the queued `toggle`. */
+      const fireOn = (el, type, newState) =>
+        (el._listeners[type] || []).slice().forEach((fn) => fn({ type, newState }));
+      mockDocument.activeElement = opener;
+      YLCart.open();
+      assert(landmark.hasAttribute("inert"), "(re)opened: the page behind is inert again");
+      fireOn(drawerEl, "beforetoggle", "closed");
+      assert(
+        !landmark.hasAttribute("inert"),
+        "a browser-initiated close releases the background on beforetoggle, before toggle"
+      );
+      assert(
+        mockDocument.activeElement === opener,
+        "...and hands focus back to the opener there too"
+      );
+      mockDocument.activeElement = closeBtn; // stand-in for focus the dialog took
+      fireOn(drawerEl, "toggle", "closed");
+      assert(
+        !landmark.hasAttribute("inert") && mockDocument.activeElement === closeBtn,
+        "the later toggle event is a no-op: nothing re-inerted, focus not moved again"
+      );
+      fireOn(drawerEl, "beforetoggle", "open");
+      assert(
+        !landmark.hasAttribute("inert"),
+        "beforetoggle for an OPEN does nothing (openDrawer and toggle own that)"
+      );
+      mockDocument.activeElement = opener;
+      YLCart.open();
+      assert(
+        landmark.hasAttribute("inert") && mockDocument.activeElement === closeBtn,
+        "the drawer still opens as a modal after a browser-initiated close"
+      );
+      YLCart.close();
+      assert(!landmark.hasAttribute("inert"), "...and closes cleanly again");
+
       const kids = mockDocument.body.children;
       [landmark, alreadyInert].forEach((el) => kids.splice(kids.indexOf(el), 1));
       delete mockDocument.activeElement;

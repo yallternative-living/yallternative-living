@@ -1571,6 +1571,17 @@ function escapeRegExp(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/* Matches one comma-split piece of an event's location (plus the comma and
+   space before it) inside the street line. The piece must not run on into a
+   word character -- `(?!\w)` -- which is what `\b` meant for a piece ending
+   in a letter. `\b` itself was wrong for a piece that ENDS in punctuation:
+   after "Asheville (NC)" it needs a word character next, so at the end of
+   the street it never matched and the city stayed on the card twice. Same
+   rule in main.js's resolveEventDetails(). */
+function locationPartPattern(part) {
+  return new RegExp(",?\\s*" + escapeRegExp(part) + "(?!\\w)", "gi");
+}
+
 /* Works out an event's venue / street / note from whichever of the CMS
    fields are filled in. Older entries carried the whole address inside
    `note`, so when venue or address is blank the note is parsed for a
@@ -1623,7 +1634,7 @@ function resolveEventDetails(ev) {
     for (let j = 0; j < locParts.length; j++) {
       const lp = locParts[j].trim();
       if (lp && street.indexOf(lp) !== -1) {
-        street = street.replace(new RegExp(",?\\s*" + escapeRegExp(lp) + "\\b", "gi"), "").trim();
+        street = street.replace(locationPartPattern(lp), "").trim();
       }
     }
   }
@@ -1812,9 +1823,44 @@ function validateQuizData(quiz, productsMap, categoriesMap, bundlesMap, concerns
           }
         });
       }
+      /* `shopConcern` is the shop shelf a /shop.html?vibe=<answer> link opens
+         (main.js quizVibeShopConcern). A shelf id that no longer exists -- a
+         vibe filter renamed or removed under Shop & Catalog Settings -- would
+         make that link silently show the whole shop, so it fails here with
+         the answer named instead. Blank means "no shelf" and is fine. */
+      const shopConcern = opt.shopConcern;
+      if (shopConcern != null && shopConcern !== "") {
+        if (
+          typeof shopConcern !== "string" ||
+          (vMap && Object.keys(vMap).length && !vMap[shopConcern])
+        ) {
+          throw new Error(
+            "Quiz option '" +
+              (opt.value || optIdx) +
+              "' in question '" +
+              (q.id || qIdx) +
+              "' opens unknown shop shelf (shopConcern): '" +
+              shopConcern +
+              "'"
+          );
+        }
+      }
     });
   });
   return true;
+}
+
+/**
+ * The radio-group name of one quiz question. MUST stay the same rule as
+ * quizParamName() in assets/js/main.js, which reads the inputs this build
+ * writes: a question added in /admin has neither `name` nor `id`, and the two
+ * sides used to disagree about what to call it.
+ * @param {?Object} q A question from quiz.json.
+ * @param {number} idx Its position in quiz.questions (0-based).
+ * @return {string}
+ */
+function quizParamName(q, idx) {
+  return (q && q.name) || "quiz-" + ((q && q.id) || "step" + (idx + 1));
 }
 
 function buildQuizFlowHtml(quiz) {
@@ -1824,7 +1870,7 @@ function buildQuizFlowHtml(quiz) {
   let out = "";
   questions.forEach(function (q, qIdx) {
     const stepNum = qIdx + 1;
-    const paramName = q.name || "quiz-" + (q.id || "step" + stepNum);
+    const paramName = quizParamName(q, qIdx);
     const rawTitle = (q.title || "").replace(/^Step\s+\d+\s+of\s+\d+:\s*/i, "");
     const cleanTitle = "Step " + stepNum + " of " + total + ": " + rawTitle;
     const stepDisplay = qIdx === 0 ? "" : ' style="display: none;"';
@@ -9028,6 +9074,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatEventMapDestination: formatEventMapDestination,
     resolveEventDetails: resolveEventDetails,
     escapeRegExp: escapeRegExp,
+    locationPartPattern: locationPartPattern,
+    quizParamName: quizParamName,
     PRODUCT_ID_RE: PRODUCT_ID_RE,
     validateProductId: validateProductId,
     resolveOutputPath: resolveOutputPath,

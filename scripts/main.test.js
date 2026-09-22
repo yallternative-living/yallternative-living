@@ -1030,6 +1030,145 @@ assert(
   plainLocationMarkup.includes("Free family fun.") && !plainLocationMarkup.includes("28759. Free"),
   "eventCardHTML keeps only the note remainder after the address split"
 );
+/* A location piece that ENDS in punctuation: `\b` after ")" needed a word
+   character next, so at the end of the street it never matched and the city
+   was printed twice. */
+const parenLocationMarkup = main.eventCardHTML({
+  id: "paren-town",
+  name: "Paren Town Market",
+  date: "2026-10-12",
+  dateLabel: "October 12, 2026",
+  location: "Asheville (NC)",
+  venue: "The Hall",
+  address: "12 Main St, Asheville (NC)"
+});
+assert(
+  parenLocationMarkup.includes('<span class="event-street">12 Main St</span>'),
+  "eventCardHTML strips a location ending in ')' from the street line"
+);
+
+/* cssAttrEsc: a value for a DOUBLE-QUOTED CSS attribute selector. The quote
+   and backslash take a backslash; a raw newline, CR or form feed would end
+   the string as a bad-string token (querySelector throws), so they become hex
+   escapes, as does NUL. Everything else stays literal. */
+eq(main.cssAttrEsc('a"b'), 'a\\"b', "cssAttrEsc escapes a double quote");
+eq(main.cssAttrEsc("a\\b"), "a\\\\b", "cssAttrEsc escapes a backslash");
+eq(main.cssAttrEsc("a\nb"), "a\\a b", "cssAttrEsc writes a newline as \\a");
+eq(main.cssAttrEsc("a\rb"), "a\\d b", "cssAttrEsc writes a CR as \\d");
+eq(main.cssAttrEsc("a\fb"), "a\\c b", "cssAttrEsc writes a form feed as \\c");
+eq(main.cssAttrEsc("a\r\nb"), "a\\d \\a b", "cssAttrEsc writes CRLF as two escapes");
+eq(main.cssAttrEsc("a\u0000b"), "a\\fffd b", "cssAttrEsc writes NUL as \\fffd");
+eq(main.cssAttrEsc("\nf"), "\\a f", "cssAttrEsc ends a hex escape before a hex-digit letter");
+eq(
+  main.cssAttrEsc("1 oz 'x' ]"),
+  "1 oz 'x' ]",
+  "cssAttrEsc leaves digits, spaces, ' and ] literal"
+);
+eq(main.cssAttrEsc(null), "", "cssAttrEsc maps null to an empty string");
+{
+  const escapedAll = main.cssAttrEsc("x\ny\rz\fw\u0000v");
+  assert(
+    !/[\n\r\f]/.test(escapedAll) && escapedAll.indexOf("\u0000") === -1,
+    "cssAttrEsc output never carries a raw line break or NUL"
+  );
+}
+
+/* syncVariantSelection: the card's variant <select> drives its Add button.
+   A disabled (sold-out) option chosen by script must not reach the button,
+   and the select must be put back on what the button will actually add --
+   it used to stay showing the sold-out size while the button added another. */
+{
+  const makeOption = (value, disabled) => ({
+    value,
+    disabled: !!disabled,
+    getAttribute: (n) =>
+      n === "aria-disabled" ? (disabled ? "true" : null) : n === "data-delta" ? "0" : null
+  });
+  const addAttrs = new Map([["data-item-custom1-value", "M"]]);
+  const addBtn = {
+    getAttribute: (n) => (addAttrs.has(n) ? addAttrs.get(n) : null),
+    setAttribute: (n, v) => addAttrs.set(n, String(v))
+  };
+  const priceEl = { textContent: "$20" };
+  const card = {
+    getAttribute: () => null,
+    querySelector: (sel) =>
+      sel === ".yl-add-item" ? addBtn : sel === ".card-foot .price" ? priceEl : null
+  };
+  const select = {
+    options: [makeOption("S", true), makeOption("M"), makeOption("L")],
+    selectedIndex: 1,
+    getAttribute: (n) => (n === "data-base-price" ? "20" : null),
+    closest: (sel) => (sel === ".card" ? card : null)
+  };
+
+  select.selectedIndex = 2;
+  main.syncVariantSelection(select);
+  eq(addAttrs.get("data-item-custom1-value"), "L", "an available option reaches the Add button");
+
+  select.selectedIndex = 0; // script picks the sold-out "S"
+  main.syncVariantSelection(select);
+  eq(
+    addAttrs.get("data-item-custom1-value"),
+    "L",
+    "a sold-out option never reaches the Add button"
+  );
+  eq(
+    select.options[select.selectedIndex].value,
+    "L",
+    "the select is put back on the option the Add button carries"
+  );
+
+  addAttrs.delete("data-item-custom1-value");
+  select.selectedIndex = 0;
+  main.syncVariantSelection(select);
+  eq(
+    select.options[select.selectedIndex].value,
+    "M",
+    "with no variant on the button, the select falls back to the first available option"
+  );
+}
+
+/* quizVibeShopConcern: `?vibe=<first-question answer key>` opens the shelf
+   that answer names; nothing else is remapped. */
+{
+  const vibeQuiz = {
+    questions: [
+      {
+        name: "quiz-vibe",
+        options: [
+          { value: "gothic-calm", shopConcern: "sleep-relaxation" },
+          { value: "no-shelf", shopConcern: "" },
+          { value: "unset" }
+        ]
+      },
+      { name: "quiz-need", options: [{ value: "hydration", shopConcern: "dry-skin" }] }
+    ]
+  };
+  eq(
+    main.quizVibeShopConcern("gothic-calm", vibeQuiz),
+    "sleep-relaxation",
+    "a first-question answer key maps to its shelf"
+  );
+  eq(
+    main.quizVibeShopConcern("hydration", vibeQuiz),
+    "",
+    "a later question's answer key is never remapped"
+  );
+  eq(main.quizVibeShopConcern("no-shelf", vibeQuiz), "", "a blank shelf maps to nothing");
+  eq(main.quizVibeShopConcern("unset", vibeQuiz), "", "a missing shelf maps to nothing");
+  eq(main.quizVibeShopConcern("dry-skin", vibeQuiz), "", "a shelf id passes through unmapped");
+  eq(main.quizVibeShopConcern("gothic-calm", null), "", "no quiz data maps to nothing");
+  eq(main.quizVibeShopConcern("", vibeQuiz), "", "an empty vibe maps to nothing");
+  const shippedQuiz = JSON.parse(
+    require("fs").readFileSync(require("path").join(__dirname, "../assets/data/quiz.json"), "utf8")
+  );
+  eq(
+    main.quizVibeShopConcern("gothic-calm", shippedQuiz),
+    "sleep-relaxation",
+    "the shipped quiz opens Southern Gothic Calm on the sleep shelf"
+  );
+}
 
 /* 9. Milestone 3: Recently Viewed Products (R4) */
 mockLocalStorage.clear();
@@ -2487,9 +2626,9 @@ assert(
 
 // A question name from content.json is interpolated into a CSS attribute
 // selector. A `"` in it used to throw a SyntaxError out of querySelector()
-// on submit and silently disable the quiz. The mock DOM has no CSS.escape,
-// so this exercises the fallback escaping and the real browser path is the
-// same call with the platform escaper.
+// on submit and silently disable the quiz. main.js escapes it with its own
+// cssAttrEsc() -- never CSS.escape() -- so this mock and the browser run the
+// very same escaping.
 const quotedQuizSection = createMockElement("section");
 quotedQuizSection.id = "apothecary-quiz-section";
 elementsById.set("apothecary-quiz-section", quotedQuizSection);
@@ -2536,11 +2675,12 @@ assert(
   "Quiz still scores the checked answer through the escaped selector"
 );
 
-/* The escaper is for a QUOTED value, so it must leave alone every character
-   that only an IDENTIFIER escaper (CSS.escape) would touch. CSS.escape turns
-   "1 oz mood" into "\\31  oz mood", which inside quotes stops matching the
-   real attribute -- a silent wrong answer where the old code threw. Pin the
-   literal round-trip so that escaper can never come back. */
+/* The escaper is for a QUOTED value, so it leaves literal every character
+   that is harmless inside a CSS string -- a space, a leading digit -- where
+   an IDENTIFIER escaper (CSS.escape) would write "\\31  oz\\ mood". That
+   form would still match in a browser (escapes are decoded inside strings
+   too), but this mock DOM compares selectors literally, so pinning the
+   literal form keeps the test and the browser agreeing on the same text. */
 const plainNameSection = createMockElement("section");
 plainNameSection.id = "apothecary-quiz-section";
 elementsById.set("apothecary-quiz-section", plainNameSection);
@@ -2581,7 +2721,130 @@ assert(
   resultsContainer.innerHTML.includes("Sweet Dreams Sleep Salve"),
   "Quiz still scores a question whose name has a space and a leading digit"
 );
+
+/* A raw newline, CR or form feed also ends a CSS string (as a bad-string
+   token), so querySelector() throws on it exactly as on a bare quote. The
+   quote-and-backslash-only escaper let those through. */
+const lineBreakSection = createMockElement("section");
+lineBreakSection.id = "apothecary-quiz-section";
+elementsById.set("apothecary-quiz-section", lineBreakSection);
+const lineBreakSelectors = [];
+lineBreakSection.querySelector = (sel) => {
+  lineBreakSelectors.push(sel);
+  // Mirror the platform: a raw line break inside a quoted value throws.
+  if (/[\n\r\f]/.test(sel)) throw new SyntaxError("malformed selector: " + JSON.stringify(sel));
+  if (sel.includes('input[name="quiz\\a mood"]:checked')) return mockRadioInput;
+  return null;
+};
+lineBreakSection.querySelectorAll = (sel) => (sel === ".quiz-step" ? [step1El, step2El] : []);
+mockWindow.YL_CONTENT = {
+  site: {},
+  quiz: {
+    questions: [
+      {
+        id: "mood",
+        name: "quiz\nmood",
+        options: [
+          { value: "calm", label: "Calm", scoreWeight: 10, recommendedProductIds: ["sleep-salve"] }
+        ]
+      }
+    ]
+  }
+};
+resultsContainer.innerHTML = "";
+resultsContainer.style.display = "";
+main.initApothecaryQuiz();
+let lineBreakQuizThrew = false;
+try {
+  lineBreakSection.dispatchEvent({ type: "click", target: submitBtn });
+} catch {
+  lineBreakQuizThrew = true;
+}
+assert(!lineBreakQuizThrew, "Quiz submit does not throw when a question name contains a newline");
+assert(
+  lineBreakSelectors.some((sel) => sel.includes('input[name="quiz\\a mood"]:checked')),
+  "Quiz writes a newline in the question name as the CSS hex escape \\a"
+);
+assert(
+  resultsContainer.innerHTML.includes("Sweet Dreams Sleep Salve"),
+  "Quiz still scores the checked answer when the name held a newline"
+);
+
+/* A question added in /admin has neither `name` nor `id`. The build names
+   its radios quiz-step<N> (quizParamName in build-site-data.js); the scorer
+   used to look for quiz-undefined, find nothing, and score the FIRST answer
+   whatever was picked. Here the shopper picks the second answer of such a
+   question, which is weighted to win. */
+const cmsQuestionSection = createMockElement("section");
+cmsQuestionSection.id = "apothecary-quiz-section";
+elementsById.set("apothecary-quiz-section", cmsQuestionSection);
+const cmsQuestionSelectors = [];
+cmsQuestionSection.querySelector = (sel) => {
+  cmsQuestionSelectors.push(sel);
+  if (sel === 'input[name="quiz-mood"]:checked') return mockRadioInput;
+  if (sel === 'input[name="quiz-step2"]:checked') return { value: "soak" };
+  return null;
+};
+cmsQuestionSection.querySelectorAll = (sel) => (sel === ".quiz-step" ? [step1El, step2El] : []);
+mockWindow.YL_CONTENT = {
+  site: {},
+  quiz: {
+    questions: [
+      {
+        id: "mood",
+        name: "quiz-mood",
+        options: [
+          { value: "calm", label: "Calm", scoreWeight: 1, recommendedProductIds: ["sleep-salve"] }
+        ]
+      },
+      {
+        title: "Added in the CMS",
+        options: [
+          {
+            value: "salve",
+            label: "Salve",
+            scoreWeight: 1,
+            recommendedProductIds: ["sleep-salve"]
+          },
+          { value: "soak", label: "Soak", scoreWeight: 50, recommendedProductIds: ["bath-tea"] }
+        ]
+      }
+    ]
+  }
+};
+resultsContainer.innerHTML = "";
+resultsContainer.style.display = "";
+main.initApothecaryQuiz();
+cmsQuestionSection.dispatchEvent({ type: "click", target: submitBtn });
+assert(
+  cmsQuestionSelectors.includes('input[name="quiz-step2"]:checked'),
+  "Quiz reads a CMS-added question (no name, no id) from the quiz-step<N> group the build writes"
+);
+assert(
+  resultsContainer.innerHTML.includes("Botanical Bath Tea"),
+  "Quiz scores the answer the shopper picked on a CMS-added question, not its first answer"
+);
 elementsById.set("apothecary-quiz-section", quizSection);
+
+/* quizParamName: one rule, shared with the build. The shipped quiz keeps
+   exactly the names its inputs already carry. */
+eq(
+  JSON.parse(fs404.readFileSync(path404.join(repoRoot, "assets/data/quiz.json"), "utf8"))
+    .questions.map((q, i) => main.quizParamName(q, i))
+    .join(","),
+  "quiz-vibe,quiz-need,quiz-intent",
+  "quizParamName keeps the shipped quiz's input names"
+);
+eq(main.quizParamName({ id: "mood" }, 0), "quiz-mood", "quizParamName falls back to quiz-<id>");
+eq(main.quizParamName({}, 3), "quiz-step4", "quizParamName falls back to quiz-step<N>");
+{
+  const buildForQuiz = require("./build-site-data.js");
+  const shapes = [{ name: "quiz-x" }, { id: "y" }, {}, { name: "", id: "" }, null];
+  assert(
+    shapes.every((q, i) => main.quizParamName(q, i) === buildForQuiz.quizParamName(q, i)),
+    "quizParamName agrees with build-site-data.js for every question shape"
+  );
+}
 
 /* ---------- Event JSON-LD: the static copy must equal the runtime one ----------
    scripts/build-site-data.js writes an Event block into events.html at build

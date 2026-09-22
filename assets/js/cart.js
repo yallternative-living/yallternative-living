@@ -1962,10 +1962,25 @@
 
     drawer.querySelector(".yl-cart-close").addEventListener("click", closeDrawer);
 
-    /* The single source of truth for "the drawer just opened / just closed".
-       It fires for every path the browser owns as well as for showPopover()
-       and hidePopover(), which is what makes the inert bookkeeping safe. */
+    /* The source of truth for "the drawer just opened / just closed". These
+       fire for every path the browser owns as well as for showPopover() and
+       hidePopover(), which is what makes the inert bookkeeping safe.
+
+       Closing is handled on `beforetoggle`, which the browser fires
+       SYNCHRONOUSLY as the panel starts to hide; `toggle` is only queued for
+       later. Something can need the page back in between: showModal() on a
+       <dialog> -- the Cmd+K / "/" search -- first closes every open auto
+       popover and then, in the same call, focuses inside the dialog. That
+       dialog is a <body> child this module made inert, so while the release
+       waited for `toggle` the focus silently failed and the shopper's first
+       keystrokes went nowhere until the search modal's 50ms focus fallback
+       in main.js caught up. `toggle` stays wired as the fallback
+       (handleDrawerClosed() is idempotent), and it is still how an open is
+       noticed. */
     if (typeof drawer.addEventListener === "function") {
+      drawer.addEventListener("beforetoggle", function (e) {
+        if (e && e.newState === "closed") handleDrawerClosed();
+      });
       drawer.addEventListener("toggle", function (e) {
         var next = e && e.newState;
         if (next === "open") handleDrawerOpened();
