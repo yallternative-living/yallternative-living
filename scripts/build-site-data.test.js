@@ -1228,6 +1228,97 @@ try {
 }
 assert(threwUnknownCategory, "validateQuizData throws on unknown category ID");
 
+/* shopConcern names the shop shelf a /shop.html?vibe=<answer> link opens.
+   One that names no current vibe filter fails the build, with the answer
+   named; blank means "no shelf" and passes. */
+const testConcernsMap = { "sleep-relaxation": { id: "sleep-relaxation" } };
+const shelfQuiz = (shopConcern) => ({
+  questions: [{ id: "vibe", options: [{ value: "gothic-calm", shopConcern: shopConcern }] }]
+});
+assert(
+  buildScript.validateQuizData(
+    shelfQuiz("sleep-relaxation"),
+    testProductsMap,
+    testCategoriesMap,
+    testBundlesMap,
+    testConcernsMap
+  ) === true,
+  "validateQuizData accepts a shopConcern that names a current vibe filter"
+);
+for (const blank of ["", null, undefined]) {
+  assert(
+    buildScript.validateQuizData(
+      shelfQuiz(blank),
+      testProductsMap,
+      testCategoriesMap,
+      testBundlesMap,
+      testConcernsMap
+    ) === true,
+    "validateQuizData accepts a blank shopConcern (" + String(blank) + ")"
+  );
+}
+assert(
+  throwsMatching(function () {
+    buildScript.validateQuizData(
+      shelfQuiz("wind-down"),
+      testProductsMap,
+      testCategoriesMap,
+      testBundlesMap,
+      testConcernsMap
+    );
+  }, /Quiz option 'gothic-calm' in question 'vibe' opens unknown shop shelf \(shopConcern\): 'wind-down'/),
+  "validateQuizData throws on a shopConcern that names no vibe filter"
+);
+assert(
+  throwsMatching(function () {
+    buildScript.validateQuizData(
+      shelfQuiz(["sleep-relaxation"]),
+      testProductsMap,
+      testCategoriesMap,
+      testBundlesMap,
+      testConcernsMap
+    );
+  }, /opens unknown shop shelf/),
+  "validateQuizData throws on a shopConcern that is not a string"
+);
+// The shipped quiz against the shipped vibe filters.
+{
+  const shippedQuiz = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "../assets/data/quiz.json"), "utf8")
+  );
+  const shippedConcerns = {};
+  JSON.parse(
+    fs.readFileSync(path.join(__dirname, "../assets/data/catalog-config.json"), "utf8")
+  ).concerns.forEach(function (c) {
+    shippedConcerns[c.id] = c;
+  });
+  assert(
+    shippedQuiz.questions[0].options.every(function (o) {
+      return !o.shopConcern || shippedConcerns[o.shopConcern];
+    }),
+    "every shipped quiz shopConcern names a shipped vibe filter"
+  );
+}
+
+/* quizParamName: the radio-group name buildQuizFlowHtml writes. It is the
+   same rule as main.js's quizParamName (main.test.js pins the two together);
+   the shipped quiz keeps the names its inputs already carry. */
+eq(buildScript.quizParamName({ name: "quiz-vibe", id: "vibe" }, 0), "quiz-vibe", "name wins");
+eq(buildScript.quizParamName({ id: "need" }, 1), "quiz-need", "then quiz-<id>");
+eq(buildScript.quizParamName({}, 3), "quiz-step4", "then quiz-step<N>");
+{
+  const flow = buildScript.buildQuizFlowHtml({
+    questions: [
+      { name: "quiz-mood", title: "Mood", options: [{ value: "calm", label: "Calm" }] },
+      { title: "Added in the CMS", options: [{ value: "soak", label: "Soak" }] }
+    ]
+  });
+  assert(
+    flow.indexOf('name="quiz-mood"') !== -1 && flow.indexOf('name="quiz-step2"') !== -1,
+    "buildQuizFlowHtml names a CMS-added question's radios quiz-step<N>"
+  );
+}
+
 /* ---------- Social Link Rendering & Sanitization ---------- */
 const socialConfig = {
   instagram: "https://www.instagram.com/yallternativeliving",
@@ -2362,6 +2453,36 @@ assert(
   }
   assert(!threw, "resolveEventDetails survives location 'Mills River [NC'");
   eq(out && out.street, "336 Banner Farm Rd", "the bracketed location is stripped from the street");
+  /* A location piece that ENDS in punctuation. `\b` after ")" needs a word
+     character next, so at the end of the street it never matched and the
+     city stayed on the card twice. */
+  eq(
+    buildScript.resolveEventDetails({
+      location: "Asheville (NC)",
+      address: "12 Main St, Asheville (NC)",
+      venue: "The Hall"
+    }).street,
+    "12 Main St",
+    "a location ending in ')' is stripped from the street"
+  );
+  eq(
+    buildScript.resolveEventDetails({
+      location: "Tryon, N.C.",
+      address: "25 International Blvd, Tryon, N.C.",
+      venue: "Tryon International"
+    }).street,
+    "25 International Blvd",
+    "a location piece ending in '.' is stripped from the street"
+  );
+  eq(
+    buildScript.resolveEventDetails({
+      location: "NC",
+      address: "12 NCR Rd, NC",
+      venue: "The Hall"
+    }).street,
+    "12 NCR Rd",
+    "a location piece is still not stripped from inside a longer word"
+  );
   threw = null;
   try {
     out = buildScript.resolveEventDetails({

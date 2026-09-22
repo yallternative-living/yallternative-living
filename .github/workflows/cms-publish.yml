@@ -8,25 +8,34 @@ name: CMS Auto-Publisher
 # 3. If Savanna saves more edits during that window, GitHub cancels the previous run
 #    and restarts the 3-minute timer (via `cancel-in-progress: true`).
 # 4. Once 3 minutes elapse with no further saves, every active `cms/**` branch is
-#    checked against a CONTENT-ONLY ALLOW-LIST (see is_allowed_path below): a branch
-#    may only touch the JSON files and images that Sveltia itself writes per
-#    admin/config.yml, and none of them may be a symlink. A branch that touches
-#    anything else (workflows, scripts, the Worker, admin/, storefront JS/CSS, HTML,
-#    headers, package files...) is SKIPPED: it is not merged and is flagged with an
-#    ::error:: annotation naming it. This is the guard that keeps a pushed `cms/*`
-#    branch (or a stolen CMS OAuth token, which has repo scope) from shipping code to
-#    production without review.
-# 5. Every branch that passes the gate is merged into `main` in one batch. One bad
-#    branch does not hold the others hostage: the owner's legitimate saves still go
-#    live, and the run is failed red at the very end so the rejected branch is noticed.
+#    merged into `main` one at a time WITHOUT committing, and the merge RESULT (what
+#    the merge would actually add to main) is checked against a CONTENT-ONLY
+#    ALLOW-LIST (see is_allowed_path below): only the JSON files and images Sveltia
+#    itself writes per admin/config.yml, as regular files (no symlinks/submodules).
+#    A branch that fails -- it touches anything else (workflows, scripts, the Worker,
+#    admin/, storefront JS/CSS, HTML, headers, package files...), shares no history
+#    with main, or conflicts -- has its merge aborted, is SKIPPED and is flagged with
+#    an ::error:: annotation naming it.
+# 5. Every branch that passes is committed into `main` in one batch. One bad branch
+#    does not hold the others hostage: the owner's legitimate saves still go live,
+#    and the run is failed red at the very end so the rejected branch is noticed.
 # 6. Full data compilation and static QA gates run before pushing to guarantee zero breakage.
 #    They run WITHOUT ambient git credentials (`persist-credentials: false`); the token is
-#    only handed to the push step.
+#    only handed to the fetch (unset before any merge) and to the push step, which also
+#    disables git hooks.
 # 7. Netlify detects the single push to `main` and runs EXACTLY ONE production build.
-# 8. Merged CMS branches are deleted and their PRs closed, marking entries published in
-#    Sveltia. A rejected branch is NOT deleted (it is not an ancestor of main), so it
-#    stays for the owner to review or delete by hand.
+# 8. Merged CMS branches are deleted (only if they still point at the commit that was
+#    checked -- a save made mid-run is kept) and their PRs closed, marking entries
+#    published in Sveltia. A rejected branch is not contained in main, so it and its PR
+#    stay for the owner to review or delete by hand.
 # 9. If any branch was rejected the run then fails with an ::error:: summary.
+#
+# LIMITS OF THE GATE: it only matters while `main` has a ruleset blocking direct
+# pushes (otherwise a token that can push `cms/*` can push `main`). And a push to
+# `cms/**` runs THIS FILE AS IT IS IN THE PUSHED COMMIT, so a branch cut from an
+# older commit replays an older (ungated) version of this workflow. The real fix is
+# a ruleset on `main` plus publishing with a token that GITHUB_TOKEN-based workflows
+# cannot use (e.g. a GitHub App token in an environment restricted to `main`).
 
 on:
   push:
@@ -89,10 +98,10 @@ jobs:
       - name: Batch Merge CMS Branches
         id: merge-cms
         env:
-          # Only git (fetch/merge) runs in this step -- no repository code -- so the
-          # token is safe to scope here. The repository is public, so the fetch would
-          # succeed unauthenticated; the token is passed anyway so the step keeps
-          # working against rate limits or if the repository is ever made private.
+          # Only the fetch needs the token; it is unset right after (see below). The
+          # repository is public, so the fetch would succeed unauthenticated; the token
+          # is passed anyway so the step keeps working against rate limits or if the
+          # repository is ever made private.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
@@ -112,44 +121,60 @@ jobs:
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${B64}"
           unset B64
           git fetch origin --prune
-          # The credential is only needed for the fetch above. Each step is its own
-          # shell, so the next step ("Compile Data & Run Sanity Gates", which runs
-          # code from the merged tree) would not inherit it anyway -- but be explicit.
-          unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+          # Drop the credential AND the token before any merge runs: git hooks (which
+          # `npm ci` install scripts could have planted in .git/hooks) inherit this
+          # environment. The next step, which runs code from the merged tree, is its
+          # own shell and never had either.
+          unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GITHUB_TOKEN
 
           # ------------------------------------------------------------------
-          # CONTENT-ONLY ALLOW-LIST
-          # Derived from what Sveltia CMS actually writes per admin/config.yml:
+          # CONTENT-ONLY ALLOW-LIST -- exactly what admin/config.yml lets Sveltia write:
           #   - Products folder collection  -> assets/data/products/<id>.json
           #   - Journal folder collection   -> assets/data/journal/<slug>.json
           #   - Singletons                  -> assets/data/catalog-config.json, events.json,
           #                                    site-reviews.json, content.json, quiz.json
-          #   - media_folder                -> /assets/img (photo uploads, slugified names)
-          #                                    Every `widget: image` in admin/config.yml
+          #   - media_folder                -> assets/img/<name> (photo uploads, slugified
+          #                                    lower-case names). Every `widget: image`
           #                                    carries `accept: "image/jpeg,image/png"`,
-          #                                    so only .jpg/.jpeg/.png can be uploaded
-          #                                    and only those are allowed here (no svg,
-          #                                    which can carry script, and no webp/avif/
-          #                                    gif -- the optimizer derives those).
-          # Anything else (.github/, scripts/, workers/, admin/, cms-auth/, assets/js/,
-          # assets/css/, _headers, netlify.toml, package*.json, sw.js, *.html, ...) is NOT
-          # content and must go through a reviewed pull request, never this bot.
-          # Extend by adding a `pattern) return 0 ;;` line -- bash `case` globs, `*`
-          # matches `/` too, so `assets/data/*.json` covers the sub-folders above.
+          #                                    so only .jpg/.jpeg/.png (no svg, which can
+          #                                    carry script; no webp/avif/gif -- the
+          #                                    optimizer derives those).
+          # None of these folders nests, so each folder rule matches ONE level only (the
+          # path's dirname must BE the folder: a bash `case` `*` also matches `/`). Other
+          # JSON under assets/data/ (locales/, the i18n basis, the brand glossary,
+          # search-enrichment, social-feed, the compiled products.json) is not written by
+          # the CMS. Anything else must go through a reviewed pull request, never this bot.
           # ------------------------------------------------------------------
           is_allowed_path() {
-            case "$1" in
-              assets/data/*.json) return 0 ;;
-              assets/img/*.jpg|assets/img/*.jpeg|assets/img/*.png) return 0 ;;
-              *) return 1 ;;
+            case "$1" in *[![:print:]]*) return 1 ;; esac
+            case "${1%/*}" in
+              assets/data)
+                case "$1" in
+                  assets/data/catalog-config.json | assets/data/events.json | \
+                    assets/data/site-reviews.json | assets/data/content.json | \
+                    assets/data/quiz.json) return 0 ;;
+                esac
+                ;;
+              assets/data/products | assets/data/journal)
+                case "$1" in *.json) return 0 ;; esac
+                ;;
+              assets/img)
+                case "$1" in *.jpg | *.jpeg | *.png) return 0 ;; esac
+                ;;
             esac
+            return 1
           }
 
-          # The mode of a path in a branch tip as `git ls-tree` reports it (100644,
-          # 100755, 120000 for a symlink, 160000 for a submodule), or empty when the
-          # path is not in the tree (i.e. the branch deleted it).
-          path_mode_in() {
-            git ls-tree -z "$1" -- "$2" | cut -d' ' -f1 | tr -d '\0'
+          # Paths come from the branch, so they are attacker-chosen bytes. Everything
+          # echoed from git goes through this first: a name containing a newline must
+          # not be able to start a `::workflow-command::` line in the log.
+          printable() {
+            printf '%s' "$1" | LC_ALL=C tr -c '[:print:]' '?'
+          }
+
+          # Aborts the in-progress merge (or, if it never started, restores HEAD).
+          abort_merge() {
+            git merge --abort 2>/dev/null || git reset -q --hard HEAD
           }
 
           # Find all remote branches matching origin/cms/*
@@ -167,6 +192,7 @@ jobs:
 
           merged_count=0
           rejected_branches=""
+          raw_diff=$(mktemp)
 
           for branch in $CMS_BRANCHES; do
             branch_clean=$(echo "$branch" | tr -d '\r\n ')
@@ -174,8 +200,7 @@ jobs:
 
             echo "::group::Checking $branch_clean"
 
-            # A branch with no common ancestor cannot be three-dot diffed (and is not
-            # something Sveltia produces), so it is rejected rather than treated as empty.
+            # A branch with no common ancestor is not something Sveltia produces.
             if ! git merge-base origin/main "$branch_clean" >/dev/null 2>&1; then
               echo "::error title=CMS branch shares no history with main::$branch_clean was NOT merged: it has no merge base with main. Other CMS branches still publish; review or delete this one."
               rejected_branches="${rejected_branches}${branch_clean} "
@@ -183,56 +208,82 @@ jobs:
               continue
             fi
 
-            # Three-dot diff = only the branch's own commits since it forked from main.
-            # --no-renames lists BOTH sides of a rename (a rename out of scripts/ would
-            # otherwise show only its new, allowed name). -z handles odd file names.
+            # Already contained in main (e.g. a run whose cleanup was cut short).
+            if git merge-base --is-ancestor "$branch_clean" HEAD; then
+              echo "::notice title=CMS branch has no changes::$branch_clean is already in main; nothing to merge (it is deleted at cleanup)."
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Merge WITHOUT committing, then gate the RESULT: the index against HEAD is
+            # exactly what this branch would add to main (on top of any branch merged
+            # before it in this batch), whatever the branch's history looks like. That
+            # is what closes the "criss-cross" hole: a branch with merge commits can have
+            # two merge bases with main, so a three-dot diff can show one JSON file while
+            # the merge reverts scripts on main -- the merge result cannot hide that.
+            # Merge commits themselves are NOT refused: GitHub's "Update branch" button
+            # on a CMS pull request makes one, and a save must not be rejected for it.
+            # A conflict aborts this merge only.
+            if ! git merge --no-ff --no-commit "$branch_clean" >/dev/null 2>&1; then
+              conflicts=$(git diff --name-only -z --diff-filter=U | tr '\0' ' ' | LC_ALL=C tr -c '[:print:]' '?')
+              abort_merge
+              echo "::error title=CMS branch conflicts with main::$branch_clean was NOT merged: it conflicts with main (or with a CMS branch merged before it in this run) in: ${conflicts% }. Other CMS branches still publish; review or delete this one."
+              rejected_branches="${rejected_branches}${branch_clean} "
+              echo "::endgroup::"
+              continue
+            fi
+
+            # --raw -z prints ":<old mode> <new mode> <old sha> <new sha> <status>" NUL
+            # "<path>" NUL per path; --no-renames lists BOTH sides of a rename. The new
+            # mode is 000000 for a deletion, 120000 for a symlink, 160000 for a submodule.
+            git diff --cached --raw -z --no-renames HEAD -- >"$raw_diff"
             bad_paths=""
             path_count=0
-            while IFS= read -r -d '' changed; do
+            while IFS= read -r -d '' meta && IFS= read -r -d '' changed; do
               path_count=$((path_count + 1))
+              shown=$(printable "$changed")
+              read -r _old_mode new_mode _rest <<<"${meta#:}"
               if ! is_allowed_path "$changed"; then
-                echo "  BLOCKED  $changed"
-                bad_paths="${bad_paths}${changed}"$'\n'
+                echo "  BLOCKED  $shown"
+                bad_paths="${bad_paths}${shown} "
                 continue
               fi
-              # An allowed NAME is not enough: a symlink committed at assets/data/x.json
-              # pointing outside the tree would pass the name check and then be read by
-              # build-site-data.js. A deleted path has no ls-tree entry (empty mode).
-              mode=$(path_mode_in "$branch_clean" "$changed")
-              case "$mode" in
-                ""|100644|100755)
-                  echo "  ok       $changed"
+              case "$new_mode" in
+                000000 | 100644 | 100755)
+                  echo "  ok       $shown"
                   ;;
                 120000)
-                  echo "  BLOCKED  $changed (symlink)"
-                  bad_paths="${bad_paths}${changed} (symlink)"$'\n'
+                  echo "  BLOCKED  $shown (symlink)"
+                  bad_paths="${bad_paths}${shown} (symlink) "
                   ;;
                 *)
-                  echo "  BLOCKED  $changed (mode $mode is not a regular file)"
-                  bad_paths="${bad_paths}${changed} (mode ${mode})"$'\n'
+                  echo "  BLOCKED  $shown (mode $new_mode is not a regular file)"
+                  bad_paths="${bad_paths}${shown} (mode ${new_mode}) "
                   ;;
               esac
-            done < <(git diff -z --no-renames --name-only "origin/main...${branch_clean}" --)
+            done <"$raw_diff"
 
             if [ "$path_count" -eq 0 ]; then
-              echo "::notice title=CMS branch has no changes::$branch_clean has no diff against main; skipping merge (it will be cleaned up after publish)."
+              abort_merge
+              echo "::notice title=CMS branch has no changes::$branch_clean adds nothing to main; skipping it (it is left in place until it is contained in main)."
               echo "::endgroup::"
               continue
             fi
 
             if [ -n "$bad_paths" ]; then
-              offending=$(printf '%s' "$bad_paths" | tr '\n' ' ')
-              echo "::error title=CMS branch touches non-content files::$branch_clean was NOT merged. It changes paths outside the content allow-list (or commits a symlink): $offending. Sveltia only writes assets/data/*.json and assets/img/ .jpg/.png uploads; anything else must land through a reviewed pull request. Other CMS branches still publish; review or delete this one."
+              abort_merge
+              echo "::error title=CMS branch touches non-content files::$branch_clean was NOT merged. Merging it would change paths outside the content allow-list (or add a symlink or submodule): ${bad_paths% }. Sveltia only writes the assets/data/ JSON files and assets/img/ .jpg/.png uploads named in admin/config.yml; anything else must land through a reviewed pull request. Other CMS branches still publish; review or delete this one."
               rejected_branches="${rejected_branches}${branch_clean} "
               echo "::endgroup::"
               continue
             fi
 
             echo "Merging $branch_clean into main..."
-            git merge --no-ff "$branch_clean" -m "content(cms): batch merge $branch_clean into main"
+            git commit -q -m "content(cms): batch merge $branch_clean into main"
             merged_count=$((merged_count + 1))
             echo "::endgroup::"
           done
+          rm -f "$raw_diff"
 
           # Rejected branches are reported, not fatal here: the branches that passed
           # still get built, gated and pushed below so the owner's legitimate saves go
@@ -288,40 +339,56 @@ jobs:
           # The header goes through git's environment, not argv: GitHub masks the raw
           # token but not the base64 form derived from it, so that is masked here and
           # kept off the command line (see the merge step for the same pattern).
+          # core.hooksPath=/dev/null: earlier steps ran npm install scripts and code
+          # from the merged tree, and a hook they left in .git/hooks would otherwise run
+          # with this credential in its environment (GIT_CONFIG_* outranks .git/config).
           B64=$(printf '%s' "x-access-token:${GITHUB_TOKEN}" | base64 -w0)
           echo "::add-mask::${B64}"
-          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_COUNT=2
           export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${B64}"
-          unset B64
+          export GIT_CONFIG_KEY_1="core.hooksPath"
+          export GIT_CONFIG_VALUE_1="/dev/null"
+          # gh reads GH_TOKEN; the raw token is not needed past this point.
+          unset B64 GITHUB_TOKEN
 
           echo "Pushing batched publication to origin/main..."
           git push origin main
 
           echo "Cleaning up merged CMS remote branches..."
-          CMS_BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin/cms/ || true)
-          for branch in $CMS_BRANCHES; do
-            branch_clean=$(echo "$branch" | tr -d '\r\n ')
+          # Only a branch now contained in main is deleted (a rejected one was never
+          # merged, so it survives for the owner), and only while it still points at the
+          # commit this run fetched: --force-with-lease refuses the delete if a save
+          # landed on the branch mid-run, so that save is kept for the next run.
+          CMS_REFS=$(git for-each-ref --format='%(refname:short) %(objectname)' refs/remotes/origin/cms/ || true)
+          while read -r branch_clean fetched_sha; do
             [ -z "$branch_clean" ] && continue
-            # Only delete branches that are now fully contained in main (merged or
-            # empty). A branch the merge step rejected was never merged, so it is not
-            # an ancestor of HEAD and survives here for the owner to review.
-            if ! git merge-base --is-ancestor "$branch_clean" HEAD; then
+            if ! git merge-base --is-ancestor "$fetched_sha" HEAD; then
               echo "Skipping delete of $branch_clean: not merged into main."
               continue
             fi
             remote_name="${branch_clean#origin/}"
             echo "Deleting remote branch: $remote_name"
-            git push origin --delete "$remote_name" || true
-          done
+            git push --force-with-lease="refs/heads/${remote_name}:${fetched_sha}" \
+              origin --delete "$remote_name" </dev/null ||
+              echo "Kept $remote_name: it changed after this run fetched it; the next run publishes it."
+          done <<<"$CMS_REFS"
 
-          echo "Closing open CMS pull requests..."
-          OPEN_PRS=$(gh pr list --base main --state open --json number,headRefName -q '.[] | select(.headRefName | startswith("cms/")) | .number' || true)
-          for pr in $OPEN_PRS; do
+          echo "Closing published CMS pull requests..."
+          # Only PRs whose head commit is now in main: not a rejected branch's PR, and
+          # not one whose branch moved on after the fetch (an unknown commit fails the
+          # ancestor test, so it is left open too).
+          OPEN_PRS=$(gh pr list --base main --state open --limit 100 --json number,headRefName,headRefOid \
+            -q '.[] | select(.headRefName | startswith("cms/")) | "\(.number) \(.headRefOid)"' || true)
+          while read -r pr head_oid; do
             [ -z "$pr" ] && continue
+            if ! git merge-base --is-ancestor "$head_oid" HEAD 2>/dev/null; then
+              echo "Leaving PR #$pr open: its head commit is not in main."
+              continue
+            fi
             echo "Closing PR #$pr..."
-            gh pr close "$pr" --comment "Automatically batched and published to main by CMS Auto-Publisher." || true
-          done
+            gh pr close "$pr" --comment "Automatically batched and published to main by CMS Auto-Publisher." </dev/null || true
+          done <<<"$OPEN_PRS"
 
           echo "Publication complete. Netlify will now build once for this entire editing session."
 
@@ -334,5 +401,5 @@ jobs:
           REJECTED: ${{ steps.merge-cms.outputs.rejected }}
         run: |
           set -euo pipefail
-          echo "::error title=CMS branch(es) rejected::Not merged: ${REJECTED}. Each touches files outside the content allow-list, commits a symlink, or shares no history with main (see the merge step log). Everything else that passed was published. Review or delete the rejected branch(es); they were left in place."
+          echo "::error title=CMS branch(es) rejected::Not merged: ${REJECTED}. Each would change files outside the content allow-list or add a symlink/submodule, conflicts with main, or shares no history with main (see the merge step log). Everything else that passed was published. Review or delete the rejected branch(es); they were left in place."
           exit 1

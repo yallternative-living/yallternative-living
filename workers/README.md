@@ -22,7 +22,7 @@ Netlify Functions) now live behind the same router:
 | `POST /api/loyalty-balance`   | `{email, token}` -> Alt-Points balance; the token is REQUIRED                       |
 | `POST /api/orders/request-link` | `{email}` -> emails a one-time order-history link; the SAME 200 for every address  |
 | `GET /api/orders?token=`      | the orders behind that link (newest 25) + points balance; burns the token           |
-| `GET /api/unfulfilled-orders` | the owner's dashboard: every `processing` order; `Authorization: Bearer <GitHub OAuth token>`, verified with GitHub and requiring push access to the shop repo, 30/min shared across all callers, fails closed |
+| `GET /api/unfulfilled-orders` | the owner's dashboard: every `processing` order; `Authorization: Bearer <GitHub OAuth token>`, verified with GitHub: the token must be able to write the shop repo itself (a classic token scoped `public_repo`/`repo`, or a fine-grained token with Contents write) and its account must have push access; 30 GitHub checks/min shared across all callers (cached verdicts and malformed tokens are not counted), fails open |
 | `POST /api/fulfill-order`     | `{payment_intent, tracking_url, status}` -> Stripe metadata (same GitHub token check + limiter) |
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
@@ -172,7 +172,15 @@ as "try this," not a guarantee.
    `/admin/fulfillment.html` needs no secret of its own: it sends the GitHub
    token from the CMS sign-in at `/admin/`, and the Worker checks that token
    with GitHub. Anyone who is a collaborator with push access on the shop repo
-   can use it; anyone else is refused.
+   can use it, with a token that can itself write the repo: the CMS's
+   "Sign in with GitHub" token, a classic token scoped `public_repo` or
+   `repo`, or a fine-grained token with Contents read and write (the CMS's
+   token sign-in). Anyone else is refused. Optional: `GITHUB_CLIENT_ID` (a
+   variable) and `GITHUB_CLIENT_SECRET` (a **Secret**) -- the same pair the
+   `cms-auth` Worker holds -- make the dashboard accept ONLY tokens the CMS's
+   own OAuth app issued. Leave them unset while anyone signs in to the CMS
+   with a pasted token: the pin refuses those. Set both or neither: the id
+   alone refuses everyone.
 4. **Settings -> Domains & Routes.** Optional -- see Option B step 5. If you do
    add a route, it is `yallternativeliving.com/api/*`, not just
    `/api/checkout`: the Worker answers five paths now.

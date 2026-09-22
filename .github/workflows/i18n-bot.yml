@@ -215,6 +215,7 @@ jobs:
 
       # --- the real thing ---------------------------------------------------
       - name: Commit and push
+        id: commit
         if: env.DRY_RUN != 'true'
         run: |
           # Verified: api.github.com/users/github-actions[bot] returns id
@@ -281,18 +282,23 @@ jobs:
       # --- report the strings that were refused -----------------------------
       # One issue, found by a fixed title, updated rather than duplicated. Runs
       # even on a dry run: knowing what WOULD be dropped is the point of a dry
-      # run. Uses the gh CLI (preinstalled on the runner) rather than a fourth
-      # third-party action to pin.
+      # run. It is CLOSED only by a real run whose commit step succeeded and
+      # that left nothing behind (no drops, fallbacks, transient errors or
+      # deferred keys). Uses the gh CLI (preinstalled on the runner) rather
+      # than a fourth third-party action to pin.
       - name: File or update the dropped-strings issue
         if: always() && steps.summary.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           TITLE: "i18n bot: strings that could not be translated"
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # success | failure | cancelled | skipped (skipped = dry run).
+          COMMIT_OUTCOME: ${{ steps.commit.outcome }}
         run: |
           BODY=$(node -e '
             const s = require(process.env.SUMMARY_PATH);
-            if (!s.failed.length && !s.modelWarning && !s.providerDegraded && !s.providerUnavailable) process.exit(0);
+            if (!s.failed.length && !s.modelWarning && !s.providerDegraded && !s.providerUnavailable &&
+              !s.transientErrors && !s.deferredToNextRun) process.exit(0);
             const lines = [
               "Updated automatically by `.github/workflows/i18n-bot.yml`.",
               "",
@@ -309,6 +315,10 @@ jobs:
             } else if (s.transientErrors) {
               lines.push("**" + s.transientErrors + " transient provider error(s)** (429/5xx); the keys they" +
                 " touched are left for the next scheduled run, not dropped.");
+              lines.push("");
+            } else if (s.deferredToNextRun && !s.providerUnavailable) {
+              lines.push("**" + s.deferredToNextRun + " key(s) hit the per-run call cap** and are left for" +
+                " the next scheduled run, not dropped.");
               lines.push("");
             }
             if (s.providerUnavailable) {
@@ -356,21 +366,30 @@ jobs:
           ')
           # Matched on the exact title rather than through GitHub's search
           # syntax: the title contains a colon, which `in:title` reads as an
-          # operator, and a fuzzy match would comment on the wrong issue.
-          EXISTING=$(gh issue list --state open --limit 100 --json number,title | node -e '
+          # operator, and a fuzzy match would comment on the wrong issue. Only
+          # issues the bot opened count: the repo is public, and anyone can open
+          # one with this title for the bot to overwrite or close. The author is
+          # matched here, in the JSON, rather than with `--author`: gh spells a
+          # bot `app/github-actions` and the REST API `github-actions[bot]`, and
+          # a filter that silently matched nothing would open a duplicate issue
+          # on every run.
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title,author | node -e '
             let raw = "";
             process.stdin.on("data", (c) => (raw += c));
             process.stdin.on("end", () => {
-              const hit = JSON.parse(raw).find((i) => i.title === process.env.TITLE);
+              const isBot = (a) => a && /^(app\/)?github-actions(\[bot\])?$/.test(String(a.login));
+              const hit = JSON.parse(raw).find((i) => i.title === process.env.TITLE && isBot(i.author));
               if (hit) console.log(hit.number);
             });
           ')
           if [ -z "$BODY" ]; then
-            if [ -n "$EXISTING" ]; then
+            if [ -z "$EXISTING" ]; then
+              echo "Nothing was dropped or deferred and no model fell back -- no issue to file."
+            elif [ "$DRY_RUN" = "true" ] || [ "$COMMIT_OUTCOME" != "success" ]; then
+              echo "Nothing to report, but leaving issue #$EXISTING open: dry run or the commit step did not succeed ($COMMIT_OUTCOME)."
+            else
               echo "Nothing dropped. Closing existing issue #$EXISTING."
               gh issue close "$EXISTING" --comment "All strings successfully translated and verified. Closing tracking issue."
-            else
-              echo "Nothing was dropped and no model fell back -- no issue to file."
             fi
             exit 0
           fi

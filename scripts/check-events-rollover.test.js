@@ -9,10 +9,12 @@
 
 const assert = require("assert");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
+const { spawnSync } = require("child_process");
 
 const rollover = require("./check-events-rollover.js");
-const { parseEventsData, findExpiredEvents } = rollover;
+const { parseEventsData, findExpiredEvents, upcomingEvents, eventCutoff } = rollover;
 
 /** Builds a file body exactly the way scripts/build-site-data.js emits it. */
 function generatedFile(events) {
@@ -161,6 +163,110 @@ let passed = 0;
     /not valid JSON/
   );
   assert.throws(() => parseEventsData('window.YL_EVENTS = {"upcoming": [],};'), /not valid JSON/);
+  passed++;
+}
+
+/* ---------- Shapes and dates the check cannot read fail loudly ---------- */
+
+// Test 14: `upcoming` absent is an empty list; present but not an array throws
+{
+  assert.deepStrictEqual(upcomingEvents({}), []);
+  assert.deepStrictEqual(upcomingEvents({ upcoming: [] }), []);
+  [null, {}, "x", 5, true].forEach(function (bad) {
+    assert.throws(() => upcomingEvents({ upcoming: bad }), /`upcoming` must be an array/);
+  });
+  assert.throws(() => findExpiredEvents({ a: 1 }, "2026-09-13"), /must be an array/);
+  assert.throws(() => findExpiredEvents("x", "2026-09-13"), /must be an array/);
+  passed++;
+}
+
+// Test 15: An entry that is not an object throws with its index (was a TypeError -> exit 1)
+{
+  [null, "x", 7, ["2026-09-01"]].forEach(function (bad) {
+    assert.throws(
+      () => findExpiredEvents([{ date: "2026-10-01" }, bad], "2026-09-13"),
+      /upcoming\[1\] must be an event object/
+    );
+  });
+  passed++;
+}
+
+// Test 16: A cutoff that is not YYYY-MM-DD throws naming the event; blank ones stay unchecked
+{
+  assert.throws(
+    () => eventCutoff({ name: "Fall Market", date: "2026-09-01", endDate: "2026-9-5" }),
+    /"Fall Market" has endDate "2026-9-5", which is not a YYYY-MM-DD date/
+  );
+  assert.throws(
+    () => eventCutoff({ id: "numeric", date: 20260901 }),
+    /"numeric" has date 20260901/
+  );
+  assert.throws(() => eventCutoff({ date: "September 5" }), /"\(unnamed\)" has date/);
+  assert.throws(
+    () => findExpiredEvents([{ name: "Slash", date: "09/05/2026" }], "2026-09-13"),
+    /"Slash" has date "09\/05\/2026"/
+  );
+  // endDate null (what the real data carries) falls back to date; neither set = no cutoff.
+  assert.strictEqual(eventCutoff({ date: "2026-09-26", endDate: null }), "2026-09-26");
+  assert.strictEqual(eventCutoff({ endDate: "2026-09-13T23:00:00-04:00" }), "2026-09-13");
+  assert.strictEqual(eventCutoff({ name: "TBA" }), "");
+  passed++;
+}
+
+// Test 17: The repo's real data passes the stricter checks
+{
+  const real = parseEventsData(
+    fs.readFileSync(path.join(__dirname, "../assets/js/events-data.js"), "utf8")
+  );
+  assert.doesNotThrow(() => findExpiredEvents(upcomingEvents(real), "2026-01-01"));
+  const source = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "../assets/data/events.json"), "utf8")
+  );
+  assert.doesNotThrow(() => findExpiredEvents(upcomingEvents(source), "2026-01-01"));
+  passed++;
+}
+
+// Test 18: The CLI exits 2 -- never 1, which CI reads as "nothing expired" -- on bad data
+{
+  // A throwaway copy of the script in a scripts/ + assets/js/ tree, so the CLI
+  // reads a fixture instead of the repo's events-data.js.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "yl-rollover-"));
+  try {
+    fs.mkdirSync(path.join(tmp, "scripts"));
+    fs.mkdirSync(path.join(tmp, "assets/js"), { recursive: true });
+    const script = path.join(tmp, "scripts/check-events-rollover.js");
+    fs.copyFileSync(path.join(__dirname, "check-events-rollover.js"), script);
+    const dataFile = path.join(tmp, "assets/js/events-data.js");
+    const cli = (args) => spawnSync(process.execPath, args || [script], { encoding: "utf8" });
+    const statusFor = (events) => {
+      fs.writeFileSync(dataFile, generatedFile(events));
+      return cli().status;
+    };
+
+    assert.strictEqual(cli().status, 2, "missing file");
+    [
+      { upcoming: { a: 1 } },
+      { upcoming: [null] },
+      { upcoming: "x" },
+      { upcoming: null },
+      { upcoming: [{ name: "n", endDate: "2026-9-5" }] },
+      { upcoming: [{ name: "n", date: 20260901 }] }
+    ].forEach(function (events) {
+      assert.strictEqual(statusFor(events), 2, JSON.stringify(events));
+    });
+    assert.strictEqual(statusFor({}), 1, "no upcoming key = nothing to roll over");
+    assert.strictEqual(statusFor({ upcoming: [{ name: "Future", date: "2999-01-01" }] }), 1);
+    assert.strictEqual(statusFor({ upcoming: [{ name: "Past", date: "2000-01-01" }] }), 0);
+
+    // An error nothing above anticipated still exits 2 (the entry-point wrapper).
+    const boom = path.join(tmp, "boom.js");
+    fs.writeFileSync(boom, 'require("fs").existsSync = () => { throw new TypeError("boom"); };\n');
+    const crashed = cli(["--require", boom, script]);
+    assert.strictEqual(crashed.status, 2);
+    assert.match(crashed.stderr, /boom/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
   passed++;
 }
 

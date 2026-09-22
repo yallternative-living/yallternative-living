@@ -18,7 +18,10 @@
  * Exit codes:
  *   0 - One or more events have expired and need rollover.
  *   1 - All upcoming events are current (no rollover needed).
- *   2 - events-data.js is missing, not in the generated format, or not valid JSON.
+ *   2 - events-data.js is missing, not in the generated format, not valid JSON, or
+ *       its data cannot be checked (`upcoming` not an array, an entry that is not an
+ *       object, a date that is not YYYY-MM-DD). Any other unexpected error also exits
+ *       2: CI reads 1 as "nothing expired", so a crash must never look like one.
  */
 
 const fs = require("fs");
@@ -71,63 +74,138 @@ function parseEventsData(content) {
   return events;
 }
 
+/** A cutoff must start with a calendar date; a timestamp's time part is ignored. */
+const DATE_PREFIX_RE = /^\d{4}-\d{2}-\d{2}/;
+
+/** @param {*} value @return {string} "null", "array" or the typeof name. */
+function typeName(value) {
+  if (value === null) return "null";
+  return Array.isArray(value) ? "array" : typeof value;
+}
+
+/**
+ * The `upcoming` list of a parsed events object. A missing key is an empty
+ * list; anything else that is not an array means the file cannot be checked.
+ * @param {!Object} events As returned by parseEventsData.
+ * @return {!Array<*>}
+ */
+function upcomingEvents(events) {
+  if (events.upcoming === undefined) return [];
+  if (!Array.isArray(events.upcoming)) {
+    throw new Error(
+      "assets/js/events-data.js: `upcoming` must be an array (got " +
+        typeName(events.upcoming) +
+        ")."
+    );
+  }
+  return events.upcoming;
+}
+
+/**
+ * The event's last day as YYYY-MM-DD: endDate when set, else date, else "".
+ * Throws, naming the event, when the field used is not a YYYY-MM-DD string --
+ * compared as text, "2026-9-5" would sort after "2026-09-22" and never expire.
+ * @param {!Object} evt
+ * @return {string}
+ */
+function eventCutoff(evt) {
+  const field = evt.endDate ? "endDate" : evt.date ? "date" : "";
+  if (!field) return "";
+  const raw = evt[field];
+  if (typeof raw !== "string" || !DATE_PREFIX_RE.test(raw)) {
+    throw new Error(
+      "Event " +
+        JSON.stringify(evt.name || evt.id || "(unnamed)") +
+        " has " +
+        field +
+        " " +
+        JSON.stringify(raw) +
+        ", which is not a YYYY-MM-DD date."
+    );
+  }
+  return raw.slice(0, 10);
+}
+
 /**
  * @param {{date: (string|undefined), endDate: (string|undefined)}} evt
  * @param {string} todayStr YYYY-MM-DD.
  * @return {boolean} True when the event's last day is strictly before today.
  */
 function isEventExpired(evt, todayStr) {
-  const cutoff = evt.endDate || (evt.date ? String(evt.date).slice(0, 10) : "");
+  const cutoff = eventCutoff(evt);
   return Boolean(cutoff && cutoff < todayStr);
 }
 
 /**
- * @param {?Array<!Object>} upcomingList
+ * @param {?Array<!Object>} upcomingList null/undefined is an empty list.
  * @param {string} todayStr YYYY-MM-DD.
  * @return {!Array<!Object>} The events that have expired as of todayStr.
  */
 function findExpiredEvents(upcomingList, todayStr) {
-  return (upcomingList || []).filter(function (e) {
+  if (upcomingList == null) return [];
+  if (!Array.isArray(upcomingList)) {
+    throw new Error("The upcoming events must be an array (got " + typeName(upcomingList) + ").");
+  }
+  return upcomingList.filter(function (e, i) {
+    if (e === null || typeof e !== "object" || Array.isArray(e)) {
+      throw new Error("upcoming[" + i + "] must be an event object (got " + typeName(e) + ").");
+    }
     return isEventExpired(e, todayStr);
   });
 }
 
-function main() {
-  if (!fs.existsSync(EVENTS_DATA_PATH)) {
+/**
+ * Runs the check and returns the exit code (see the file header).
+ * @param {string=} filePath Defaults to assets/js/events-data.js.
+ * @return {number}
+ */
+function run(filePath) {
+  const file = filePath || EVENTS_DATA_PATH;
+  if (!fs.existsSync(file)) {
     console.error("Error: assets/js/events-data.js does not exist.");
-    process.exit(2);
+    return 2;
   }
 
-  let events;
+  let expired;
+  let today;
   try {
-    events = parseEventsData(fs.readFileSync(EVENTS_DATA_PATH, "utf8"));
+    const events = parseEventsData(fs.readFileSync(file, "utf8"));
+    today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    expired = findExpiredEvents(upcomingEvents(events), today);
   } catch (err) {
     console.error("Error: " + err.message);
-    process.exit(2);
+    return 2;
   }
-
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-  const expired = findExpiredEvents(events.upcoming, today);
 
   if (expired.length > 0) {
     console.log(`Event rollover needed as of ${today} (${expired.length} expired event(s)):`);
     expired.forEach(function (e) {
       console.log(`  - ${e.name} (cutoff: ${e.endDate || e.date})`);
     });
-    process.exit(0);
-  } else {
-    console.log(`No events need rollover today (${today}). All upcoming events are current.`);
-    process.exit(1);
+    return 0;
   }
+  console.log(`No events need rollover today (${today}). All upcoming events are current.`);
+  return 1;
 }
 
 if (require.main === module) {
-  main();
+  let code;
+  try {
+    code = run();
+  } catch (err) {
+    // Anything unforeseen is "could not check" (2), never Node's default 1.
+    console.error("Error: " + (err && err.message ? err.message : String(err)));
+    code = 2;
+  }
+  process.exit(code);
 }
 
 module.exports = {
   EVENTS_DATA_PATTERN: EVENTS_DATA_PATTERN,
   parseEventsData: parseEventsData,
+  upcomingEvents: upcomingEvents,
+  eventCutoff: eventCutoff,
   isEventExpired: isEventExpired,
-  findExpiredEvents: findExpiredEvents
+  findExpiredEvents: findExpiredEvents,
+  run: run
 };

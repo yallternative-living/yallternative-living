@@ -85,40 +85,119 @@ const ORIGIN = "https://example.com";
 const OWNER_TOKEN = "gho_ownerTokenAAAAAAAAAAAAAAAAAAAAAAAA";
 const STRANGER_TOKEN = "gho_strangerTokenAAAAAAAAAAAAAAAAAAAA";
 const REVOKED_TOKEN = "gho_revokedTokenAAAAAAAAAAAAAAAAAAAAA";
+// The owner's account, but a token minted with NO scopes -- what any "Sign in
+// with GitHub" site holds. GitHub still reports push:true for the repo.
+const NO_SCOPE_TOKEN = "gho_noScopeTokenAAAAAAAAAAAAAAAAAAAAA";
+// A classic PAT scoped `repo`, issued by no OAuth app.
+const PAT_TOKEN = "ghp_classicPatTokenAAAAAAAAAAAAAAAAAA";
+// Fine-grained PATs -- how the owner actually signs in to the CMS. GitHub
+// reports no scopes for them; `contentsWrite` is what the token itself may do.
+const FG_WRITE_TOKEN = "github_pat_11AAAAAAA0fineGrainedWriteAAAAAAAAAAAAAAAA";
+const FG_READ_TOKEN = "github_pat_11AAAAAAA0fineGrainedReadAAAAAAAAAAAAAAAAA";
 const AUTH = [["Authorization", "Bearer " + OWNER_TOKEN]];
 const STRANGER_AUTH = [["Authorization", "Bearer " + STRANGER_TOKEN]];
 
 /**
+ * What the GitHub stub knows about each token: whose it is, the scopes
+ * GitHub reports for it, whether that account may push, and whether the
+ * CMS's own OAuth app issued it. A token not listed here is one GitHub
+ * refuses (401), like REVOKED_TOKEN.
+ */
+const TOKENS = {
+  [OWNER_TOKEN]: { login: "shop-owner", scopes: "public_repo, read:user", push: true, app: true },
+  [STRANGER_TOKEN]: { login: "stranger", scopes: "public_repo", push: false, app: true },
+  [NO_SCOPE_TOKEN]: { login: "shop-owner", scopes: "", push: true, app: false },
+  [PAT_TOKEN]: { login: "shop-owner", scopes: "repo", push: true, app: false },
+  [FG_WRITE_TOKEN]: { login: "shop-owner", scopes: null, push: true, contentsWrite: true },
+  [FG_READ_TOKEN]: { login: "shop-owner", scopes: null, push: true, contentsWrite: false }
+};
+
+/**
+ * A fresh push-capable owner token. The Worker caches verdicts per token, so
+ * a test that must reach the limiter or GitHub needs a token not seen yet.
+ */
+let freshCount = 0;
+function freshOwnerToken(overrides) {
+  freshCount++;
+  const token = "gho_fresh" + String(freshCount).padStart(4, "0") + "A".repeat(28);
+  TOKENS[token] = { ...TOKENS[OWNER_TOKEN], ...overrides };
+  return token;
+}
+
+/** A well-formed token GitHub has never issued (401 at the first call). */
+function unknownToken(i) {
+  return "gho_unknown" + String(i).padStart(4, "0") + "A".repeat(28);
+}
+
+function bearer(token) {
+  return [["Authorization", "Bearer " + token]];
+}
+
+function ghResponse(status, body, scopes) {
+  const headers = { "Content-Type": "application/json" };
+  if (scopes != null) headers["X-OAuth-Scopes"] = scopes;
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+/**
  * Stands in for api.github.com. Records each call so a test can prove the
- * Worker asked (or did not ask), and answers the three cases that matter:
- * push access, a read-only stranger on this PUBLIC repo (200 + push:false),
- * and a token GitHub refuses (401).
+ * Worker asked (or did not ask), and answers the three endpoints the Worker
+ * uses: `GET /user` (login + the X-OAuth-Scopes header), `GET /repos/...`
+ * (the account's `permissions`), and `POST /applications/{id}/token` (the
+ * OAuth app check, answered only for the app credentials in
+ * state.clientId / state.clientSecret and only for tokens that app issued).
  */
 function installGitHubStub(state) {
   const realFetch = global.fetch;
   global.fetch = async (url, options) => {
     const href = String(url);
-    if (href.startsWith("https://api.github.com/")) {
-      state.calls.push({ url: href, options });
-      if (state.fail) return { ok: false, status: state.fail, json: async () => ({}) };
-      const token = String((options && options.headers && options.headers.Authorization) || "");
-      if (token.includes(REVOKED_TOKEN)) {
-        return { ok: false, status: 401, json: async () => ({ message: "Bad credentials" }) };
-      }
-      if (token.includes(STRANGER_TOKEN)) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ permissions: { admin: false, push: false, pull: true } })
-        };
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ permissions: { admin: true, push: true, pull: true } })
-      };
+    if (!href.startsWith("https://api.github.com/")) return realFetch(url, options);
+    state.calls.push({ url: href, options });
+    if (state.fail) return ghResponse(state.fail, {});
+    const auth = String((options && options.headers && options.headers.Authorization) || "");
+    const route = href.slice("https://api.github.com".length);
+
+    if (route.startsWith("/applications/")) {
+      const expected = "Basic " + btoa(`${state.clientId}:${state.clientSecret}`);
+      if (auth !== expected) return ghResponse(401, { message: "Bad credentials" });
+      const info = TOKENS[JSON.parse(options.body).access_token];
+      if (!info || !info.app) return ghResponse(404, { message: "Not Found" });
+      return ghResponse(200, {
+        scopes: info.scopes
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
+        user: { login: info.login }
+      });
     }
-    return realFetch(url, options);
+
+    const info = TOKENS[auth.replace(/^Bearer /, "")];
+    if (!info) return ghResponse(401, { message: "Bad credentials" });
+    if (route === "/user") return ghResponse(200, { login: info.login }, info.scopes);
+    if (route.endsWith("/git/refs") && options.method === "POST") {
+      // The write check. GitHub refuses a token without Contents write before
+      // it reads the body; one with it fails on the all-zero SHA instead.
+      if (state.probeFail === "rate") {
+        return new Response(JSON.stringify({ message: "API rate limit exceeded" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "X-RateLimit-Remaining": "0" }
+        });
+      }
+      if (state.probeFail) return ghResponse(state.probeFail, {});
+      return info.contentsWrite
+        ? ghResponse(422, { message: "Object does not exist" })
+        : ghResponse(403, { message: "Resource not accessible by personal access token" });
+    }
+    if (route.startsWith("/repos/")) {
+      // `noPerms`: a 200 with no permissions object at all.
+      return ghResponse(
+        200,
+        info.noPerms
+          ? { name: "repo" }
+          : { permissions: { admin: info.push, push: info.push, pull: true } }
+      );
+    }
+    return ghResponse(404, { message: "Not Found" });
   };
   return () => {
     global.fetch = realFetch;
@@ -141,8 +220,8 @@ async function main() {
   const env = {
     STATE_DB: db,
     STRIPE_SECRET_KEY: "sk_test_mock",
-    // The admin gate fails CLOSED without a counter, so the baseline env
-    // carries a permissive one; the fail-closed case is tested on its own.
+    // A permissive counter, so the baseline env exercises the limiter path;
+    // denying and absent counters are tested on their own below.
     RATE_LIMITER: makeLimiter()
   };
 
@@ -191,17 +270,28 @@ async function main() {
   assert(unauthRes.status === 401, "unfulfilled-orders rejects missing auth");
   assert(gh.calls.length === 0, "a missing token never reaches GitHub");
 
-  // Anything that is not shaped like a GitHub token is refused locally, so a
-  // flood of junk costs no API calls.
-  for (const junk of ["wrong_password", "", "   ", "gho_short", "Basic gho_xxxx", "undefined"]) {
+  // Anything that is not shaped like a GitHub token the CMS could hold is
+  // refused locally, so a flood of junk costs no API calls. GitHub App
+  // tokens are well-formed but nobody signs in to the CMS with one.
+  for (const junk of [
+    "wrong_password",
+    "",
+    "   ",
+    "gho_short",
+    "Basic gho_xxxx",
+    "undefined",
+    "ghu_userToServerTokenAAAAAAAAAAAAAAAAA",
+    "ghs_installationTokenAAAAAAAAAAAAAAAAA",
+    "github_pat_short"
+  ]) {
     const res = await handleUnfulfilledOrders(
       request([["Authorization", "Bearer " + junk]]),
       env,
       ORIGIN
     );
-    assert(res.status === 401, `a malformed token (${JSON.stringify(junk)}) is refused`);
+    assert(res.status === 401, `a token of the wrong shape (${JSON.stringify(junk)}) is refused`);
   }
-  assert(gh.calls.length === 0, "no malformed token reached GitHub");
+  assert(gh.calls.length === 0, "no wrongly shaped token reached GitHub");
 
   const revokedRes = await handleUnfulfilledOrders(
     request([["Authorization", "Bearer " + REVOKED_TOKEN]]),
@@ -217,34 +307,106 @@ async function main() {
   const strangerBody = await strangerRes.json();
   assert(typeof strangerBody.error === "string", "403 carries the usual {error} shape");
 
+  // THE account-vs-token hole: the owner's account can push, but this token
+  // was minted with no scopes (any "Sign in with GitHub" site holds one).
+  // GitHub still reports push:true on the repo, so the scope decides.
+  {
+    gh.calls.length = 0;
+    const res = await handleUnfulfilledOrders(request(bearer(NO_SCOPE_TOKEN)), env, ORIGIN);
+    assert(res.status === 403, "an owner token without public_repo/repo scope is refused (403)");
+    assert(
+      gh.calls.length === 1 && gh.calls[0].url === "https://api.github.com/user",
+      "a token without the scope is refused before the repository is even asked"
+    );
+  }
+  {
+    const res = await handleUnfulfilledOrders(request(bearer(PAT_TOKEN)), env, ORIGIN);
+    assert(res.status === 200, "a classic PAT scoped `repo` on a push account is accepted");
+  }
+
+  /* ------------------------------------------------ fine-grained tokens */
+  {
+    // How the owner signs in to the CMS. No scopes to read, so the token is
+    // asked whether it may write -- with a write that cannot succeed.
+    gh.calls.length = 0;
+    const res = await handleUnfulfilledOrders(request(bearer(FG_WRITE_TOKEN)), env, ORIGIN);
+    assert(res.status === 200, "a fine-grained token that may write the repo is accepted");
+    const probe = gh.calls.find((c) => c.url.endsWith("/git/refs"));
+    assert(
+      probe &&
+        probe.url ===
+          "https://api.github.com/repos/yallternative-living/yallternative-living/git/refs" &&
+        probe.options.method === "POST",
+      "a fine-grained token is checked with a write to the configured repo"
+    );
+    const sent = probe ? JSON.parse(probe.options.body) : {};
+    assert(
+      sent.sha === "0".repeat(40) && /^refs\/heads\//.test(sent.ref),
+      "the write check points a branch at the all-zero SHA, so it can never create anything"
+    );
+    assert(
+      gh.calls.map((c) => c.url.replace("https://api.github.com", "")).join(" ") ===
+        "/user /repos/yallternative-living/yallternative-living " +
+          "/repos/yallternative-living/yallternative-living/git/refs",
+      "identity, then the account's push access, then the token's own write check"
+    );
+  }
+  {
+    // The account can push, but this token was made read-only (or for some
+    // other repository): the same gap the scope check closes for classic tokens.
+    gh.calls.length = 0;
+    const res = await handleUnfulfilledOrders(request(bearer(FG_READ_TOKEN)), env, ORIGIN);
+    assert(res.status === 403, "a fine-grained token that may not write is refused (403)");
+    gh.calls.length = 0;
+    await handleUnfulfilledOrders(request(bearer(FG_READ_TOKEN)), env, ORIGIN);
+    assert(gh.calls.length === 0, "a refused fine-grained token is cached like any other");
+  }
+  {
+    // A fine-grained token on an account without push never gets to the write.
+    gh.calls.length = 0;
+    const token = freshOwnerToken({ scopes: null, push: false, contentsWrite: true });
+    const fg = "github_pat_" + token.slice(4);
+    TOKENS[fg] = TOKENS[token];
+    const res = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+    assert(res.status === 403, "a fine-grained token on an account without push gets 403");
+    assert(
+      !gh.calls.some((c) => c.url.endsWith("/git/refs")),
+      "no write is attempted for an account that cannot push"
+    );
+  }
+  {
+    // GitHub failing to answer the write check is about us, not the token.
+    for (const [fail, label] of [
+      [500, "a 5xx"],
+      ["rate", "a rate-limited 403"]
+    ]) {
+      gh.probeFail = fail;
+      const fg = "github_pat_" + freshOwnerToken().slice(4);
+      TOKENS[fg] = { login: "shop-owner", scopes: null, push: true, contentsWrite: true };
+      const res = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      assert(res.status === 503, `${label} from the write check answers 503, not 403`);
+      gh.probeFail = 0;
+      const again = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      assert(again.status === 200, `${label} from the write check is not cached`);
+    }
+  }
+
   // Absent `permissions` must never be read as permission.
   {
-    const noPerms = { calls: [], fail: 0 };
-    const restoreNoPerms = installGitHubStub(noPerms);
-    global.fetch = async (url) =>
-      String(url).startsWith("https://api.github.com/")
-        ? { ok: true, status: 200, json: async () => ({ name: "repo" }) }
-        : { ok: false, status: 500, json: async () => ({}) };
-    const res = await handleUnfulfilledOrders(
-      request([["Authorization", "Bearer gho_noPermsTokenAAAAAAAAAAAAAAAAAAA"]]),
-      env,
-      ORIGIN
-    );
+    const token = freshOwnerToken({ noPerms: true });
+    const res = await handleUnfulfilledOrders(request(bearer(token)), env, ORIGIN);
     assert(res.status === 403, "a response with no permissions object is refused");
-    restoreNoPerms();
   }
 
   // GitHub itself unreachable is a 503 about us, not a verdict on the token.
   {
-    const down = { calls: [], fail: 500 };
-    const restoreDown = installGitHubStub(down);
-    const res = await handleUnfulfilledOrders(
-      request([["Authorization", "Bearer gho_ghDownTokenAAAAAAAAAAAAAAAAAAAA"]]),
-      env,
-      ORIGIN
-    );
+    gh.fail = 500;
+    const token = freshOwnerToken();
+    const res = await handleUnfulfilledOrders(request(bearer(token)), env, ORIGIN);
     assert(res.status === 503, "GitHub being unreachable answers 503, not 200");
-    restoreDown();
+    gh.fail = 0;
+    const again = await handleUnfulfilledOrders(request(bearer(token)), env, ORIGIN);
+    assert(again.status === 200, "a 503 is never cached: the next request asks GitHub again");
   }
 
   // The verified token is cached: a second call asks GitHub nothing more.
@@ -253,12 +415,13 @@ async function main() {
     await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
     const afterFirst = gh.calls.length;
     await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
-    assert(afterFirst === 1, "the first verification calls GitHub once");
+    assert(afterFirst === 2, "the first verification asks GitHub twice (/user, then the repo)");
     assert(
-      gh.calls.length === 1,
+      gh.calls.length === 2,
       "a repeat request inside the cache window calls GitHub again 0 times"
     );
-    const call = gh.calls[0];
+    assert(gh.calls[0].url === "https://api.github.com/user", "identity and scopes come first");
+    const call = gh.calls[1];
     assert(
       call.url === "https://api.github.com/repos/yallternative-living/yallternative-living",
       "verification reads the configured repo"
@@ -268,7 +431,7 @@ async function main() {
       "the GitHub call sends a User-Agent (api.github.com rejects requests without one) and Accept"
     );
     assert(
-      call.options.headers.Authorization === "Bearer " + OWNER_TOKEN,
+      gh.calls.every((c) => c.options.headers.Authorization === "Bearer " + OWNER_TOKEN),
       "the caller's own token is what GitHub is asked about"
     );
   }
@@ -278,21 +441,94 @@ async function main() {
     gh.calls.length = 0;
     await handleUnfulfilledOrders(request(STRANGER_AUTH), env, ORIGIN);
     await handleUnfulfilledOrders(request(STRANGER_AUTH), env, ORIGIN);
-    assert(gh.calls.length === 0 || gh.calls.length === 1, "a repeated rejection is not re-asked");
+    assert(gh.calls.length === 0, "a repeated rejection is not re-asked");
   }
 
   // GITHUB_REPO is honoured, and a different repo is a different verdict.
   {
     gh.calls.length = 0;
     await handleUnfulfilledOrders(
-      request([["Authorization", "Bearer gho_otherRepoTokenAAAAAAAAAAAAAAAA"]]),
+      request(bearer(freshOwnerToken())),
       { ...env, GITHUB_REPO: "someone/else" },
       ORIGIN
     );
     assert(
-      gh.calls.length === 1 && gh.calls[0].url.endsWith("/repos/someone/else"),
+      gh.calls.length === 2 && gh.calls[1].url.endsWith("/repos/someone/else"),
       "GITHUB_REPO picks the repository that is checked"
     );
+  }
+
+  /* ------------------------------------------------ the CMS OAuth app pin */
+  {
+    gh.clientId = "Iv1.cmsapp";
+    gh.clientSecret = "s3cret";
+    const pinned = { ...env, GITHUB_CLIENT_ID: "Iv1.cmsapp", GITHUB_CLIENT_SECRET: "s3cret" };
+
+    gh.calls.length = 0;
+    const ownerRes = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken())),
+      pinned,
+      ORIGIN
+    );
+    assert(ownerRes.status === 200, "pinned: a token the CMS app issued is accepted");
+    const appCall = gh.calls[0];
+    assert(
+      appCall.url === "https://api.github.com/applications/Iv1.cmsapp/token" &&
+        appCall.options.method === "POST" &&
+        appCall.options.headers.Authorization === "Basic " + btoa("Iv1.cmsapp:s3cret"),
+      "pinned: the token is checked with POST /applications/{client_id}/token as the app"
+    );
+    assert(
+      !gh.calls.some((c) => c.url.endsWith("/user")),
+      "pinned: /user is not needed (the app check returns login and scopes)"
+    );
+
+    const otherApp = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken({ app: false }))),
+      pinned,
+      ORIGIN
+    );
+    assert(
+      otherApp.status === 401,
+      "pinned: another app's token is refused even with public_repo scope and push access"
+    );
+    const pat = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken({ app: false, scopes: "repo" }))),
+      pinned,
+      ORIGIN
+    );
+    assert(pat.status === 401, "pinned: a classic PAT (issued by no app) is refused");
+    const noScope = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken({ scopes: "" }))),
+      pinned,
+      ORIGIN
+    );
+    assert(noScope.status === 403, "pinned: the app's own token still needs a push scope");
+
+    gh.calls.length = 0;
+    const wrongSecretToken = freshOwnerToken();
+    const wrongSecret = await handleUnfulfilledOrders(
+      request(bearer(wrongSecretToken)),
+      { ...pinned, GITHUB_CLIENT_SECRET: "stale" },
+      ORIGIN
+    );
+    assert(wrongSecret.status === 503, "pinned: wrong app credentials are our problem (503)");
+    const afterFix = await handleUnfulfilledOrders(
+      request(bearer(wrongSecretToken)),
+      pinned,
+      ORIGIN
+    );
+    assert(afterFix.status === 200, "pinned: a 503 from bad app credentials is not cached");
+
+    gh.calls.length = 0;
+    const halfConfigured = { ...env, GITHUB_CLIENT_ID: "Iv1.cmsapp" };
+    const half = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken())),
+      halfConfigured,
+      ORIGIN
+    );
+    assert(half.status === 503, "an app id without its secret fails closed (503)");
+    assert(gh.calls.length === 0, "half a configuration never asks GitHub");
   }
 
   let unfulfilledRes = await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
@@ -312,11 +548,12 @@ async function main() {
   {
     const limiter = makeLimiter(0); // deny every check
     const limitedEnv = { ...env, RATE_LIMITER: limiter };
-    const res = await handleUnfulfilledOrders(request(AUTH), limitedEnv, ORIGIN);
-    assert(
-      res.status === 429,
-      "unfulfilled-orders answers 429 when the limiter denies, even with the right password"
+    const res = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken())),
+      limitedEnv,
+      ORIGIN
     );
+    assert(res.status === 429, "a token not yet verified gets 429 when the limiter denies");
     const body = await res.json();
     assert(
       typeof body.error === "string" && body.error.length > 0,
@@ -328,37 +565,48 @@ async function main() {
     );
 
     const postRes = await handleFulfillOrder(
-      request(AUTH, { payment_intent: "pi_3TestMock0000", status: "shipped" }),
+      request(bearer(freshOwnerToken()), { payment_intent: "pi_3TestMock0000", status: "shipped" }),
       limitedEnv,
       ORIGIN
     );
     assert(postRes.status === 429, "fulfill-order answers 429 when the limiter denies");
   }
   {
-    // The counter runs on EVERY request, successful ones included, so a
-    // guesser cannot keep the window open by interleaving valid calls.
+    // THE LOCKOUT: a full minute's bucket of junk used to leave the owner on
+    // 429. Requests that cost nothing (no token, a malformed one, a verdict
+    // already cached) are no longer counted, so they cannot spend it.
     const limiter = makeLimiter(ADMIN_AUTH_RATE_LIMIT.limit);
     const limitedEnv = { ...env, RATE_LIMITER: limiter };
-    const statuses = [];
-    for (let i = 0; i < ADMIN_AUTH_RATE_LIMIT.limit; i++) {
-      const headers = i % 2 === 0 ? AUTH : [["Authorization", "Bearer nope"]];
-      statuses.push((await handleUnfulfilledOrders(request(headers), limitedEnv, ORIGIN)).status);
+    for (let i = 0; i < ADMIN_AUTH_RATE_LIMIT.limit * 2; i++) {
+      const headers = i % 2 === 0 ? [] : [["Authorization", "Bearer nope"]];
+      await handleUnfulfilledOrders(request(headers), limitedEnv, ORIGIN);
     }
-    assert(
-      statuses.every((s) => s === 200 || s === 401) &&
-        statuses.includes(200) &&
-        statuses.includes(401),
-      "the first N requests are judged on the password alone"
+    for (let i = 0; i < 5; i++) {
+      await handleUnfulfilledOrders(request(STRANGER_AUTH), limitedEnv, ORIGIN);
+    }
+    assert(limiter.calls.length === 0, "junk and cached refusals never touch the limiter");
+    const owner = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken())),
+      limitedEnv,
+      ORIGIN
     );
-    const sixth = await handleUnfulfilledOrders(request(AUTH), limitedEnv, ORIGIN);
-    assert(
-      sixth.status === 429,
-      "request N+1 in the window is refused before the password is read"
+    assert(owner.status === 200, "after a flood of free junk the owner still gets in");
+    assert(limiter.calls.length === 1, "only the request that reached GitHub was counted");
+
+    // What is left (see the file header): well-formed fake tokens each cost
+    // a GitHub round trip and ARE counted, so they can fill the bucket...
+    for (let i = 1; i < ADMIN_AUTH_RATE_LIMIT.limit; i++) {
+      await handleUnfulfilledOrders(request(bearer(unknownToken(i))), limitedEnv, ORIGIN);
+    }
+    const coldOwner = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken())),
+      limitedEnv,
+      ORIGIN
     );
-    assert(
-      limiter.calls.length === ADMIN_AUTH_RATE_LIMIT.limit + 1,
-      "every request, pass or fail, counted once"
-    );
+    assert(coldOwner.status === 429, "a full bucket still refuses an unverified token");
+    // ...but an owner already verified in this isolate is served from cache.
+    const warmOwner = await handleUnfulfilledOrders(request(AUTH), limitedEnv, ORIGIN);
+    assert(warmOwner.status === 200, "a full bucket does not lock out a cached owner");
   }
   {
     // The bucket must not be pickable by the caller: on the workers.dev
@@ -376,7 +624,7 @@ async function main() {
     ];
     for (const extra of spoofs) {
       await handleUnfulfilledOrders(
-        request([...AUTH, ...extra]),
+        request([...bearer(freshOwnerToken()), ...extra]),
         { ...env, RATE_LIMITER: hdrLimiter },
         ORIGIN
       );
@@ -388,15 +636,19 @@ async function main() {
     );
   }
   {
-    // Fails OPEN now: the credential is a GitHub token, not a guessable
-    // secret, so a counter outage must not lock the owner out of shipping.
+    // Fails OPEN: the credential is a GitHub token, not a guessable secret,
+    // so a counter outage must not lock the owner out of shipping.
     // The GitHub check still decides, so an outage is not a way in.
     const noLimiterEnv = { ...env };
     delete noLimiterEnv.RATE_LIMITER;
-    const res = await handleUnfulfilledOrders(request(AUTH), noLimiterEnv, ORIGIN);
+    const res = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken())),
+      noLimiterEnv,
+      ORIGIN
+    );
     assert(res.status === 200, "no rate-limit backend still serves the owner (fail open)");
     const strangerNoLimiter = await handleUnfulfilledOrders(
-      request(STRANGER_AUTH),
+      request(bearer(freshOwnerToken({ push: false }))),
       noLimiterEnv,
       ORIGIN
     );
@@ -418,7 +670,11 @@ async function main() {
         })
       }
     };
-    const errRes = await handleUnfulfilledOrders(request(AUTH), brokenDoEnv, ORIGIN);
+    const errRes = await handleUnfulfilledOrders(
+      request(bearer(freshOwnerToken())),
+      brokenDoEnv,
+      ORIGIN
+    );
     assert(errRes.status === 200, "a counter that throws does not block the owner");
   }
 
@@ -523,9 +779,21 @@ async function main() {
     }
     assert(stripeCalls.length === 0, "no Stripe call for any rejected body");
 
-    // The happy path
-    let fulfillRes = await handleFulfillOrder(request(AUTH, goodBody), env, ORIGIN);
+    // The happy path, and the audit line naming who marked it.
+    const logged = [];
+    const realLog = console.log;
+    console.log = (...args) => logged.push(args.join(" "));
+    let fulfillRes;
+    try {
+      fulfillRes = await handleFulfillOrder(request(AUTH, goodBody), env, ORIGIN);
+    } finally {
+      console.log = realLog;
+    }
     assert(fulfillRes.status === 200, "fulfill-order returns 200 with auth");
+    assert(
+      logged.some((l) => l.includes("shop-owner") && l.includes("pi_3TestMock0000 to shipped")),
+      "a fulfilment is logged with the GitHub login that made it"
+    );
 
     assert(stripeCalls.length === 1, "stripePost was called");
     assert(

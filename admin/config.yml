@@ -2438,23 +2438,22 @@ singletons:
                   required: false
                 }
               - { name: icon, label: "Emoji", widget: string, required: false }
-              - {
-                  name: shopConcern,
-                  label: "Shop shelf this answer opens",
-                  widget: select,
-                  required: false,
-                  options:
-                    [
-                      "sleep-relaxation",
-                      "sore-muscles",
-                      "dry-skin",
-                      "outdoor-defense",
-                      "daily-glow"
-                    ],
-                  hint: "Only used by the first question (Vibe). A shop link like
-                    /shop.html?vibe=gothic-calm opens this shelf. Leave blank and
-                    the link shows the whole shop instead."
-                }
+              # Picks from the live vibe filters under Shop & Catalog Settings,
+              # the same way a product's "Product vibes" does, so a filter
+              # added there can be chosen here at once. The build refuses a
+              # value that names no current filter (validateQuizData).
+              - name: shopConcern
+                label: "Shop shelf this answer opens"
+                widget: relation
+                required: false
+                collection: _singletons
+                file: storeConfig
+                value_field: concerns.*.id
+                display_fields: ["concerns.*.icon", "concerns.*.name"]
+                search_fields: ["concerns.*.name"]
+                hint: "Only used by the first question (Vibe). A shop link like
+                  /shop.html?vibe=gothic-calm opens this shelf. Leave blank and
+                  the link shows the whole shop instead."
               - name: recommendedProductIds
                 label: "Recommended products"
                 widget: list

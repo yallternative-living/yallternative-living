@@ -1097,13 +1097,20 @@
      the moment a quiz question name from content.json carries a `"` or `\`,
      and one bad question then disables the whole quiz.
 
-     NOT CSS.escape(): that escapes an IDENTIFIER, and every caller here
-     interpolates into a QUOTED value. CSS.escape("1oz") is "\31 oz", which
-     inside quotes matches the literal text `1oz` no longer -- so a variant
-     value like 1oz or a question name with a space would silently stop
-     matching, which is worse than the throw this replaced. Inside a quoted
-     string only the quote and the backslash can end it, so those two are
-     the whole job. */
+     Every caller interpolates into a DOUBLE-QUOTED value, so this escapes
+     for a CSS string token and nothing more. Four things can break one: the
+     closing `"`, a `\` (it would start an escape), and a raw newline, CR or
+     form feed, which end the string as a bad-string token -- querySelector()
+     then throws exactly as it did for the quote. The first two take a
+     backslash; the line breaks and NUL become hex escapes (`\a `, `\d `,
+     `\c `, and `\fffd ` for NUL, which CSS reads as U+FFFD whatever is
+     written). The trailing space ends each hex escape, so a following hex
+     digit in the value is never swallowed into it.
+
+     CSS.escape() would also give a matching selector -- escapes are decoded
+     inside quoted strings too, so its "\31 oz" still matches `1oz` -- but it
+     is written for identifiers, it is not in every test environment, and this
+     keeps the mock-DOM tests and the browser running the very same code. */
 
   /**
    * Escapes a value for use inside a DOUBLE-QUOTED CSS attribute selector.
@@ -1111,7 +1118,12 @@
    * @return {string} Selector-safe string.
    */
   function cssAttrEsc(value) {
-    return String(value == null ? "" : value).replace(/["\\]/g, "\\$&");
+    return String(value == null ? "" : value)
+      .replace(/["\\]/g, "\\$&")
+      .replace(/\n/g, "\\a ")
+      .replace(/\r/g, "\\d ")
+      .replace(/\f/g, "\\c ")
+      .replace(/\0/g, "\\fffd ");
   }
 
   /**
@@ -3323,6 +3335,40 @@
   document.addEventListener("change", function (e) {
     var select = e.target.closest(".variant-select");
     if (!select) return;
+    syncVariantSelection(select);
+  });
+
+  function isDisabledOption(opt) {
+    return !!opt && (opt.disabled || opt.getAttribute("aria-disabled") === "true");
+  }
+
+  /* Puts a <select> back on the option its card's Add button will actually
+     add (the first available one if the button carries none), so what the
+     shopper sees selected is what the cart gets. Setting selectedIndex fires
+     no change event, so this cannot loop back into the handler. */
+  function restoreVariantSelection(select) {
+    var card = typeof select.closest === "function" ? select.closest(".card") : null;
+    var addBtn = card ? card.querySelector(".yl-add-item") : null;
+    var carried = addBtn ? addBtn.getAttribute("data-item-custom1-value") : null;
+    var opts = select.options || [];
+    var firstAvailable = -1;
+    for (var i = 0; i < opts.length; i++) {
+      if (isDisabledOption(opts[i])) continue;
+      if (carried !== null && opts[i].value === carried) {
+        select.selectedIndex = i;
+        return;
+      }
+      if (firstAvailable === -1) firstAvailable = i;
+    }
+    if (firstAvailable !== -1) select.selectedIndex = firstAvailable;
+  }
+
+  /**
+   * Applies the option a variant <select> now shows to its card: visible
+   * price, loyalty points, the Add button's variant, and the multi-buy badge.
+   * @param {!Element} select A `.variant-select` inside a product card.
+   */
+  function syncVariantSelection(select) {
     var opt = select.options[select.selectedIndex];
     if (!opt) return;
     /* A sold-out size is rendered `disabled`, so a mouse or keyboard user
@@ -3330,8 +3376,13 @@
        handler is what copies the choice onto the Add button's
        data-item-custom1-value. Without this guard that path put a sold-out
        variant in the cart (live audit, 2026-09-16). The options list the
-       button advertises already omits it; this makes the two agree. */
-    if (opt.disabled || opt.getAttribute("aria-disabled") === "true") return;
+       button advertises already omits it; this makes the two agree. Just
+       returning left the select SHOWING the sold-out size while the button
+       still added the previous one, so the select is put back as well. */
+    if (isDisabledOption(opt)) {
+      restoreVariantSelection(select);
+      return;
+    }
     var delta = parseFloat(opt.getAttribute("data-delta")) || 0;
     var basePrice = parseFloat(select.getAttribute("data-base-price")) || 0;
     var newPrice = basePrice + delta;
@@ -3376,7 +3427,7 @@
         props: { product: cardId, variant: opt.value || "default" }
       });
     }
-  });
+  }
 
   /* ---------- Conversion tracking (custom events) ----------
      Analytics only sees pageviews out of the box -- with no event
@@ -6560,7 +6611,13 @@
       for (var j = 0; j < locParts.length; j++) {
         var lp = locParts[j].trim();
         if (lp && street.indexOf(lp) !== -1) {
-          street = street.replace(new RegExp(",?\\s*" + escapeRegExp(lp) + "\\b", "gi"), "").trim();
+          /* `(?!\w)`, not `\b`: after a piece ending in punctuation --
+             "Asheville (NC)" -- `\b` needs a word character next, so at the
+             end of the street it never matched and the city showed twice.
+             Same rule as build-site-data.js's locationPartPattern(). */
+          street = street
+            .replace(new RegExp(",?\\s*" + escapeRegExp(lp) + "(?!\\w)", "gi"), "")
+            .trim();
         }
       }
     }
@@ -6697,6 +6754,29 @@
 
   function markReveal(container) {
     wireReveal(container);
+  }
+
+  /**
+   * Maps a `?vibe=` value that is one of the quiz's FIRST question's answer
+   * keys (gothic-calm, ritual-rest, ...) onto the shop concern that answer
+   * names in `shopConcern`. Only the first question: it is the one the CMS
+   * offers the field on, and a later question's answer key must never
+   * redirect a link it happens to share a spelling with.
+   * @param {?string} vibe The raw `vibe` query parameter.
+   * @param {?Object} quiz window.YL_CONTENT.quiz.
+   * @return {string} The concern id, or "" when the value is not such an
+   *     answer or the answer names no shelf.
+   */
+  function quizVibeShopConcern(vibe, quiz) {
+    if (!vibe || !quiz || !Array.isArray(quiz.questions)) return "";
+    var first = quiz.questions[0];
+    var opts = first && Array.isArray(first.options) ? first.options : [];
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i] && opts[i].value === vibe) {
+        return typeof opts[i].shopConcern === "string" ? opts[i].shopConcern : "";
+      }
+    }
+    return "";
   }
 
   function buildFilters(row, categories, grid, allProducts, sortSelect, countEl, searchInput) {
@@ -7872,33 +7952,24 @@
     // Deep-linking: URL search params (?vibe=... / ?concern=... / ?category=...) and hash #apparel / #sore-muscles
     try {
       var searchParams = new URLSearchParams(window.location.search);
-      var urlConcern = searchParams.get("vibe") || searchParams.get("concern");
       /* `vibe` means two different things. The shop's own filter uses the
          catalog's concern ids (sleep-relaxation, dry-skin, ...), but the
          apothecary quiz's FIRST QUESTION is also called `vibe`, with its own
          vocabulary (gothic-calm, ritual-rest, ...). A link built from a quiz
          answer therefore matched nothing and silently showed the whole
          catalog (live audit, 2026-09-16).
-         Each quiz vibe now carries `shopConcern` in quiz.json naming the
-         shelf it opens, so the shop can honour both vocabularies. It is CMS
-         data, not a table in here, so the shop owner can retarget a vibe
-         without a developer; an unknown or misspelled value simply falls
-         through to the old no-op rather than filtering to the wrong shelf. */
-      if (urlConcern) {
-        var quizForVibe = (window.YL_CONTENT && window.YL_CONTENT.quiz) || null;
-        var vibeQuestions = (quizForVibe && quizForVibe.questions) || [];
-        for (var vq = 0; vq < vibeQuestions.length; vq++) {
-          var vibeOpts = (vibeQuestions[vq] && vibeQuestions[vq].options) || [];
-          for (var vo = 0; vo < vibeOpts.length; vo++) {
-            var vibeOpt = vibeOpts[vo] || {};
-            if (vibeOpt.value === urlConcern && typeof vibeOpt.shopConcern === "string") {
-              urlConcern = vibeOpt.shopConcern;
-              vq = vibeQuestions.length;
-              break;
-            }
-          }
-        }
-      }
+         Each first-question answer now carries `shopConcern` in quiz.json
+         naming the shelf it opens (quizVibeShopConcern), so `?vibe=` honours
+         both vocabularies. It is CMS data, not a table in here, so the shop
+         owner can retarget a vibe without a developer. Only `?vibe=` is
+         remapped -- `?concern=` is always a shelf id -- and an unknown or
+         misspelled value simply falls through to the old no-op rather than
+         filtering to the wrong shelf. */
+      var urlVibe = searchParams.get("vibe");
+      var urlConcern =
+        quizVibeShopConcern(urlVibe, window.YL_CONTENT && window.YL_CONTENT.quiz) ||
+        urlVibe ||
+        searchParams.get("concern");
       if (
         urlConcern &&
         concerns.some(function (c) {
@@ -9595,6 +9666,24 @@
   initOrderStatusModal();
 
   /* ---------- R4: Apothecary Recommendation Quiz Controller ---------- */
+
+  /**
+   * The radio-group name of one quiz question. MUST stay the same rule as
+   * quizParamName() in scripts/build-site-data.js, which names the inputs
+   * buildQuizFlowHtml() writes and this reads. Questions added in /admin
+   * carry neither `name` nor `id` (the CMS offers neither field), and while
+   * this side used "quiz-" + q.id the build named them "quiz-step<N>" -- so
+   * the scorer looked for `quiz-undefined`, found nothing, and silently
+   * scored the first answer whatever the shopper picked. The shipped
+   * questions all have a `name`, so their inputs are unchanged.
+   * @param {?Object} q A question from quiz.json.
+   * @param {number} idx Its position in quiz.questions (0-based).
+   * @return {string}
+   */
+  function quizParamName(q, idx) {
+    return (q && q.name) || "quiz-" + ((q && q.id) || "step" + (idx + 1));
+  }
+
   function initApothecaryQuiz() {
     var quizSection = document.getElementById("apothecary-quiz-section");
     if (!quizSection) return;
@@ -9768,8 +9857,8 @@
         var score = 0;
 
         if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
-          quizQuestions.forEach(function (q) {
-            var param = q.name || "quiz-" + q.id;
+          quizQuestions.forEach(function (q, qIdx) {
+            var param = quizParamName(q, qIdx);
             var checked = quizSection.querySelector(
               'input[name="' + cssAttrEsc(param) + '"]:checked'
             );
@@ -9911,8 +10000,8 @@
       } else {
         var selectedLabels = [];
         if (Array.isArray(quizQuestions) && quizQuestions.length > 0) {
-          quizQuestions.forEach(function (q) {
-            var param = q.name || "quiz-" + q.id;
+          quizQuestions.forEach(function (q, qIdx) {
+            var param = quizParamName(q, qIdx);
             var checked = quizSection.querySelector(
               'input[name="' + cssAttrEsc(param) + '"]:checked'
             );
@@ -12934,6 +13023,10 @@
       getWishlist: getWishlist,
       saveWishlist: saveWishlist,
       attrEsc: attrEsc,
+      cssAttrEsc: cssAttrEsc,
+      syncVariantSelection: syncVariantSelection,
+      quizVibeShopConcern: quizVibeShopConcern,
+      quizParamName: quizParamName,
       formatMoney: formatMoney,
       safeUrl: safeUrl,
       paintIsStale: paintIsStale,

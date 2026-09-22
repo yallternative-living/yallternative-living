@@ -20,7 +20,7 @@
 
 "use strict";
 
-/* global document, PointerEvent */
+/* global document, navigator, Navigator, PointerEvent */
 
 const fs = require("fs");
 const path = require("path");
@@ -537,6 +537,20 @@ console.log("===================================================================
 
   try {
     const page = await browser.newPage();
+    // Pin the network estimate. Chrome derives navigator.connection from the
+    // machine's real traffic -- on a CI runner, index.html's third-party
+    // requests over the internet -- and the controller deliberately refuses to
+    // prefetch on "3g" or slower (that gate is 1.2's job, with a mocked
+    // connection). Left to the runner's network this section went red at
+    // random: under DevTools 3G throttling both 85ms hovers inject nothing
+    // while the rapid-hover and dedup checks still pass, exactly the failure
+    // PR #108's browser job showed. Pinned, it measures the hover debounce.
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(Navigator.prototype, "connection", {
+        configurable: true,
+        get: () => ({ effectiveType: "4g", saveData: false, rtt: 50, downlink: 10 })
+      });
+    });
     await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "networkidle0" });
 
     // Verify browser prefetch controller behavior on live DOM
@@ -544,6 +558,7 @@ console.log("===================================================================
       // Find a valid shop link
       const shopLink = document.querySelector("a[href='shop.html']");
       if (!shopLink) return { error: "shop.html link not found" };
+      const effectiveType = navigator.connection && navigator.connection.effectiveType;
 
       // Initial state: count speculation rules / prefetch links
       const initialRulesCount = document.querySelectorAll(
@@ -579,6 +594,7 @@ console.log("===================================================================
       ).length;
 
       return {
+        effectiveType,
         initialRulesCount,
         afterRapidCount,
         afterSustainedCount,
@@ -587,13 +603,21 @@ console.log("===================================================================
     });
 
     assert(!browserResult.error, "Browser test ran cleanly on index.html", browserResult.error);
+    // The pin must have taken, or the hover checks below are back to
+    // measuring the runner's network.
+    assert(
+      browserResult.effectiveType === "4g",
+      "In-browser: network estimate is pinned to 4g for the hover checks",
+      `effectiveType ${JSON.stringify(browserResult.effectiveType)}`
+    );
     assert(
       browserResult.afterRapidCount === browserResult.initialRulesCount,
       "In-browser: Rapid hover does NOT increase prefetch/speculation tag count"
     );
     assert(
       browserResult.afterSustainedCount > browserResult.initialRulesCount,
-      "In-browser: Sustained hover injects speculative prefetch rule into DOM"
+      "In-browser: Sustained hover injects speculative prefetch rule into DOM",
+      JSON.stringify(browserResult)
     );
     assert(
       browserResult.afterDedupCount === browserResult.afterSustainedCount,
