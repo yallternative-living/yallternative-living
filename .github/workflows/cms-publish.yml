@@ -13,9 +13,9 @@ name: CMS Auto-Publisher
 #    ALLOW-LIST (see is_allowed_path below): only the JSON files and images Sveltia
 #    itself writes per admin/config.yml, as regular files (no symlinks/submodules).
 #    A branch that fails -- it touches anything else (workflows, scripts, the Worker,
-#    admin/, storefront JS/CSS, HTML, headers, package files...), contains a merge
-#    commit, shares no history with main, or conflicts -- has its merge aborted, is
-#    SKIPPED and is flagged with an ::error:: annotation naming it.
+#    admin/, storefront JS/CSS, HTML, headers, package files...), shares no history
+#    with main, or conflicts -- has its merge aborted, is SKIPPED and is flagged with
+#    an ::error:: annotation naming it.
 # 5. Every branch that passes is committed into `main` in one batch. One bad branch
 #    does not hold the others hostage: the owner's legitimate saves still go live,
 #    and the run is failed red at the very end so the rejected branch is noticed.
@@ -215,19 +215,15 @@ jobs:
               continue
             fi
 
-            # Sveltia only adds plain commits on top of main. A merge commit can give the
-            # branch two merge bases with main, and then a crafted branch whose three-dot
-            # diff shows one JSON file can still revert scripts on main when merged.
-            if [ -n "$(git rev-list --merges "origin/main..${branch_clean}")" ]; then
-              echo "::error title=CMS branch contains a merge commit::$branch_clean was NOT merged: it contains a merge commit, which Sveltia never writes. Other CMS branches still publish; review or delete this one."
-              rejected_branches="${rejected_branches}${branch_clean} "
-              echo "::endgroup::"
-              continue
-            fi
-
             # Merge WITHOUT committing, then gate the RESULT: the index against HEAD is
             # exactly what this branch would add to main (on top of any branch merged
-            # before it in this batch). A conflict aborts this merge only.
+            # before it in this batch), whatever the branch's history looks like. That
+            # is what closes the "criss-cross" hole: a branch with merge commits can have
+            # two merge bases with main, so a three-dot diff can show one JSON file while
+            # the merge reverts scripts on main -- the merge result cannot hide that.
+            # Merge commits themselves are NOT refused: GitHub's "Update branch" button
+            # on a CMS pull request makes one, and a save must not be rejected for it.
+            # A conflict aborts this merge only.
             if ! git merge --no-ff --no-commit "$branch_clean" >/dev/null 2>&1; then
               conflicts=$(git diff --name-only -z --diff-filter=U | tr '\0' ' ' | LC_ALL=C tr -c '[:print:]' '?')
               abort_merge
@@ -405,5 +401,5 @@ jobs:
           REJECTED: ${{ steps.merge-cms.outputs.rejected }}
         run: |
           set -euo pipefail
-          echo "::error title=CMS branch(es) rejected::Not merged: ${REJECTED}. Each would change files outside the content allow-list or add a symlink/submodule, contains a merge commit, conflicts with main, or shares no history with main (see the merge step log). Everything else that passed was published. Review or delete the rejected branch(es); they were left in place."
+          echo "::error title=CMS branch(es) rejected::Not merged: ${REJECTED}. Each would change files outside the content allow-list or add a symlink/submodule, conflicts with main, or shares no history with main (see the merge step log). Everything else that passed was published. Review or delete the rejected branch(es); they were left in place."
           exit 1
