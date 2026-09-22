@@ -90,6 +90,10 @@ const REVOKED_TOKEN = "gho_revokedTokenAAAAAAAAAAAAAAAAAAAAA";
 const NO_SCOPE_TOKEN = "gho_noScopeTokenAAAAAAAAAAAAAAAAAAAAA";
 // A classic PAT scoped `repo`, issued by no OAuth app.
 const PAT_TOKEN = "ghp_classicPatTokenAAAAAAAAAAAAAAAAAA";
+// Fine-grained PATs -- how the owner actually signs in to the CMS. GitHub
+// reports no scopes for them; `contentsWrite` is what the token itself may do.
+const FG_WRITE_TOKEN = "github_pat_11AAAAAAA0fineGrainedWriteAAAAAAAAAAAAAAAA";
+const FG_READ_TOKEN = "github_pat_11AAAAAAA0fineGrainedReadAAAAAAAAAAAAAAAAA";
 const AUTH = [["Authorization", "Bearer " + OWNER_TOKEN]];
 const STRANGER_AUTH = [["Authorization", "Bearer " + STRANGER_TOKEN]];
 
@@ -103,7 +107,9 @@ const TOKENS = {
   [OWNER_TOKEN]: { login: "shop-owner", scopes: "public_repo, read:user", push: true, app: true },
   [STRANGER_TOKEN]: { login: "stranger", scopes: "public_repo", push: false, app: true },
   [NO_SCOPE_TOKEN]: { login: "shop-owner", scopes: "", push: true, app: false },
-  [PAT_TOKEN]: { login: "shop-owner", scopes: "repo", push: true, app: false }
+  [PAT_TOKEN]: { login: "shop-owner", scopes: "repo", push: true, app: false },
+  [FG_WRITE_TOKEN]: { login: "shop-owner", scopes: null, push: true, contentsWrite: true },
+  [FG_READ_TOKEN]: { login: "shop-owner", scopes: null, push: true, contentsWrite: false }
 };
 
 /**
@@ -168,6 +174,20 @@ function installGitHubStub(state) {
     const info = TOKENS[auth.replace(/^Bearer /, "")];
     if (!info) return ghResponse(401, { message: "Bad credentials" });
     if (route === "/user") return ghResponse(200, { login: info.login }, info.scopes);
+    if (route.endsWith("/git/refs") && options.method === "POST") {
+      // The write check. GitHub refuses a token without Contents write before
+      // it reads the body; one with it fails on the all-zero SHA instead.
+      if (state.probeFail === "rate") {
+        return new Response(JSON.stringify({ message: "API rate limit exceeded" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "X-RateLimit-Remaining": "0" }
+        });
+      }
+      if (state.probeFail) return ghResponse(state.probeFail, {});
+      return info.contentsWrite
+        ? ghResponse(422, { message: "Object does not exist" })
+        : ghResponse(403, { message: "Resource not accessible by personal access token" });
+    }
     if (route.startsWith("/repos/")) {
       // `noPerms`: a 200 with no permissions object at all.
       return ghResponse(
@@ -250,9 +270,9 @@ async function main() {
   assert(unauthRes.status === 401, "unfulfilled-orders rejects missing auth");
   assert(gh.calls.length === 0, "a missing token never reaches GitHub");
 
-  // Anything that is not shaped like a classic GitHub token is refused
-  // locally, so a flood of junk costs no API calls. Fine-grained and GitHub
-  // App tokens are well-formed but report no scopes, so they are refused too.
+  // Anything that is not shaped like a GitHub token the CMS could hold is
+  // refused locally, so a flood of junk costs no API calls. GitHub App
+  // tokens are well-formed but nobody signs in to the CMS with one.
   for (const junk of [
     "wrong_password",
     "",
@@ -262,7 +282,7 @@ async function main() {
     "undefined",
     "ghu_userToServerTokenAAAAAAAAAAAAAAAAA",
     "ghs_installationTokenAAAAAAAAAAAAAAAAA",
-    "github_pat_11AAAAAAA0fineGrainedTokenAAAAAAAAAAAA"
+    "github_pat_short"
   ]) {
     const res = await handleUnfulfilledOrders(
       request([["Authorization", "Bearer " + junk]]),
@@ -302,6 +322,73 @@ async function main() {
   {
     const res = await handleUnfulfilledOrders(request(bearer(PAT_TOKEN)), env, ORIGIN);
     assert(res.status === 200, "a classic PAT scoped `repo` on a push account is accepted");
+  }
+
+  /* ------------------------------------------------ fine-grained tokens */
+  {
+    // How the owner signs in to the CMS. No scopes to read, so the token is
+    // asked whether it may write -- with a write that cannot succeed.
+    gh.calls.length = 0;
+    const res = await handleUnfulfilledOrders(request(bearer(FG_WRITE_TOKEN)), env, ORIGIN);
+    assert(res.status === 200, "a fine-grained token that may write the repo is accepted");
+    const probe = gh.calls.find((c) => c.url.endsWith("/git/refs"));
+    assert(
+      probe &&
+        probe.url ===
+          "https://api.github.com/repos/yallternative-living/yallternative-living/git/refs" &&
+        probe.options.method === "POST",
+      "a fine-grained token is checked with a write to the configured repo"
+    );
+    const sent = probe ? JSON.parse(probe.options.body) : {};
+    assert(
+      sent.sha === "0".repeat(40) && /^refs\/heads\//.test(sent.ref),
+      "the write check points a branch at the all-zero SHA, so it can never create anything"
+    );
+    assert(
+      gh.calls.map((c) => c.url.replace("https://api.github.com", "")).join(" ") ===
+        "/user /repos/yallternative-living/yallternative-living " +
+          "/repos/yallternative-living/yallternative-living/git/refs",
+      "identity, then the account's push access, then the token's own write check"
+    );
+  }
+  {
+    // The account can push, but this token was made read-only (or for some
+    // other repository): the same gap the scope check closes for classic tokens.
+    gh.calls.length = 0;
+    const res = await handleUnfulfilledOrders(request(bearer(FG_READ_TOKEN)), env, ORIGIN);
+    assert(res.status === 403, "a fine-grained token that may not write is refused (403)");
+    gh.calls.length = 0;
+    await handleUnfulfilledOrders(request(bearer(FG_READ_TOKEN)), env, ORIGIN);
+    assert(gh.calls.length === 0, "a refused fine-grained token is cached like any other");
+  }
+  {
+    // A fine-grained token on an account without push never gets to the write.
+    gh.calls.length = 0;
+    const token = freshOwnerToken({ scopes: null, push: false, contentsWrite: true });
+    const fg = "github_pat_" + token.slice(4);
+    TOKENS[fg] = TOKENS[token];
+    const res = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+    assert(res.status === 403, "a fine-grained token on an account without push gets 403");
+    assert(
+      !gh.calls.some((c) => c.url.endsWith("/git/refs")),
+      "no write is attempted for an account that cannot push"
+    );
+  }
+  {
+    // GitHub failing to answer the write check is about us, not the token.
+    for (const [fail, label] of [
+      [500, "a 5xx"],
+      ["rate", "a rate-limited 403"]
+    ]) {
+      gh.probeFail = fail;
+      const fg = "github_pat_" + freshOwnerToken().slice(4);
+      TOKENS[fg] = { login: "shop-owner", scopes: null, push: true, contentsWrite: true };
+      const res = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      assert(res.status === 503, `${label} from the write check answers 503, not 403`);
+      gh.probeFail = 0;
+      const again = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      assert(again.status === 200, `${label} from the write check is not cached`);
+    }
   }
 
   // Absent `permissions` must never be read as permission.

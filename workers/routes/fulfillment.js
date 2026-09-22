@@ -21,18 +21,23 @@
  * 1. What can this TOKEN do? `permissions.push` on a repository describes the
  *    ACCOUNT's role, not the token: a "Sign in with GitHub" token some other
  *    site holds for the owner, minted with no scopes at all, reports the same
- *    push:true. So the token's own scopes must include `public_repo` (what the
- *    CMS asks for) or `repo`. Only classic tokens -- `gho_` from an OAuth app,
- *    `ghp_` typed by hand -- report scopes, so only those shapes are accepted.
- *    A token that passes can already push to the shop's repository, so this
- *    dashboard grants it nothing it could not take anyway.
- * 2. Which APP issued it? Optional and stronger: with GITHUB_CLIENT_ID and
+ *    push:true. So for a classic token -- `gho_` from an OAuth app, `ghp_`
+ *    typed by hand -- its own scopes must include `public_repo` (what the CMS
+ *    asks for) or `repo`. A fine-grained token (`github_pat_`, which is how
+ *    the owner signs in to the CMS) reports no scopes at all, so it is asked
+ *    directly whether it may write this repository -- see
+ *    probeContentsWrite(). Any other token shape is refused. A token that
+ *    passes can already push to the shop's repository, so this dashboard
+ *    grants it nothing it could not take anyway.
+ * 2. Which APP issued it? Optional: with GITHUB_CLIENT_ID and
  *    GITHUB_CLIENT_SECRET set (the CMS OAuth app's own, the pair
  *    cms-auth/sveltia-auth.js holds) the token is checked through
  *    `POST /applications/{client_id}/token`, which only answers for tokens
- *    that app issued. Every other app's token -- even one scoped `repo` --
- *    is then refused. Set the id without the secret and every request is
- *    refused (503): half a configuration fails closed.
+ *    that app issued. Every other token -- another app's, or a personal
+ *    access token pasted into the CMS -- is then refused, so leave the pair
+ *    unset while anyone signs in to the CMS with a token. Set the id without
+ *    the secret and every request is refused (503): half a configuration
+ *    fails closed.
  * 3. May the account push? `GET /repos/{owner}/{repo}` and `permissions.push`.
  *    The repository is PUBLIC, so any signed-in stranger's token also gets a
  *    200 from that call -- with push:false. The push bit, not the status code,
@@ -71,13 +76,22 @@ const ADMIN_AUTH_RATE_KEY = "admin-auth";
 const DEFAULT_GITHUB_REPO = "yallternative-living/yallternative-living";
 
 /**
- * Classic GitHub token shapes (docs: "about authentication to GitHub"): `gho_`
- * is what the CMS OAuth flow mints, `ghp_` a classic personal access token.
- * Fine-grained (`github_pat_`), GitHub App (`ghu_`, `ghs_`) tokens are refused
- * here because GitHub reports no scopes for them, and scopes are check 1 above.
- * Anything else never reaches api.github.com.
+ * Token shapes accepted (docs: "about authentication to GitHub"): `gho_` is
+ * what the CMS OAuth flow mints, `ghp_` a classic personal access token, and
+ * `github_pat_` a fine-grained one -- what the CMS's token sign-in is given.
+ * GitHub App tokens (`ghu_`, `ghs_`) are refused: they report no scopes and
+ * nobody signs in to the CMS with one. Anything else never reaches
+ * api.github.com.
  */
-const GITHUB_TOKEN_RE = /^(?:gho|ghp)_[A-Za-z0-9_]{20,255}$/;
+const GITHUB_TOKEN_RE = /^(?:gho|ghp|github_pat)_[A-Za-z0-9_]{20,255}$/;
+const FINE_GRAINED_PREFIX = "github_pat_";
+
+/**
+ * The write probeContentsWrite() attempts: a branch pointing at the all-zero
+ * object id, which no object can have, so GitHub can never create it.
+ */
+const PROBE_REF = "refs/heads/fulfillment-dashboard-access-check";
+const ZERO_SHA = "0".repeat(40);
 
 /** Classic scopes that include pushing to a public repository. */
 const PUSH_SCOPES = ["repo", "public_repo"];
@@ -232,7 +246,10 @@ async function verifyGitHubPush(token, env) {
   }
   if (identity.status !== 200) return { ok: false, status: identity.status, login: "" };
   const login = identity.login;
-  if (!identity.scopes.some((s) => PUSH_SCOPES.includes(s))) {
+  // A fine-grained token has no scopes to read; probeContentsWrite() below
+  // stands in for this check once the account is known to have push.
+  const fineGrained = token.startsWith(FINE_GRAINED_PREFIX);
+  if (!fineGrained && !identity.scopes.some((s) => PUSH_SCOPES.includes(s))) {
     return { ok: false, status: 403, login };
   }
 
@@ -250,7 +267,40 @@ async function verifyGitHubPush(token, env) {
   const perms = body && body.permissions;
   // Defensive: absent `permissions` is treated as no permission, never as yes.
   if (!perms || perms.push !== true) return { ok: false, status: 403, login };
+  if (fineGrained) {
+    const status = await probeContentsWrite(token, env);
+    if (status !== 200) return { ok: false, status, login: status === 403 ? login : "" };
+  }
   return { ok: true, status: 200, login };
+}
+
+/**
+ * May this fine-grained token write the repository's contents? GitHub has no
+ * endpoint that says, and `permissions` on the repository describes the
+ * account, so it is asked with a write that cannot succeed: create
+ * PROBE_REF pointing at ZERO_SHA. GitHub checks a fine-grained token's
+ * permission for the endpoint before it reads the request, so a token without
+ * Contents write is refused (403, "Resource not accessible by personal access
+ * token") while one with it gets as far as validating the SHA (422, "Object
+ * does not exist"). Nothing is created either way. Only the 422 counts as
+ * yes: every other answer is a no (403/404) or a failure to ask (503).
+ *
+ * @returns {Promise<number>} 200 when the token may write, 401 when GitHub
+ *   refuses the token, 403 when it may not write, 503 when GitHub could not
+ *   answer (a rate limit included -- that is about us, not the token).
+ */
+async function probeContentsWrite(token, env) {
+  const res = await fetch(`${GITHUB_API}/repos/${repoOf(env)}/git/refs`, {
+    method: "POST",
+    headers: { ...githubHeaders(`Bearer ${token}`), "Content-Type": "application/json" },
+    body: JSON.stringify({ ref: PROBE_REF, sha: ZERO_SHA })
+  });
+  if (res.status === 422) return 200;
+  if (res.status === 401) return 401;
+  const rateLimited = res.headers.get("X-RateLimit-Remaining") === "0";
+  if ((res.status === 403 || res.status === 404) && !rateLimited) return 403;
+  console.error(`fulfillment: GitHub did not answer the write check (${res.status})`);
+  return 503;
 }
 
 function cacheVerdict(key, result, now) {
