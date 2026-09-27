@@ -714,7 +714,6 @@
     "tpl.mixMatchNeed": "Thêm {needed} {item} nữa để nhận {all} chỉ {price} mỗi món!",
     "tpl.mixMatchApplied": "Đã áp dụng mức {price}/món cho {item}!",
     "tpl.mixMatchNext": "Thêm {amount} để nhận {perk}!",
-    "auto.artsFestival.c73a7e": "Lễ hội Nghệ thuật",
     "auto.moreInfoRsvp.b097db": "Thêm thông tin / RSVP",
     "cart.havePromoCode": "Bạn có mã giảm giá?",
     "cart.promoGiftCardNotice": "Mã giảm giá và thẻ quà tặng không dùng chung được. Hãy bỏ thẻ quà tặng để dùng mã.",
@@ -838,8 +837,8 @@
     "auto.copyCode.1589b6": "Sao chép mã",
     "auto.materials.2402ea": "Chất liệu",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living trên mạng xã hội",
-    "auto.freeDowntownArtsMusic.3f38cd": "Lễ hội nghệ thuật & âm nhạc miễn phí tại trung tâm — ghé qua bàn của tụi này nhé.",
     "auto.freeFamilyFunLive.1f6fec": "Vui chơi gia đình miễn phí & biểu diễn trực tiếp, tiếp nối là thi nhảy ngựa Grand Prix.",
-    "auto.thePerfectGiftFor.057d2a": "Món quà hoàn hảo cho Black Sheep & Bold Hearts. Chọn bất kỳ số tiền nào từ $10 đến $500. Không có hạn sử dụng, gửi thẳng vào hộp thư đến của họ."
+    "auto.thePerfectGiftFor.057d2a": "Món quà hoàn hảo cho Black Sheep & Bold Hearts. Chọn bất kỳ số tiền nào từ $10 đến $500. Không có hạn sử dụng, gửi thẳng vào hộp thư đến của họ.",
+    "auto.craftShow.a76ec3": "Hội chợ thủ công"
   }
 }

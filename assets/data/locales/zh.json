@@ -714,7 +714,6 @@
     "tpl.mixMatchNeed": "再添加 {needed} 件 {item}，即可以每件 {price} 获得 {all}！",
     "tpl.mixMatchApplied": "已应用 {item} 每件 {price} 阶梯优惠！",
     "tpl.mixMatchNext": "再添加 {amount} 即可解锁 {perk}！",
-    "auto.artsFestival.c73a7e": "艺术节",
     "auto.moreInfoRsvp.b097db": "更多详情 / 报名",
     "cart.havePromoCode": "有优惠码吗？",
     "cart.promoGiftCardNotice": "优惠码与礼品卡不能同时使用。请移除礼品卡后再使用优惠码。",
@@ -838,8 +837,8 @@
     "auto.copyCode.1589b6": "复制代码",
     "auto.materials.2402ea": "材质",
     "auto.yallternativeLivingOnSocial.e86ad9": "社交媒体上的 Y'allternative Living",
-    "auto.freeDowntownArtsMusic.3f38cd": "市中心免费艺术音乐节——欢迎来找我们的摊位。",
     "auto.freeFamilyFunLive.1f6fec": "免费家庭娱乐与现场表演，随后是大奖赛障碍赛马。",
-    "auto.thePerfectGiftFor.057d2a": "送给特立独行与勇敢之人的完美礼物。从$10到$500自选金额。无有效期限制，直接发送至对方收件箱。"
+    "auto.thePerfectGiftFor.057d2a": "送给特立独行与勇敢之人的完美礼物。从$10到$500自选金额。无有效期限制，直接发送至对方收件箱。",
+    "auto.craftShow.a76ec3": "手工艺市集"
   }
 }

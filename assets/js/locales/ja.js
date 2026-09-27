@@ -722,7 +722,6 @@
     "tpl.mixMatchNeed": "あと{needed}点{item}を追加すると、{all}が1点あたり{price}になります！",
     "tpl.mixMatchApplied": "{item}の1点あたり{price}のまとめ買い割引が適用されました！",
     "tpl.mixMatchNext": "あと{amount}追加で{perk}！",
-    "auto.artsFestival.c73a7e": "アートフェスティバル",
     "auto.moreInfoRsvp.b097db": "詳細 / 参加申し込み",
     "cart.havePromoCode": "コードをお持ちですか？",
     "cart.promoGiftCardNotice": "プロモコードとギフトカードは併用できません。コードを使うにはギフトカードを外してください。",
@@ -846,9 +845,9 @@
     "auto.copyCode.1589b6": "コードをコピー",
     "auto.materials.2402ea": "素材",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative LivingのSNS",
-    "auto.freeDowntownArtsMusic.3f38cd": "入場無料のダウンタウン・アート＆音楽フェスティバル — ぜひ私たちのテーブルを探しに来てください。",
     "auto.freeFamilyFunLive.1f6fec": "ご家族で楽しめる無料イベント＆ライブエンターテインメントに続き、グランプリ障害馬術競技が開催されます。",
-    "auto.thePerfectGiftFor.057d2a": "Black Sheep & Bold Heartsにぴったりのギフト。$10から$500まで、お好きな金額をお選びいただけます。有効期限はなく、受信トレイへ直接お届けします。"
+    "auto.thePerfectGiftFor.057d2a": "Black Sheep & Bold Heartsにぴったりのギフト。$10から$500まで、お好きな金額をお選びいただけます。有効期限はなく、受信トレイへ直接お届けします。",
+    "auto.craftShow.a76ec3": "クラフトショー"
   }
 };
 

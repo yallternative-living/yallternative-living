@@ -714,7 +714,6 @@
     "tpl.mixMatchNeed": "Ajoute {needed} {item} de plus pour obtenir {all} à {price} chacun !",
     "tpl.mixMatchApplied": "Palier {item} à {price}/unité appliqué !",
     "tpl.mixMatchNext": "Ajoute {amount} pour {perk} !",
-    "auto.artsFestival.c73a7e": "Festival des arts",
     "auto.moreInfoRsvp.b097db": "Plus d'infos / RSVP",
     "cart.havePromoCode": "Vous avez un code ?",
     "cart.promoGiftCardNotice": "Les codes promo et les cartes-cadeaux ne se cumulent pas. Retirez la carte-cadeau pour utiliser un code.",
@@ -838,8 +837,8 @@
     "auto.copyCode.1589b6": "Copier le code",
     "auto.materials.2402ea": "Matériaux",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living sur les réseaux",
-    "auto.freeDowntownArtsMusic.3f38cd": "Festival gratuit d'arts et de musique en centre-ville — viens trouver notre table.",
     "auto.freeFamilyFunLive.1f6fec": "Du fun gratuit en famille et des spectacles en direct, suivis du Grand Prix de saut d'obstacles.",
-    "auto.thePerfectGiftFor.057d2a": "Le cadeau parfait pour les Black Sheep & Bold Hearts. Choisis n'importe quel montant de $10 à $500. Aucune date d'expiration, livré directement dans leur boîte de réception."
+    "auto.thePerfectGiftFor.057d2a": "Le cadeau parfait pour les Black Sheep & Bold Hearts. Choisis n'importe quel montant de $10 à $500. Aucune date d'expiration, livré directement dans leur boîte de réception.",
+    "auto.craftShow.a76ec3": "Marché artisanal"
   }
 }
