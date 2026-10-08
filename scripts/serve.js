@@ -18,10 +18,13 @@
  * developer keeps beside the site. So, on top of the containment check:
  *   - any path segment starting with "." is a 404, except a leading
  *     `.well-known/` (security.txt and friends are part of the site);
+ *   - so is anything under `node_modules/` and any `*.log` file -- both
+ *     git-ignored, both local, neither part of the site;
  *   - symlinks are resolved and the REAL path must stay inside the real root,
  *     so a link inside the tree cannot publish a file outside it;
- *   - while bound to loopback, a request whose Host header is not localhost,
- *     127.0.0.1 or [::1] is refused with a 403. Binding to 127.0.0.1 keeps
+ *   - while bound to loopback (localhost, anything in 127.0.0.0/8 or ::1, in
+ *     whatever spelling listen() was given), a request whose Host header is
+ *     not localhost, a 127.x.x.x address or [::1] is refused with a 403. Binding to 127.0.0.1 keeps
  *     other machines out, but not a web page the developer has open: DNS
  *     rebinding points the attacker's own hostname at 127.0.0.1, and the
  *     browser then sends that hostname as Host. With HOST=0.0.0.0 the LAN is
@@ -33,6 +36,7 @@
  */
 
 const http = require("http");
+const net = require("net");
 const fs = require("fs");
 const path = require("path");
 
@@ -53,20 +57,38 @@ const mimeTypes = {
   ".ico": "image/x-icon"
 };
 
-/* Bind addresses that only this machine can reach. */
-const LOOPBACK_BIND_HOSTS = ["127.0.0.1", "localhost", "::1", "[::1]"];
-
 /* The Host header a browser sends for this machine's own loopback server,
-   with or without the port. A rebinding page's Host is its own name. */
-const LOOPBACK_HOST_HEADER_RE = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/i;
+   with or without the port. A rebinding page's Host is its own name. Any
+   dotted 127.x.x.x is accepted, so binding to 127.0.0.2 still works. */
+const LOOPBACK_HOST_HEADER_RE =
+  /^(?:localhost|127(?:\.\d{1,3}){3}|\[::1\]|\[::ffff:127(?:\.\d{1,3}){3}\])(?::\d{1,5})?$/i;
 
 /**
- * Whether a bind address is loopback-only.
+ * Whether a bind address is loopback-only: localhost, anything in 127.0.0.0/8
+ * or ::1, however it is spelled (127.1, 0:0:0:0:0:0:0:1, ::ffff:127.0.0.1).
+ * A fixed list of four spellings used to switch the Host check off for the
+ * rest (red team, 2026-10-08). The WHATWG URL parser does the normalising.
  * @param {?string} host The address passed to listen().
  * @return {boolean}
  */
 function isLoopbackHost(host) {
-  return LOOPBACK_BIND_HOSTS.indexOf(String(host || "").toLowerCase()) !== -1;
+  let h = String(host || "")
+    .trim()
+    .toLowerCase();
+  if (h.startsWith("[") && h.endsWith("]")) h = h.slice(1, -1);
+  if (!h) return false;
+  let hostname;
+  try {
+    hostname = new URL("http://" + (net.isIPv6(h) ? "[" + h + "]" : h)).hostname;
+  } catch (e) {
+    return false;
+  }
+  return (
+    hostname === "localhost" ||
+    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    hostname === "[::1]" ||
+    /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/.test(hostname)
+  );
 }
 
 /**
@@ -81,7 +103,7 @@ function isLoopbackHostHeader(hostHeader) {
 /**
  * Returns `full` relative to `rootAbs` when it lies inside the root and no
  * segment of it is hidden (starts with "."), apart from a leading
- * `.well-known`; otherwise null. Works on an already-resolved path, so "."
+ * `.well-known`, is `node_modules`, or is a `*.log` file; otherwise null. Works on an already-resolved path, so "."
  * and ".." segments are gone by the time the segments are inspected.
  * @param {string} rootAbs Absolute root directory.
  * @param {string} full Absolute candidate path.
@@ -92,7 +114,9 @@ function publicRelativePath(rootAbs, full) {
   const rel = path.relative(rootAbs, full);
   if (!rel) return "";
   const segments = rel.split(path.sep);
+  if (/\.log$/i.test(segments[segments.length - 1])) return null;
   for (let i = 0; i < segments.length; i++) {
+    if (segments[i] === "node_modules") return null;
     if (segments[i].charAt(0) !== ".") continue;
     if (i === 0 && segments[i] === ".well-known") continue;
     return null;

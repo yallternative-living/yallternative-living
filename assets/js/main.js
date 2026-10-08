@@ -6127,7 +6127,8 @@
      host: see docs/research-2026-09-01/research-E-local-discovery.md §3 on
      why marking this shop as `organizer` of a market it doesn't run is
      against Google's own content policy) and never an `offers` block
-     (there is no ticket to buy). */
+     (there is no ticket to buy) -- for a MARKET. A workshop is the shop's own
+     ticketed night and gets both; see buildEventJsonLd. */
   function buildEventJsonLdLocation(ev) {
     var address = { "@type": "PostalAddress", addressCountry: "US" };
     var loc = ev && ev.location ? String(ev.location) : "";
@@ -6153,11 +6154,12 @@
     if (!ev || !ev.name) return null;
     var start = buildEventDateTimeISO(ev.date);
     if (!start) return null;
+    var isWorkshop = ev.kind === "workshop";
 
     var ld = {
       "@context": "https://schema.org",
       "@type": "Event",
-      name: "Y'allternative Living at " + ev.name,
+      name: isWorkshop ? String(ev.name) : "Y'allternative Living at " + ev.name,
       startDate: start.iso,
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -6166,6 +6168,32 @@
     if (ev.endDate) {
       var end = buildEventDateTimeISO(ev.endDate);
       if (end) ld.endDate = end.iso;
+    }
+    /* A workshop is the shop's OWN ticketed night, not a market it vends at,
+       so the two omissions above do not apply to it: it has an organizer
+       (this shop), and an offer when tickets are on sale -- here on the site
+       or through an outside https link. */
+    if (isWorkshop) {
+      ld.organizer = {
+        "@type": "Organization",
+        name: "Y'allternative Living",
+        url: "https://yallternativeliving.com"
+      };
+      var price = Number(ev.price);
+      var outside = typeof ev.ticketUrl === "string" ? ev.ticketUrl.trim() : "";
+      var ticketHref = /^https:\/\//i.test(outside)
+        ? outside
+        : ev.ticketId && ev.id
+          ? "https://yallternativeliving.com/events.html#" + encodeURIComponent(ev.id)
+          : "";
+      if (price > 0 && ticketHref) {
+        ld.offers = {
+          "@type": "Offer",
+          price: price.toFixed(2),
+          priceCurrency: "USD",
+          url: ticketHref
+        };
+      }
     }
     return ld;
   }
@@ -6780,21 +6808,29 @@
         if (label) label.textContent = was;
       }, 2500);
     }
+    function copyLink() {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        navigator.clipboard.writeText(url).then(copied, function () {
+          prompt("Copy this link to share:", url);
+        });
+        return;
+      }
+      prompt("Copy this link to share:", url);
+    }
     if (navigator.share) {
       navigator
         .share({ title: ev.name + " · Y'allternative Living", text: text, url: url })
-        .catch(function () {
-          /* Dismissed: nothing to do. */
+        .catch(function (err) {
+          /* Dismissed (AbortError): nothing to do. Anything else -- a
+             NotAllowedError in an in-app browser or an iframe, say -- means
+             the share sheet never opened, so copy the link instead of
+             leaving the button dead (red team, 2026-10-08). */
+          if (err && err.name === "AbortError") return;
+          copyLink();
         });
       return;
     }
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      navigator.clipboard.writeText(url).then(copied, function () {
-        prompt("Copy this link to share:", url);
-      });
-      return;
-    }
-    prompt("Copy this link to share:", url);
+    copyLink();
   }
 
   function wireEventShare(container, list) {
@@ -6959,7 +6995,11 @@
         ' btn-sm btn-block" href="shop.html?pickup_market=' +
         pickupParam +
         '#shop-catalog">' +
-        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Reserve / Pick Up at This Booth' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> ' +
+        // A workshop has no booth: the order is picked up at the night itself.
+        (ev.kind === "workshop"
+          ? "Order Ahead / Pick Up Here"
+          : "Reserve / Pick Up at This Booth") +
         "</a>" +
         "</div>" +
         '<div class="event-calendar-row">' +
@@ -9627,21 +9667,89 @@
      zone, so an evening event read "in progress today" from breakfast on.
      The time is Eastern, where the markets are, not the visitor's zone; a
      label with no time keeps 9am. */
+  /* The opening clock time in a dateLabel, as {hour, minute} in 24h, or null.
+     The FIRST time in the label wins, whichever way it is written:
+       "6:30pm", "6:30 p.m.", "11am"      -- its own am/pm
+       "6:30–9pm", "6–9pm", "11–2pm"     -- a range sharing the closing am/pm
+                                             (11–2pm opens at 11am: a start
+                                             later on the clock than the end
+                                             is the morning)
+       "noon–4pm"                          -- noon
+       "18:30"                             -- 24-hour
+     Taking only the first time that carried its OWN am/pm read "6:30–9pm" as
+     9pm, so the countdown said "3 hours until" a workshop already running,
+     and "6:30 p.m." or "18:30" fell back to 9am (red team, 2026-10-08).
+     No lookbehind: the file still has to parse in older Safari. */
+  function labelStartClock(label) {
+    var text = String(label || "");
+    var MER = "([ap])\\.?\\s?m(?![a-z])\\.?";
+    var NUM = "(\\d{1,2})(?::([0-5]\\d))?(?!\\d)";
+    var found = [];
+    var range = new RegExp(
+      "(^|[^\\d:])" +
+        NUM +
+        "\\s*(?:" +
+        MER +
+        ")?\\s*(?:-|\u2013|\u2014|to)\\s*" +
+        NUM +
+        "\\s*" +
+        MER,
+      "i"
+    ).exec(text);
+    if (range) {
+      var startH = parseInt(range[2], 10);
+      var endH = parseInt(range[5], 10);
+      var endMer = range[7].toLowerCase();
+      var mer = range[4] ? range[4].toLowerCase() : endMer;
+      if (!range[4] && endMer === "p" && startH !== 12 && startH > endH) mer = "a";
+      if (startH >= 1 && startH <= 12) {
+        found.push({
+          at: range.index + range[1].length,
+          hour: (startH % 12) + (mer === "p" ? 12 : 0),
+          minute: range[3] ? parseInt(range[3], 10) : 0
+        });
+      }
+    }
+    var single = new RegExp("(^|[^\\d:])" + NUM + "\\s*" + MER, "i").exec(text);
+    if (single) {
+      var h = parseInt(single[2], 10);
+      if (h >= 1 && h <= 12) {
+        found.push({
+          at: single.index + single[1].length,
+          hour: (h % 12) + (single[4].toLowerCase() === "p" ? 12 : 0),
+          minute: single[3] ? parseInt(single[3], 10) : 0
+        });
+      }
+    }
+    var noon = /\bnoon\b/i.exec(text);
+    if (noon) found.push({ at: noon.index, hour: 12, minute: 0 });
+    var h24 = /(^|[^\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d]|\s*[ap]\.?\s?m(?![a-z]))/i.exec(text);
+    if (h24) {
+      found.push({
+        at: h24.index + h24[1].length,
+        hour: parseInt(h24[2], 10),
+        minute: parseInt(h24[3], 10)
+      });
+    }
+    var first = null;
+    for (var i = 0; i < found.length; i++) {
+      // Earliest in the label; on a tie the range (pushed first) wins, so
+      // "6:30–9pm" is never read as a bare 24-hour 6:30.
+      if (!first || found[i].at < first.at) first = found[i];
+    }
+    return first;
+  }
+
   function eventStartMs(evt) {
     var date = String(evt.date);
     var day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
     if (!day) return new Date(date).getTime();
     var hour = 9;
     var minute = 0;
-    var clock = /(?:^|[^\d])(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b/i.exec(
-      String(evt.dateLabel || "")
-    );
+    var clock = labelStartClock(evt.dateLabel);
     if (clock) {
-      var h = parseInt(clock[1], 10);
-      if (h >= 1 && h <= 12) {
-        hour = (h % 12) + (clock[3].toLowerCase() === "pm" ? 12 : 0);
-        minute = clock[2] ? parseInt(clock[2], 10) : 0;
-      }
+      hour = clock.hour;
+      minute = clock.minute;
     }
     var y = Number(day[1]);
     var m = Number(day[2]);
@@ -9690,6 +9798,9 @@
       window.YL_EVENTS && window.YL_EVENTS.upcoming ? window.YL_EVENTS.upcoming : [];
     var picked = pickNextEvent(upcomingList, todayInEastern());
     var nextEvt = picked ? picked.event : null;
+    /* A workshop is a ticketed night, not a pop-up: the countdown names it
+       as what it is. */
+    var nextKindWord = nextEvt && nextEvt.kind === "workshop" ? "workshop" : "pop-up";
     var targetTime = picked ? picked.startTime : 0;
 
     if (!nextEvt) {
@@ -9757,7 +9868,9 @@
             '<h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
             attrEsc(nextEvt.name) +
             "</h3>" +
-            '<p style="margin: 0;">Pop-up in progress today!</p></div>';
+            '<p style="margin: 0;">' +
+            (nextKindWord === "workshop" ? "Workshop" : "Pop-up") +
+            " in progress today!</p></div>";
         }
         updateAnnouncementCrowding();
         return;
@@ -9766,7 +9879,7 @@
       if (tickerContainer) {
         var tickerBadgeEl = tickerContainer.querySelector(".ticker-badge");
         if (tickerBadgeEl) {
-          tickerBadgeEl.innerHTML = iconHtml + "NEXT POP-UP:";
+          tickerBadgeEl.innerHTML = iconHtml + "NEXT " + nextKindWord.toUpperCase() + ":";
         }
       }
 
@@ -9848,7 +9961,9 @@
           "</p>" +
           '  <p class="event-timer-clock" style="font-size: 1.1rem; margin: 0.2rem 0 0.4rem;"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg> <strong>' +
           timeStr +
-          "</strong> until pop-up</p>" +
+          "</strong> until " +
+          nextKindWord +
+          "</p>" +
           '  <p class="event-location" style="font-size: 0.85rem; color: var(--paper-dim); margin: 0;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
           attrEsc(nextEvt.location || "Upstate, SC") +
           "</p>" +
@@ -13399,6 +13514,7 @@
       parsePickupMarketParam: parsePickupMarketParam,
       handlePickupMarketDeepLink: handlePickupMarketDeepLink,
       eventCardHTML: eventCardHTML,
+      shareEvent: shareEvent,
       getReadingTime: getReadingTime,
       renderClockIconSvg: renderClockIconSvg,
       renderJournalTagsHtml: renderJournalTagsHtml,

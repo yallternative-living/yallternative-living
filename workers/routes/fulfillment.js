@@ -43,15 +43,29 @@
  *    200 from that call -- with push:false. The push bit, not the status code,
  *    separates the shop's owner from the rest of GitHub.
  *
+ * 4. May the TOKEN write? probeContentsWrite(), for every token shape. The
+ *    account's push bit and a classic token's scopes still leave one gap: an
+ *    OAuth app the organisation has not approved holds a `public_repo` token
+ *    that reports push:true on this public repository yet cannot push. Only
+ *    asking for a write tells the two apart.
+ *
  * COST CONTROL, NOT A LOCK. A token that does not look like a GitHub token is
  * refused before anything else runs, and a verdict GitHub already gave is
  * served from a short per-isolate cache; neither touches the limiter. Only a
  * request that would actually go to GitHub is counted, in ONE GLOBAL bucket
  * that fails OPEN. Counting everything let anyone lock the owner out with 30
- * header-less requests a minute. What is left: a caller who keeps sending 30
- * well-formed fake tokens a minute (each costing a real GitHub round trip)
- * can still hold the bucket, and an owner whose token is not cached in that
- * isolate waits it out -- the Stripe Dashboard stays available meanwhile.
+ * header-less requests a minute; counting only the GitHub round trips still
+ * let anyone hold the bucket with 30 well-formed fake tokens a minute, and the
+ * owner's own 60-second cache entry could not outlast that (red team,
+ * 2026-10-08). So a token GitHub has said yes to is also remembered in D1 --
+ * by its digest, never the token -- for KNOWN_TOKEN_MS, and when the global
+ * bucket is full a remembered token is counted in a bucket of its own
+ * instead. Nobody can mint a token whose digest is remembered without already
+ * holding one the owner signed in with, so the flood cannot reach it. GitHub
+ * is still asked every time the short cache runs out, and a token it refuses
+ * is forgotten on the spot. What is left: a token never verified before (a
+ * brand-new sign-in) waits out a flood -- the Stripe Dashboard stays
+ * available meanwhile.
  */
 
 import { json, ClientError, readJson } from "./http.js";
@@ -71,6 +85,23 @@ import { safeUrl } from "../state/stripe-orders.js";
  */
 export const ADMIN_AUTH_RATE_LIMIT = { limit: 30, period: 60 };
 const ADMIN_AUTH_RATE_KEY = "admin-auth";
+
+/**
+ * The bucket a token GitHub already said yes to falls back on when the global
+ * one is full (file header, COST CONTROL). Keyed by the token's digest, so
+ * each remembered token has its own and a flood of new ones shares none.
+ */
+export const KNOWN_TOKEN_RATE_LIMIT = { limit: 30, period: 60 };
+const KNOWN_TOKEN_RATE_KEY = "admin-auth-known:";
+
+/**
+ * How long a yes from GitHub is remembered in D1 (job_state, key
+ * `admin-known:<sha256 of the token>`). Long on purpose: the row grants no
+ * access, it only says which bucket the token is counted in, and every use
+ * renews it.
+ */
+export const KNOWN_TOKEN_MS = 90 * 24 * 60 * 60 * 1000;
+const KNOWN_TOKEN_JOB = "admin-known:";
 
 /** The repository whose push access grants the dashboard. Overridable per env. */
 const DEFAULT_GITHUB_REPO = "yallternative-living/yallternative-living";
@@ -264,13 +295,19 @@ async function verifyGitHubPush(token, env) {
     return { ok: false, status: res.status === 404 ? 401 : 503, login: "" };
   }
   const body = await res.json().catch(() => null);
-  const perms = body && body.permissions;
+  // A 200 that is not JSON is GitHub (or something between) failing to
+  // answer, not a verdict on this token: never cached as a refusal.
+  if (!body || typeof body !== "object") {
+    console.error("fulfillment: GitHub's permission check answered without JSON");
+    return { ok: false, status: 503, login: "" };
+  }
+  const perms = body.permissions;
   // Defensive: absent `permissions` is treated as no permission, never as yes.
   if (!perms || perms.push !== true) return { ok: false, status: 403, login };
-  if (fineGrained) {
-    const status = await probeContentsWrite(token, env);
-    if (status !== 200) return { ok: false, status, login: status === 403 ? login : "" };
-  }
+  // Check 4 in the file header, for every token: what the token itself may
+  // write, which neither the account's push bit nor a classic scope settles.
+  const status = await probeContentsWrite(token, env);
+  if (status !== 200) return { ok: false, status, login: status === 403 ? login : "" };
   return { ok: true, status: 200, login };
 }
 
@@ -297,8 +334,19 @@ async function probeContentsWrite(token, env) {
   });
   if (res.status === 422) return 200;
   if (res.status === 401) return 401;
-  const rateLimited = res.headers.get("X-RateLimit-Remaining") === "0";
-  if ((res.status === 403 || res.status === 404) && !rateLimited) return 403;
+  if (res.status === 403 || res.status === 404) {
+    // A rate limit is about us, not the token, and must not be cached as a
+    // five-minute refusal. The primary limit says so with a zero remaining
+    // count; the SECONDARY one keeps a non-zero count and sends Retry-After
+    // and a "secondary rate limit" message instead.
+    const body = await res.json().catch(() => null);
+    const message = body && typeof body.message === "string" ? body.message : "";
+    const rateLimited =
+      res.headers.get("X-RateLimit-Remaining") === "0" ||
+      res.headers.get("Retry-After") !== null ||
+      /rate limit/i.test(message);
+    if (!rateLimited) return 403;
+  }
   console.error(`fulfillment: GitHub did not answer the write check (${res.status})`);
   return 503;
 }
@@ -333,18 +381,81 @@ async function verifyAdminAuth(request, env, now = Date.now()) {
   const hit = tokenCache.get(key);
   if (hit && hit.expires > now) return { ok: hit.ok, status: hit.status, login: hit.login };
 
-  const limit = await checkRateLimit(env, ADMIN_AUTH_RATE_KEY, {
+  let limit = await checkRateLimit(env, ADMIN_AUTH_RATE_KEY, {
     ...ADMIN_AUTH_RATE_LIMIT,
     // Fails OPEN: the credential is a GitHub token, not a guessable secret,
     // so this bucket is cost control and must not lock the owner out.
     failOpen: true
   });
-  if (!limit.success) return { ok: false, status: 429, login: "" };
+  if (!limit.success) {
+    // The global bucket may be full of fake tokens. One GitHub already said
+    // yes to is counted on its own instead (file header, COST CONTROL); D1
+    // is only read here, while the bucket is full.
+    if (!(await isKnownToken(env, key, now))) return { ok: false, status: 429, login: "" };
+    limit = await checkRateLimit(env, KNOWN_TOKEN_RATE_KEY + key, {
+      ...KNOWN_TOKEN_RATE_LIMIT,
+      failOpen: true
+    });
+    if (!limit.success) return { ok: false, status: 429, login: "" };
+  }
 
   const result = await verifyGitHubPush(token, env);
   // A 503 is about GitHub or this Worker, not about this token: never cached.
   if (result.status !== 503) cacheVerdict(key, result, now);
+  if (result.ok) await rememberToken(env, key, now);
+  else if (result.status === 401 || result.status === 403) await forgetToken(env, key);
   return result;
+}
+
+/**
+ * True when GitHub said yes to this token digest within KNOWN_TOKEN_MS.
+ * A database that cannot be read answers no: the token is then simply
+ * counted in the global bucket, as it was before this existed.
+ */
+async function isKnownToken(env, key, now) {
+  const db = env && env.STATE_DB;
+  if (!db) return false;
+  try {
+    const row = await db
+      .prepare("SELECT updated_at FROM job_state WHERE job = ?")
+      .bind(KNOWN_TOKEN_JOB + key)
+      .first();
+    return Boolean(row) && now - Number(row.updated_at) < KNOWN_TOKEN_MS;
+  } catch (err) {
+    console.error("fulfillment: could not read the known-token list:", err && err.message);
+    return false;
+  }
+}
+
+/** Remember (or renew) a yes. Best-effort: a failed write costs the fallback only. */
+async function rememberToken(env, key, now) {
+  const db = env && env.STATE_DB;
+  if (!db) return;
+  try {
+    await db
+      .prepare(
+        "INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?) " +
+          "ON CONFLICT(job) DO UPDATE SET updated_at = excluded.updated_at"
+      )
+      .bind(KNOWN_TOKEN_JOB + key, now)
+      .run();
+  } catch (err) {
+    console.error("fulfillment: could not remember the token:", err && err.message);
+  }
+}
+
+/** A token GitHub now refuses loses its own bucket straight away. */
+async function forgetToken(env, key) {
+  const db = env && env.STATE_DB;
+  if (!db) return;
+  try {
+    await db
+      .prepare("DELETE FROM job_state WHERE job = ?")
+      .bind(KNOWN_TOKEN_JOB + key)
+      .run();
+  } catch (err) {
+    console.error("fulfillment: could not forget the token:", err && err.message);
+  }
 }
 
 /** What each refusal says; anything else from verifyAdminAuth() is a 401. */

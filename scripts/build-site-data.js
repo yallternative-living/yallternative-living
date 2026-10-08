@@ -1428,12 +1428,53 @@ function ensureEventId(evt, usedIds, idx) {
   return evt.id;
 }
 
+/* Every event's id, for the whole calendar. Ids the file already holds are
+   claimed FIRST, so a blank one is generated around them: one pass in array
+   order used to let a market with no id take "<name>-<date>" and then a
+   workshop that already held that very id (its ticket's ledger key) claim it
+   too, unchecked -- two cards with one DOM id, one pickup label, and a share
+   link landing on the wrong card (red team, 2026-10-08). Two upcoming
+   entries holding the same id is a build error; a duplicate among past
+   entries (a record, nothing sells there) is only warned about. */
+function assignEventIds(events) {
+  const upcoming = events && Array.isArray(events.upcoming) ? events.upcoming : [];
+  const past = events && Array.isArray(events.past) ? events.past : [];
+  const used = new Set();
+  upcoming.forEach(function (evt) {
+    if (!evt || !evt.id) return;
+    if (used.has(evt.id)) {
+      throw new Error(
+        'Two upcoming events in assets/data/events.json have the id "' +
+          evt.id +
+          '" (a market and a workshop with the same name and date?). Rename one of them.'
+      );
+    }
+    used.add(evt.id);
+  });
+  past.forEach(function (evt) {
+    if (!evt || !evt.id) return;
+    if (used.has(evt.id)) {
+      console.warn('[events] more than one event has the id "' + evt.id + '".');
+    }
+    used.add(evt.id);
+  });
+  upcoming.forEach(function (evt, idx) {
+    if (evt && !evt.id) ensureEventId(evt, used, idx);
+  });
+  past.forEach(function (evt, idx) {
+    if (evt && !evt.id) ensureEventId(evt, used, idx);
+  });
+  return events;
+}
+
 /* Workshops & classes (the CMS's "Workshops & classes" list, events.json
    `workshops`). The same rule workers/state/tickets.js sellsTicketsOnSite()
    applies before the Worker will price a ticket -- the two MUST agree, or a
    card offers a ticket checkout refuses (scripts/worker-tickets.test.js pins
    them together): a positive price, a whole number of spots, and no outside
    ticket link. */
+const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 function workshopSellsOnSite(w) {
   if (!w || typeof w !== "object") return false;
   if (typeof w.ticketUrl === "string" && w.ticketUrl.trim()) return false;
@@ -1466,6 +1507,32 @@ function mergeWorkshopsIntoUpcoming(events) {
         "A workshop in assets/data/events.json has neither a name nor a date -- it needs both."
       );
     }
+    /* Both, not either: workers/state/tickets.js ticketEntriesOf() prices
+       only a workshop with a name and a YYYY-MM-DD date, so a card without
+       one would offer a Buy Tickets button checkout refuses as unknown -- and
+       a date the archive cannot compare ("11/20/2026" sorts before any
+       "2026-..." string) moves the workshop to "Where We've Been" the day it
+       is published, with no warning (red team, 2026-10-08). The CMS form
+       requires both and writes the date as YYYY-MM-DD; this catches a hand
+       edit. */
+    if (!w.name || !ISO_DAY_RE.test(String(w.date || ""))) {
+      throw new Error(
+        'The workshop "' +
+          (w.name || id) +
+          '" in assets/data/events.json needs a name and a date written YYYY-MM-DD (got ' +
+          JSON.stringify(w.date === undefined ? null : w.date) +
+          ")."
+      );
+    }
+    if (w.endDate !== undefined && w.endDate !== "" && !ISO_DAY_RE.test(String(w.endDate))) {
+      throw new Error(
+        'The workshop "' +
+          w.name +
+          '" in assets/data/events.json has an end date not written YYYY-MM-DD (got ' +
+          JSON.stringify(w.endDate) +
+          ")."
+      );
+    }
     if (seen.has(id)) {
       throw new Error(
         'Two workshops in assets/data/events.json come out as "' +
@@ -1492,7 +1559,15 @@ function mergeWorkshopsIntoUpcoming(events) {
     }
     if (typeof w.image === "string" && w.image.trim()) {
       const rel = w.image.trim().replace(/^\/+/, "");
-      if (!/^https?:/i.test(rel) && !fs.existsSync(path.join(ROOT, rel))) {
+      if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(w.image.trim())) {
+        console.warn(
+          '[workshops] "' +
+            (w.name || id) +
+            '" ticket image ' +
+            w.image +
+            " is an outside link -- upload the photo instead; the cart and checkout use the logo."
+        );
+      } else if (!fs.existsSync(path.join(ROOT, rel))) {
         console.warn(
           '[workshops] "' + (w.name || id) + '" ticket image ' + w.image + " is not in the repo."
         );
@@ -2712,13 +2787,7 @@ function buildSiteData() {
   /* 6b. Process Event IDs & Guards (see ensureEventId above). Runs before
      archiving so a market that's about to move to "past" already carries
      its own id instead of a blank one. */
-  const USED_EVENT_IDS = new Set();
-  (EVENTS && Array.isArray(EVENTS.upcoming) ? EVENTS.upcoming : []).forEach(function (evt, idx) {
-    ensureEventId(evt, USED_EVENT_IDS, idx);
-  });
-  (EVENTS && Array.isArray(EVENTS.past) ? EVENTS.past : []).forEach(function (evt, idx) {
-    ensureEventId(evt, USED_EVENT_IDS, idx);
-  });
+  assignEventIds(EVENTS);
 
   /* 7. Auto-Archive Past Events & Sort Upcoming Events Chronologically */
   const todayStr = new Intl.DateTimeFormat("en-CA", {
@@ -4212,10 +4281,11 @@ function buildSiteData() {
     if (!ev || !ev.name) return null;
     const start = buildEventDateTimeISO(ev.date);
     if (!start) return null;
+    const isWorkshop = ev.kind === "workshop";
     const ld = {
       "@context": "https://schema.org",
       "@type": "Event",
-      name: "Y'allternative Living at " + ev.name,
+      name: isWorkshop ? String(ev.name) : "Y'allternative Living at " + ev.name,
       startDate: start.iso,
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -4224,6 +4294,32 @@ function buildSiteData() {
     if (ev.endDate) {
       const end = buildEventDateTimeISO(ev.endDate);
       if (end) ld.endDate = end.iso;
+    }
+    /* A workshop is the shop's OWN ticketed night, not a market it vends at,
+       so the two omissions above do not apply to it: it has an organizer
+       (this shop), and an offer when tickets are on sale -- here on the site
+       or through an outside https link. */
+    if (isWorkshop) {
+      ld.organizer = {
+        "@type": "Organization",
+        name: "Y'allternative Living",
+        url: "https://yallternativeliving.com"
+      };
+      const price = Number(ev.price);
+      const outside = typeof ev.ticketUrl === "string" ? ev.ticketUrl.trim() : "";
+      const ticketHref = /^https:\/\//i.test(outside)
+        ? outside
+        : ev.ticketId && ev.id
+          ? "https://yallternativeliving.com/events.html#" + encodeURIComponent(ev.id)
+          : "";
+      if (price > 0 && ticketHref) {
+        ld.offers = {
+          "@type": "Offer",
+          price: price.toFixed(2),
+          priceCurrency: "USD",
+          url: ticketHref
+        };
+      }
     }
     return ld;
   }
@@ -4372,9 +4468,12 @@ function buildSiteData() {
     SITE_CONFIG.enableEventJsonLd === false ? [] : buildEventsJsonLd(sortedUpcomingForLd);
   const eventLdBody = eventLdObjects.length
     ? '\n<script type="application/ld+json" id="yl-event-jsonld">\n' +
-      JSON.stringify(eventLdObjects.length === 1 ? eventLdObjects[0] : eventLdObjects, null, 2)
-        .split("</")
-        .join("<\\/") +
+      // escapeJsonForScript, not just "</": a CMS title holding "<!--<script"
+      // put the HTML parser in its escaped state and swallowed the rest of
+      // events.html up to the next </script> (red team, 2026-10-08).
+      escapeJsonForScript(
+        JSON.stringify(eventLdObjects.length === 1 ? eventLdObjects[0] : eventLdObjects, null, 2)
+      ) +
       "\n</" +
       "script>\n"
     : "";
@@ -4776,7 +4875,7 @@ function buildSiteData() {
       const ld = journalPublished ? generateJournalJsonLd(journal, DOMAIN) : null;
       const ldTag = ld
         ? '<script type="application/ld+json">\n' +
-          JSON.stringify(ld, null, 2).replace(/<\//g, "<\\/") +
+          escapeJsonForScript(JSON.stringify(ld, null, 2)) +
           "\n</script>"
         : "";
       updated = updated.replace(reLd, function (m, p1, p2) {
@@ -8150,10 +8249,10 @@ function renderProductPdpHtml(
   const breadcrumbJsonLd = generateProductBreadcrumbJsonLd(product, domain, categoryLabel);
   const jsonLdBlock =
     '  <script type="application/ld+json">\n' +
-    JSON.stringify(productJsonLd, null, 2).replace(/<\//g, "<\\/") +
+    escapeJsonForScript(JSON.stringify(productJsonLd, null, 2)) +
     "\n  </script>\n" +
     '  <script type="application/ld+json">\n' +
-    JSON.stringify(breadcrumbJsonLd, null, 2).replace(/<\//g, "<\\/") +
+    escapeJsonForScript(JSON.stringify(breadcrumbJsonLd, null, 2)) +
     "\n  </script>\n";
 
   const stockBadge = product.comingSoon
@@ -9070,6 +9169,7 @@ if (typeof module !== "undefined" && module.exports) {
     assertBundlePricesSane,
     formatMoney: formatMoney,
     mergeWorkshopsIntoUpcoming: mergeWorkshopsIntoUpcoming,
+    assignEventIds: assignEventIds,
     workshopSellsOnSite: workshopSellsOnSite,
     loadJournal,
     listJournalFiles,

@@ -351,10 +351,14 @@ async function loadCatalog(env, ctx) {
   if (!Array.isArray(catalog.products)) catalog.products = [];
   try {
     const events = await loadEvents(env, ctx);
-    catalog.products = catalog.products.concat(ticketEntriesOf(events, easternToday()));
-    if (Number.isFinite(events && events.fetchedAt)) {
-      catalog.fetchedAt = Math.min(catalog.fetchedAt, events.fetchedAt);
-    }
+    const eventsFetchedAt = events && events.fetchedAt;
+    /* Each ticket carries the fetch time of events.json, where its spots
+       come from, so the ledger's reseed guard judges it by that file and
+       the products by theirs (workers/state/inventory.js syncInventory). */
+    const ticketEntries = ticketEntriesOf(events, easternToday()).map((t) =>
+      Number.isFinite(eventsFetchedAt) ? { ...t, fetchedAt: eventsFetchedAt } : t
+    );
+    catalog.products = catalog.products.concat(ticketEntries);
   } catch (err) {
     console.warn("checkout: events.json unreachable, no tickets on sale:", err && err.message);
     Object.defineProperty(catalog, "ticketsUnavailable", {
@@ -385,7 +389,7 @@ async function loadEvents(env, ctx) {
   if (!res.ok) throw new Error("Could not load events");
   const events = await res.json();
   // When the site served it (see loadCatalog): ticket rows in the inventory
-  // ledger are seeded from this file, under the same reseed guard.
+  // ledger are seeded from this file, guarded by this time.
   const dateHeader =
     res.headers && typeof res.headers.get === "function" ? res.headers.get("date") : null;
   const served = Date.parse(dateHeader || "");

@@ -116,6 +116,94 @@ async function run() {
     tickets.ticketEntriesOf(realEvents, "2000-01-01").map((t) => t.id),
     "on the real events.json, card ticket ids and Worker ticket ids match"
   );
+  /* That comparison is [] vs [] whenever every real workshop links out (as
+     the only one did on 2026-10-08), so it can examine nothing. The same
+     real workshops, switched to selling on the site, must still agree -- and
+     there must be some to compare. */
+  const onSite = JSON.parse(JSON.stringify(realEvents));
+  onSite.workshops = (onSite.workshops || []).map((w) =>
+    Object.assign({}, w, { ticketUrl: "", price: Number(w.price) > 0 ? w.price : 25, spots: 10 })
+  );
+  const onSiteCards = build
+    .mergeWorkshopsIntoUpcoming(JSON.parse(JSON.stringify(onSite)))
+    .upcoming.map((e) => e.ticketId)
+    .filter(Boolean);
+  assert(
+    onSiteCards.length === (realEvents.workshops || []).length && onSiteCards.length > 0,
+    "the real workshops, sold on the site, all get a card ticket id (and there are some)"
+  );
+  eq(
+    tickets.ticketEntriesOf(onSite, "2000-01-01").map((t) => t.id),
+    onSiteCards,
+    "...and the Worker prices exactly those ids"
+  );
+
+  /* ---- A card the Worker would refuse is a build error, not a dead button ---- */
+  for (const [w, label] of [
+    [{ date: "2099-11-20", price: 60, spots: 5 }, "no name"],
+    [{ name: "Dateless", price: 60, spots: 5 }, "no date"],
+    [{ name: "US date", date: "11/20/2099", price: 60, spots: 5 }, "a date not written YYYY-MM-DD"],
+    [
+      { name: "Bad end", date: "2099-11-20", endDate: "Nov 21", price: 60, spots: 5 },
+      "an end date not written YYYY-MM-DD"
+    ]
+  ]) {
+    let err = null;
+    try {
+      build.mergeWorkshopsIntoUpcoming({ upcoming: [], workshops: [w] });
+    } catch (e) {
+      err = e;
+    }
+    assert(
+      err && /YYYY-MM-DD|name and a date/.test(err.message),
+      `the build refuses a workshop with ${label}`
+    );
+  }
+
+  /* ---- A market cannot take a workshop's id ---- */
+  const clash = build.mergeWorkshopsIntoUpcoming({
+    upcoming: [{ name: "Potions Night", date: "2099-11-06", type: "Market" }],
+    past: [],
+    workshops: [{ name: "Potions Night", date: "2099-11-06", price: 60, spots: 12 }]
+  });
+  build.assignEventIds(clash);
+  const clashIds = clash.upcoming.map((e) => e.id);
+  assert(
+    new Set(clashIds).size === 2 && clashIds.includes("potions-night-2099-11-06"),
+    "a market with no id is given one around the workshop's, never the same"
+  );
+  eq(
+    clash.upcoming.find((e) => e.kind === "workshop").id,
+    "potions-night-2099-11-06",
+    "...and the workshop keeps its id (its ticket's ledger key)"
+  );
+  let dupErr = null;
+  try {
+    build.assignEventIds({
+      upcoming: [
+        { id: "same", name: "A", date: "2099-01-01" },
+        { id: "same", name: "B", date: "2099-01-01" }
+      ],
+      past: []
+    });
+  } catch (e) {
+    dupErr = e;
+  }
+  assert(
+    dupErr && /have the id "same"/.test(dupErr.message),
+    "two upcoming events with one id fail the build"
+  );
+
+  /* ---- The ticket image is a site path, or the logo ---- */
+  const imgOf = (image) =>
+    tickets.ticketEntriesOf(
+      { workshops: [{ name: "Img", date: "2099-01-01", price: 5, spots: 1, image }] },
+      "2000-01-01"
+    )[0].image;
+  eq(imgOf("/assets/img/potions.jpg"), "/assets/img/potions.jpg", "a site image path is kept");
+  eq(imgOf("https://example.com/x.jpg"), null, "an outside image URL falls back to the logo");
+  eq(imgOf("//example.com/x.jpg"), null, "a protocol-relative image URL falls back to the logo");
+  eq(imgOf(""), null, "no image falls back to the logo");
 
   /* ---- Over is over ---- */
   eq(

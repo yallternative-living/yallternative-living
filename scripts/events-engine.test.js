@@ -684,6 +684,68 @@ assert(
   !("endDate" in ldWithTime),
   "buildEventJsonLd omits endDate for a single-day event with no ev.endDate"
 );
+/* A workshop is the shop's own ticketed night (red team, 2026-10-08): its own
+   name, the shop as organizer, and an offer while tickets are on sale. */
+const ldWorkshop = main.buildEventJsonLd({
+  id: "potions-night-2099-11-06",
+  kind: "workshop",
+  ticketId: "ticket-potions-night-2099-11-06",
+  name: "Potions Night",
+  date: "2099-11-06",
+  location: "Landrum, SC",
+  price: 60
+});
+eq(ldWorkshop.name, "Potions Night", "a workshop's Event JSON-LD is named as itself");
+eq(
+  ldWorkshop.organizer,
+  {
+    "@type": "Organization",
+    name: "Y'allternative Living",
+    url: "https://yallternativeliving.com"
+  },
+  "a workshop's Event JSON-LD names this shop as organizer"
+);
+eq(
+  ldWorkshop.offers,
+  {
+    "@type": "Offer",
+    price: "60.00",
+    priceCurrency: "USD",
+    url: "https://yallternativeliving.com/events.html#potions-night-2099-11-06"
+  },
+  "a workshop selling on the site offers its ticket, linking to its card"
+);
+assert(
+  !(
+    "offers" in
+    main.buildEventJsonLd({ kind: "workshop", name: "Soon", date: "2099-11-06", price: 60 })
+  ),
+  "a workshop with no ticket on sale (no ticketId, no link) has no offer"
+);
+eq(
+  main.buildEventJsonLd({
+    kind: "workshop",
+    name: "Square Night",
+    date: "2099-11-06",
+    price: 45,
+    ticketUrl: "https://square.link/u/x"
+  }).offers.url,
+  "https://square.link/u/x",
+  "a workshop sold elsewhere offers its outside https link"
+);
+assert(
+  !(
+    "offers" in
+    main.buildEventJsonLd({
+      kind: "workshop",
+      name: "Bad Link",
+      date: "2099-11-06",
+      price: 45,
+      ticketUrl: "javascript:alert(1)"
+    })
+  ),
+  "a non-https outside link is never offered"
+);
 eq(
   ldWithTime.location,
   {
