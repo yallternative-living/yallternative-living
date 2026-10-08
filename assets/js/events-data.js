@@ -114,8 +114,8 @@ window.YL_EVENTS = {
     },
     {
       "id": "upstate-pride-colors-of-pride",
-      "date": "2026-06-20",
-      "dateLabel": "June 2026",
+      "date": "2026-06-27",
+      "dateLabel": "June 27, 2026 · Saturday, 11am–5pm",
       "name": "Upstate Pride: Colors of Pride",
       "type": "Pride Event",
       "location": "Greenville, SC",
@@ -134,8 +134,8 @@ window.YL_EVENTS = {
     },
     {
       "id": "out-in-the-open-rainbow-parade",
-      "date": "2025-10-11",
-      "dateLabel": "October 2025",
+      "date": "2025-10-25",
+      "dateLabel": "October 25, 2025 · Saturday, 5pm–10pm",
       "name": "OUT IN THE OPEN: Rainbow Parade & Market",
       "type": "Pride Event",
       "location": "Spartanburg, SC",
