@@ -9331,6 +9331,47 @@
      { event, startTime } or null when there's nothing left on the calendar.
      Split out of initCountdownTicker so it can be unit-tested without a DOM
      (scripts/main.test.js). */
+  /* When an event starts, as epoch ms -- what the countdown counts down to.
+     A full ISO stamp in `date` (with its own UTC offset) is used as written.
+     The CMS date field stores the day only, so for those the start comes
+     from the first clock time in dateLabel ("November 6, 2026 · Friday,
+     6:30pm" -> 6:30pm, "Sat & Sun, 11am–7pm" -> 11am) -- the hours the
+     event card already shows. It used to be a flat 9am in the visitor's own
+     zone, so an evening event read "in progress today" from breakfast on.
+     The time is Eastern, where the markets are, not the visitor's zone; a
+     label with no time keeps 9am. */
+  function eventStartMs(evt) {
+    var date = String(evt.date);
+    var day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    if (!day) return new Date(date).getTime();
+    var hour = 9;
+    var minute = 0;
+    var clock = /(?:^|[^\d])(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b/i.exec(
+      String(evt.dateLabel || "")
+    );
+    if (clock) {
+      var h = parseInt(clock[1], 10);
+      if (h >= 1 && h <= 12) {
+        hour = (h % 12) + (clock[3].toLowerCase() === "pm" ? 12 : 0);
+        minute = clock[2] ? parseInt(clock[2], 10) : 0;
+      }
+    }
+    var y = Number(day[1]);
+    var m = Number(day[2]);
+    var d = Number(day[3]);
+    var offset = getEasternOffsetForDate(new Date(Date.UTC(y, m - 1, d, 12)));
+    if (!offset) return new Date(y, m - 1, d, hour, minute, 0).getTime();
+    return new Date(
+      date +
+        "T" +
+        String(hour).padStart(2, "0") +
+        ":" +
+        String(minute).padStart(2, "0") +
+        ":00" +
+        offset
+    ).getTime();
+  }
+
   function pickNextEvent(list, todayStr) {
     var best = null;
     (list || []).forEach(function (evt) {
@@ -9341,13 +9382,7 @@
          the following event while the list right below it still shows the
          market that's open today. */
       if (String(evt.endDate || evt.date).slice(0, 10) < todayStr) return;
-      var t;
-      if (evt.date.length === 10) {
-        var p = evt.date.split("-");
-        t = new Date(p[0], p[1] - 1, p[2], 9, 0, 0).getTime();
-      } else {
-        t = new Date(evt.date).getTime();
-      }
+      var t = eventStartMs(evt);
       if (isNaN(t)) return;
       /* Take the SOONEST event, not merely the first one in the array.
          events.json is hand-ordered through the CMS, so an event Savanna
