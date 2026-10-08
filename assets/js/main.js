@@ -5493,8 +5493,13 @@
       if (sortedUpcoming.length) {
         upcomingEl.innerHTML = sortedUpcoming.map(eventCardHTML).join("");
       } else {
+        /* No `reveal` here: this block only exists once main.js has run,
+           and it lands on screen, so a fade-in from opacity 0 read as blank
+           space for as long as the script took (scripts/reveal-check.js,
+           events.html with an empty calendar). It appears as soon as it is
+           inserted. */
         upcomingEl.innerHTML =
-          '<div class="event-empty reveal">' +
+          '<div class="event-empty">' +
           '<span class="glyph" aria-hidden="true">✦</span>' +
           "<h3>New Pop-Ups Land Here As Soon As They're Booked</h3>" +
           "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
