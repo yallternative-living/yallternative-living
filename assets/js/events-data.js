@@ -7,19 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "id": "fall-family-festival-market-2026-09-26",
-      "date": "2026-09-26",
-      "dateLabel": "September 26, 2026 · Saturday, 3pm–8pm",
-      "name": "Fall Family Festival & Market",
-      "type": "Craft Show",
-      "location": "Moore, SC",
-      "zip": "29369",
-      "venue": "The Gathering Farm",
-      "address": "140 Waldon Road",
-      "url": "https://www.facebook.com/events/1701695287526740/",
-      "note": "First-ever fall festival with 40+ craft vendors."
-    },
-    {
       "id": "autumn-apothecary-faire",
       "date": "2026-10-17T09:00:00-04:00",
       "dateLabel": "October 17, 2026",
@@ -32,6 +19,19 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "id": "fall-family-festival-market-2026-09-26",
+      "date": "2026-09-26",
+      "dateLabel": "September 26, 2026 · Saturday, 3pm–8pm",
+      "name": "Fall Family Festival & Market",
+      "type": "Craft Show",
+      "location": "Moore, SC",
+      "venue": "The Gathering Farm",
+      "address": "140 Waldon Road",
+      "zip": "29369",
+      "url": "https://www.facebook.com/events/1701695287526740/",
+      "note": "First-ever fall festival with 40+ craft vendors."
+    },
     {
       "id": "saturday-night-lights-2026-09-19",
       "date": "2026-09-19",
