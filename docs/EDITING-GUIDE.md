@@ -414,6 +414,29 @@ customer's Alt-Points balance and how far they are from the next reward code.
 3. Fill in the event title, start date (and end date if multi-day), friendly date label (e.g. `Saturday, Oct 12 · 9am–2pm`), location, and event link.
 4. **⚠️ Crucial Sales Tax Note**: Always enter the **5-digit ZIP code** for any market where customers can select "Local Market Pickup" during online checkout. Sales tax in South Carolina is based on the exact pickup location, so the ZIP code ensures accurate tax calculation.
 
+#### A2. Workshops & Classes — selling tickets on the website
+Your own ticketed nights (like Potions & Pour Decisions) live in their own list, and people can buy tickets right on the site — no Square link to build.
+
+1. Click **Markets & Pop-Ups** in the sidebar, then **Add Workshop** under **Workshops & classes**.
+2. Fill in:
+   - **Workshop name** and **Date**.
+   - **Date & time as shown on the page** — put the start time in (e.g. `Friday, November 6, 2026 · 6:30pm`). The homepage countdown counts down to that time.
+   - **Ticket price ($)** — per person, e.g. `60`.
+   - **Tickets available** — how many the website can sell. It counts down by itself as people buy. Only change it to correct the number left (say, after selling a few in person).
+   - **Town**, **Venue**, **Street address** and **ZIP** — the ZIP also lets shoppers pick up online orders at the workshop.
+   - **Short description** — one or two sentences that sell the night. Leave out the price, date and "limited spots": the card already shows those.
+   - **What's included** — one short item per line (e.g. `An 8 oz botanical bath soak, your scents`).
+   - **Good to know** — one line (e.g. `No experience needed. 21+ for the wine; mocktails for everyone.`).
+   - **Ticket image** (optional) — shows next to the ticket in the cart and at checkout. Without one, the logo is used.
+3. Leave **Outside ticket link** blank to sell on the website. Only fill it in if you're selling somewhere else (Square, Eventbrite) — the button then sends people there instead.
+4. **Save.** A few minutes later the Events page shows the workshop with a **Buy Tickets** button, a **Share** button (texts or copies a link straight to the workshop), and "Only 3 spots left" / "Sold out" as tickets go.
+
+Good to know:
+- Tickets go through the same checkout as the shop. There's no shipping and no sales tax on a ticket. Each order shows up in your order emails and the fulfillment dashboard like any other.
+- Leave the price or the number of tickets blank and the card says "Tickets coming soon" — handy for announcing a night before tickets open.
+- Don't rename a workshop or change its date after tickets have sold — that starts the count over. If you have to, re-enter the right **Tickets available** number straight after.
+- The day after the workshop it moves itself to "Where We've Been" and ticket sales close.
+
 #### B. Publishing Customer Reviews (Customer Reviews)
 1. Click **Customer Reviews** in the sidebar.
 2. Click **Add Review**.
@@ -548,6 +571,7 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Create gift bundle** | `1. Products` → `Bundles` → Pick products & discount % | Pre-made set with auto-calculated price |
 | **Change free shipping minimum** | `1. Products` → `Shop details & shipping` → `Free shipping threshold` | Progress bar & checkout threshold update |
 | **Add market / pop-up date** | `2. Markets` → Add event (include ZIP code!) | Shows on event list & calculates pickup tax |
+| **Sell tickets to a workshop** | `2. Markets` → `Workshops & classes` → Add workshop (price + tickets available, no outside link) | Buy Tickets button on the Events page; spots count down as they sell |
 | **Feature customer review** | `Customer Reviews` → Check "Feature on homepage?" | Displays in homepage testimonials carousel |
 | **Publish blog post** | `4. Apothecary Journal` → Add post with visual editor | Live blog article with calculated read time |
 | **Update hero / About story** | `Site Settings` | Text and photos update across homepage & About |

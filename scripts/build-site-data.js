@@ -1476,6 +1476,28 @@ function mergeWorkshopsIntoUpcoming(events) {
     seen.add(id);
     const merged = Object.assign({}, w, { id: id, kind: "workshop" });
     if (workshopSellsOnSite(w)) merged.ticketId = "ticket-" + id;
+    /* Half set up is not an error -- the card says "Tickets coming soon" --
+       but say so, so it isn't a mystery why there is no Buy button. */
+    const hasOutside = typeof w.ticketUrl === "string" && w.ticketUrl.trim();
+    const hasPrice = Number(w.price) > 0;
+    const hasSpots = Number.isInteger(Number(w.spots)) && w.spots !== "" && w.spots != null;
+    if (!hasOutside && hasPrice !== hasSpots) {
+      console.warn(
+        '[workshops] "' +
+          (w.name || id) +
+          '" has ' +
+          (hasPrice ? "a price but no Tickets available" : "Tickets available but no price") +
+          ' -- it shows "Tickets coming soon" until both are filled in.'
+      );
+    }
+    if (typeof w.image === "string" && w.image.trim()) {
+      const rel = w.image.trim().replace(/^\/+/, "");
+      if (!/^https?:/i.test(rel) && !fs.existsSync(path.join(ROOT, rel))) {
+        console.warn(
+          '[workshops] "' + (w.name || id) + '" ticket image ' + w.image + " is not in the repo."
+        );
+      }
+    }
     events.upcoming.push(merged);
   });
   delete events.workshops;
