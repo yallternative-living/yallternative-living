@@ -5,7 +5,7 @@
  */
 
 /** @const {string} Cache name key, updated on assets release. */
-const CACHE_NAME = "yallternative-cache-v6e9adbe4a47c";
+const CACHE_NAME = "yallternative-cache-vc8d15a6654ec";
 
 /**
  * The site not-found page is deliberately NOT on this list. A host answers a
