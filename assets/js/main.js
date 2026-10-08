@@ -5508,6 +5508,7 @@
       if (workshopsEl) renderWorkshops(workshopsEl, workshopList);
       if (marketList.length) {
         upcomingEl.innerHTML = marketList.map(eventCardHTML).join("");
+        wireEventShare(upcomingEl, marketList);
       } else if (workshopList.length) {
         upcomingEl.innerHTML = "";
       } else {
@@ -5531,6 +5532,7 @@
       markReveal(upcomingEl);
 
       injectEventJsonLd(sortedUpcoming);
+      scrollToLinkedEvent();
     }
 
     if (pastEl) {
@@ -6737,6 +6739,98 @@
      for the ones selling tickets here and redraws with the live counts. No
      `reveal` on these cards: the section is un-hidden by script, and a fade
      from opacity 0 there reads as blank space (scripts/reveal-check.js). */
+  /* The link a workshop's Share button hands out: its own card on the events
+     page. The card carries the id (eventCardHTML), and scrollToLinkedEvent()
+     brings it into view once the script has drawn it. */
+  function eventShareUrl(ev) {
+    var origin =
+      window.location && window.location.origin && /^https?:/.test(window.location.origin)
+        ? window.location.origin
+        : "https://yallternativeliving.com";
+    return origin + "/events.html#" + encodeURIComponent(ev.id || "");
+  }
+
+  function eventShareText(ev) {
+    var bits = [ev.dateLabel || ev.date, ev.venue || ev.location].filter(Boolean);
+    var price = Number(ev.price);
+    if (ev.kind === "workshop" && isFinite(price) && price > 0) {
+      bits.push("tickets " + formatTicketPrice(price));
+    }
+    return ev.name + (bits.length ? " — " + bits.join(" · ") : "");
+  }
+
+  /* Share (every upcoming card): the phone's own share sheet where there is one (Messages,
+     Instagram, Facebook...), otherwise the link is copied and the button
+     says so; a browser that allows neither shows it to copy by hand. One
+     listener for the page, since the cards are redrawn with live counts. */
+  function shareEvent(ev, btn) {
+    var url = eventShareUrl(ev);
+    var text = eventShareText(ev);
+    if (typeof window.plausible === "function") {
+      window.plausible("Event Shared", { props: { event: ev.id || "" } });
+    }
+    function copied() {
+      if (!btn) return;
+      var label = btn.querySelector(".event-share-label");
+      var was = label ? label.textContent : "";
+      btn.classList.add("is-copied");
+      if (label) label.textContent = "Link copied";
+      setTimeout(function () {
+        btn.classList.remove("is-copied");
+        if (label) label.textContent = was;
+      }, 2500);
+    }
+    if (navigator.share) {
+      navigator
+        .share({ title: ev.name + " · Y'allternative Living", text: text, url: url })
+        .catch(function () {
+          /* Dismissed: nothing to do. */
+        });
+      return;
+    }
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(url).then(copied, function () {
+        prompt("Copy this link to share:", url);
+      });
+      return;
+    }
+    prompt("Copy this link to share:", url);
+  }
+
+  function wireEventShare(container, list) {
+    if (!container || container.getAttribute("data-share-wired") === "1") return;
+    container.setAttribute("data-share-wired", "1");
+    container.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest(".event-share-btn") : null;
+      if (!btn) return;
+      var id = btn.getAttribute("data-share-event");
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].id === id) {
+          shareEvent(list[i], btn);
+          return;
+        }
+      }
+    });
+  }
+
+  /* events.html#<id> -- a shared workshop link, or a search result. The
+     browser looks for the anchor before main.js has drawn the cards, so it
+     lands at the top; scroll to the card once it exists. */
+  function scrollToLinkedEvent() {
+    var hash = window.location && window.location.hash ? window.location.hash.slice(1) : "";
+    if (!hash) return;
+    var id;
+    try {
+      id = decodeURIComponent(hash);
+    } catch {
+      return;
+    }
+    var card = document.getElementById(id);
+    if (card && card.classList && card.classList.contains("event-card") && card.scrollIntoView) {
+      card.scrollIntoView({ block: "start" });
+    }
+  }
+
   function renderWorkshops(container, list) {
     var section = document.getElementById("workshopsSection");
     function draw() {
@@ -6748,6 +6842,7 @@
     }
     draw();
     if (section) section.hidden = !list.length;
+    wireEventShare(container, list);
     var selling = list.filter(function (ev) {
       return ev && ev.ticketId;
     });
@@ -6774,6 +6869,33 @@
       .catch(function () {
         /* The cards stand as drawn. */
       });
+  }
+
+  /* A workshop's "What's included" list and "Good to know" line, from the
+     CMS fields of the same names. Both optional; blank items are skipped. */
+  function workshopDetailsHTML(ev) {
+    var items = Array.isArray(ev.includes)
+      ? ev.includes
+          .map(function (it) {
+            return typeof it === "string" ? it.trim() : "";
+          })
+          .filter(Boolean)
+      : [];
+    var html = "";
+    if (items.length) {
+      html +=
+        '<p class="event-includes-label">What\'s included</p>' +
+        '<ul class="event-includes">' +
+        items
+          .map(function (it) {
+            return "<li>" + attrEsc(it) + "</li>";
+          })
+          .join("") +
+        "</ul>";
+    }
+    var good = typeof ev.goodToKnow === "string" ? ev.goodToKnow.trim() : "";
+    if (good) html += '<p class="event-goodtoknow">' + attrEsc(good) + "</p>";
+    return html;
   }
 
   function eventCardHTML(ev, opts) {
@@ -6868,6 +6990,16 @@
       '"' +
       idAttr +
       ">" +
+      (isPast
+        ? ""
+        : '<button type="button" class="event-share-btn" data-share-event="' +
+          attrEsc(ev.id || "") +
+          '" title="Share">' +
+          '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>' +
+          '<span class="sr-only event-share-label">Share ' +
+          attrEsc(ev.name || "this event") +
+          "</span>" +
+          "</button>") +
       '<div class="card-body">' +
       '<span class="card-cat">' +
       attrEsc(ev.type || (isWorkshop ? "Workshop" : "Pop-Up Market")) +
@@ -6899,6 +7031,7 @@
           attrEsc(ev.name) +
           ' on Apple Maps">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></p>') +
       (note ? '<p class="event-desc">' + attrEsc(note) + "</p>" : "") +
+      (isWorkshop && !isPast ? workshopDetailsHTML(ev) : "") +
       ticket.info +
       actionsHtml +
       "</div>" +
@@ -8804,7 +8937,7 @@
           return;
         }
         try {
-          card.scrollIntoView({ block: "center" });
+          card.scrollIntoView({ block: "start" });
         } catch {
           /* older engines: no smooth options, fall through */
         }

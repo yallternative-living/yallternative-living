@@ -1132,7 +1132,7 @@ singletons:
         collapsed: true
         summary: "{{fields.dateLabel}} — {{fields.name}}"
         hint: "Your own ticketed nights. Fill in a price and the number of spots and people can buy tickets right on the website — no Square link needed."
-        comment: "Each workshop shows on the Events page with a Buy Tickets button. Tickets go through the same checkout as the shop, and the spots count down on their own as they sell. Once the date passes it moves to 'Where We've Been'."
+        comment: "To sell tickets on the site: fill in the name, date, date & time, price and Tickets available, and leave 'Outside ticket link' blank. Save and it's live in a few minutes with a Buy Tickets button. Tickets go through the shop's checkout with no sales tax and no shipping, and the spots count down on their own. Once the date passes it moves to 'Where We've Been'."
         fields:
           - { name: name, label: "Workshop name", widget: string, hint: "e.g. Potions & Pour Decisions" }
           - {
@@ -1209,10 +1209,31 @@ singletons:
             }
           - {
               name: note,
-              label: "What's included",
+              label: "Short description",
               widget: text,
               required: false,
-              hint: "A sentence or two: what people make, what's included."
+              hint: "One or two sentences that sell the night. Leave the price, date and 'limited spots' out -- the card already shows those."
+            }
+          - name: includes
+            label: "What's included"
+            label_singular: Item
+            widget: list
+            required: false
+            hint: "One thing per line, short: e.g. 'An 8 oz botanical bath soak, your scents'. Shown as a list on the card."
+            field: { name: item, label: Item, widget: string }
+          - {
+              name: goodToKnow,
+              label: "Good to know",
+              widget: string,
+              required: false,
+              hint: "One line, e.g. 'No experience needed. 21+ for the wine; mocktails for everyone.'"
+            }
+          - {
+              name: image,
+              label: "Ticket image",
+              widget: image,
+              required: false,
+              hint: "Optional. Shown next to the ticket in the cart and on the checkout page. Without one, the logo is used."
             }
           - {
               name: id,

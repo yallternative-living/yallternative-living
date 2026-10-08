@@ -18,7 +18,16 @@ window.YL_EVENTS = {
       "emoji": "🔮",
       "price": 60,
       "ticketUrl": "https://square.link/u/GZiFttbS",
-      "note": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance.",
+      "note": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
+      "includes": [
+        "A 2 oz custom body oil you blend yourself",
+        "An 8 oz botanical bath soak, your scents",
+        "A fall wine potion or zero-proof mocktail",
+        "Light snacks & refreshments",
+        "The Y'allternative pop-up shop",
+        "All ingredients, supplies & instruction"
+      ],
+      "goodToKnow": "No experience needed — come with friends, your partner, or solo and meet some new weirdos. Spots are limited and tickets are advance only.",
       "kind": "workshop"
     }
   ],

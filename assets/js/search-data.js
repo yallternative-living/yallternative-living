@@ -1529,8 +1529,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Market",
       "location": "Landrum, SC",
       "zip": "29356",
-      "note": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance.",
-      "description": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance.",
+      "note": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
+      "description": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
       "isUpcoming": true,
       "url": "events.html#potions-pour-decisions-2026-11-06"
     },

@@ -5430,6 +5430,97 @@ dialog.gift-modal[open]::backdrop {
   font-weight: 700;
   color: var(--paper);
 }
+/* Share: a small icon in the top-right corner of every upcoming card --
+   the phone's share sheet, or a copied link with a "Link copied!" bubble. */
+.event-card {
+  position: relative;
+}
+.event-share-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 9999px;
+  border: 1px solid var(--hide);
+  background: var(--ink-2);
+  color: var(--whiskey);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.event-share-btn:hover,
+.event-share-btn:focus-visible {
+  background: var(--ink-3);
+  border-color: var(--whiskey);
+}
+.event-share-btn.is-copied::after {
+  content: "Link copied!";
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* Body copy reads left to right: the header (label, title, date, place)
+   stays centred, the paragraphs and lists under it do not. */
+.event-card .event-desc,
+.event-card .event-includes-label,
+.event-card .event-includes,
+.event-card .event-goodtoknow,
+.event-card .event-price,
+.event-card .event-spots {
+  align-self: stretch;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  text-align: left;
+}
+/* Workshop cards: "What's included" and "Good to know". */
+.event-includes-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  margin: 0 auto 6px;
+  text-align: center;
+}
+.event-includes {
+  list-style: none;
+  margin: 0 auto 12px;
+  padding: 0;
+  max-width: 92%;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--paper);
+  text-align: center;
+}
+.event-includes li + li {
+  margin-top: 3px;
+}
+.event-includes li::before {
+  content: "✦ ";
+  color: var(--paper-dim);
+}
+.event-goodtoknow {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-style: italic;
+  color: var(--paper-dim);
+  margin: 0 auto 12px;
+  max-width: 92%;
+  text-align: center;
+}
 .event-actions-row {
   margin-top: auto;
   padding-top: 14px;

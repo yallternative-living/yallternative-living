@@ -1038,6 +1038,81 @@ assert(cardMarkup.includes("iCal / Apple Calendar (.ics)"), "eventCardHTML inclu
 assert(cardMarkup.includes("Google Maps"), "eventCardHTML includes Google Maps link");
 assert(cardMarkup.includes("Apple Maps"), "eventCardHTML includes Apple Maps link");
 
+/* Workshop cards (events.json "workshops", folded in by the build with
+   kind "workshop"): the three ticket states, plus the CMS's "What's
+   included" list and "Good to know" line, escaped like every CMS string. */
+const workshopBase = {
+  id: "potions-night",
+  kind: "workshop",
+  date: "2099-11-06",
+  dateLabel: "November 6, 2099 · Friday, 6:30pm",
+  name: "Potions Night",
+  location: "Landrum, SC",
+  price: 60
+};
+const onSite = main.eventCardHTML(
+  Object.assign({}, workshopBase, {
+    spots: 12,
+    ticketId: "ticket-potions-night",
+    includes: ["A 2 oz body oil", "  ", "<b>Snacks</b>"],
+    goodToKnow: "No experience needed & all welcome"
+  })
+);
+assert(
+  onSite.includes('data-item-id="ticket-potions-night"') && onSite.includes("Buy Tickets — $60"),
+  "workshop selling on the site: a Buy Tickets cart button for its ticket id"
+);
+assert(onSite.includes(">Workshop<"), "workshop card is labelled Workshop");
+assert(
+  onSite.includes("<li>A 2 oz body oil</li>") &&
+    onSite.includes("<li>&lt;b&gt;Snacks&lt;/b&gt;</li>") &&
+    (onSite.match(/<li>/g) || []).length === 2,
+  "What's included renders one escaped item per non-blank line"
+);
+assert(
+  onSite.includes('class="event-goodtoknow">No experience needed &amp; all welcome<'),
+  "Good to know renders, escaped"
+);
+assert(
+  onSite.includes('class="event-share-btn" data-share-event="potions-night"'),
+  "a workshop card carries a Share button for its own id"
+);
+assert(
+  cardMarkup.includes('class="event-share-btn" data-share-event="punk-flea"'),
+  "a market card carries a Share button too"
+);
+assert(
+  !main.eventCardHTML(testEv, { past: true }).includes("event-share-btn"),
+  "a past card has no Share button"
+);
+const outside = main.eventCardHTML(
+  Object.assign({}, workshopBase, { ticketUrl: "https://square.link/u/x" })
+);
+assert(
+  outside.includes('href="https://square.link/u/x"') &&
+    outside.includes("Get Tickets — $60") &&
+    !outside.includes("yl-add-item event-ticket-btn"),
+  "workshop sold elsewhere: links out, no cart button"
+);
+const notYet = main.eventCardHTML(Object.assign({}, workshopBase, { price: undefined }));
+assert(
+  notYet.includes("Tickets coming soon") && !notYet.includes("Buy Tickets"),
+  "workshop without a price yet: 'Tickets coming soon'"
+);
+const workshopSoldOut = main.eventCardHTML(
+  Object.assign({}, workshopBase, { spots: 12, ticketId: "ticket-potions-night", liveSpots: 0 })
+);
+assert(
+  workshopSoldOut.includes("Sold Out") && !workshopSoldOut.includes("yl-add-item event-ticket-btn"),
+  "a live count of 0 sells the workshop out"
+);
+assert(
+  !main
+    .eventCardHTML(Object.assign({}, workshopBase, { includes: ["x"] }), { past: true })
+    .includes("event-includes"),
+  "a past workshop card carries no ticket details"
+);
+
 /* A comma-split piece of ev.location used to be compiled straight into a
    RegExp inside resolveEventDetails(); "[" or "(" in a CMS location threw a
    SyntaxError from eventCardHTML() and aborted the whole events list. */
