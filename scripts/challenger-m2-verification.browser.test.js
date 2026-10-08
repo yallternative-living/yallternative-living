@@ -570,6 +570,21 @@ async function runAdversarialSuite() {
       `  Found ${availableUpcomingEvents.length} active upcoming event(s) in window.YL_EVENTS.upcoming`
     );
 
+    /* The deep-link checks in 3.5 and the cross-engine pass need a market
+       that is really on the calendar -- main.js only honours upcoming ones.
+       Take it from the page instead of naming one: a hardcoded slug is what
+       kept this suite pointed at a placeholder event. No upcoming market at
+       all fails here, by name, rather than as a timeout further down. */
+    const deepLinkEvent = availableUpcomingEvents[0] || null;
+    check(
+      "At least one upcoming market exists to deep-link to",
+      !!deepLinkEvent,
+      "window.YL_EVENTS.upcoming is empty -- add a confirmed date to assets/data/events.json"
+    );
+    const deepLinkParam = deepLinkEvent
+      ? encodeURIComponent(deepLinkEvent.id || deepLinkEvent.name)
+      : "";
+
     for (const targetEvent of availableUpcomingEvents) {
       const testPage = await hermeticPage(browser, baseUrl);
       await testPage.setViewport({ width: 1200, height: 800 });
@@ -786,7 +801,7 @@ async function runAdversarialSuite() {
     // 3.5 Uncheck Pickup & Re-Navigation Flow
     console.log("\n  [Adversarial Pickup Toggle & Navigation Flow]");
     const navPage = await hermeticPage(browser, baseUrl);
-    await navPage.goto(`${baseUrl}/shop.html?pickup_market=autumn-apothecary-faire`, {
+    await navPage.goto(`${baseUrl}/shop.html?pickup_market=${deepLinkParam}`, {
       waitUntil: "networkidle0"
     });
 
@@ -875,13 +890,13 @@ async function runAdversarialSuite() {
       );
 
       // Navigate to shop.html with deep link
-      await pwPage.goto(`${baseUrl}/shop.html?pickup_market=autumn-apothecary-faire#shop-catalog`);
+      await pwPage.goto(`${baseUrl}/shop.html?pickup_market=${deepLinkParam}#shop-catalog`);
       const pwBanner = pwPage.locator("#pickupMarketBanner");
       await pwBanner.waitFor({ state: "visible", timeout: 4000 });
       const pwBannerText = await pwBanner.textContent();
       check(
         `[${eng.name}] Deep-link banner displays correctly`,
-        pwBannerText.includes("Autumn Apothecary Faire")
+        !!deepLinkEvent && pwBannerText.includes(deepLinkEvent.name)
       );
 
       // Dismiss banner

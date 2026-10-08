@@ -7,6 +7,22 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
+      "id": "potions-pour-decisions-2026-11-06",
+      "date": "2026-11-06",
+      "dateLabel": "November 6, 2026 · Friday, 6:30pm",
+      "name": "Potions & Pour Decisions",
+      "type": "Workshop",
+      "location": "Landrum, SC",
+      "zip": "29356",
+      "venue": "Landrum Depot",
+      "address": "211 N Trade Ave",
+      "emoji": "🔮",
+      "url": "https://square.link/u/GZiFttbS",
+      "note": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance."
+    }
+  ],
+  "past": [
+    {
       "id": "fall-family-festival-market-2026-09-26",
       "date": "2026-09-26",
       "dateLabel": "September 26, 2026 · Saturday, 3pm–8pm",
@@ -20,28 +36,15 @@ window.YL_EVENTS = {
       "note": "First-ever fall festival with 40+ craft vendors."
     },
     {
-      "id": "autumn-apothecary-faire",
-      "date": "2026-10-17T09:00:00-04:00",
-      "dateLabel": "October 17, 2026",
-      "name": "Autumn Apothecary Faire",
-      "type": "Artisan Fair",
-      "location": "Landrum, SC",
-      "zip": "29356",
-      "emoji": "✨",
-      "note": "Pop-up market table with handmade salves, soaks & soaps."
-    }
-  ],
-  "past": [
-    {
       "id": "saturday-night-lights-2026-09-19",
       "date": "2026-09-19",
       "dateLabel": "September 19, 2026 · Saturday, 4pm–9pm",
       "name": "Saturday Night Lights",
       "type": "Festival",
       "location": "Mill Spring, NC",
+      "zip": "28756",
       "venue": "Tryon International",
       "address": "25 International Blvd",
-      "zip": "28756",
       "url": "https://resort.tryon.com/events/saturday-night-lights-september19-thwdz",
       "note": "Free family fun & live entertainment, followed by Grand Prix show jumping."
     },
@@ -52,9 +55,9 @@ window.YL_EVENTS = {
       "name": "MRB Renaissance Festival",
       "type": "Festival",
       "location": "Mills River, NC",
+      "zip": "28759",
       "venue": "Mills River Brewing Co",
       "address": "336 Banner Farm Rd",
-      "zip": "28759",
       "url": "https://www.millsriverbrewingco.com/events/mountain-mayhem-renaissance-festival",
       "note": "Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors."
     },
@@ -65,9 +68,9 @@ window.YL_EVENTS = {
       "name": "Boomtown Arts & Heritage FestAVL",
       "type": "Arts Festival",
       "location": "Asheville, NC",
+      "zip": "28801",
       "venue": "Pack Square Park",
       "address": "121 College St",
-      "zip": "28801",
       "emoji": "🎨",
       "url": "https://www.boomtownfestavl.com/",
       "note": "Free downtown arts & music festival — come find our table."

@@ -1520,6 +1520,21 @@ window.YL_SEARCH_INDEX = {
   ],
   "events": [
     {
+      "id": "potions-pour-decisions-2026-11-06",
+      "name": "Potions & Pour Decisions",
+      "title": "Potions & Pour Decisions",
+      "date": "2026-11-06",
+      "dateLabel": "November 6, 2026 · Friday, 6:30pm",
+      "endDate": null,
+      "type": "Workshop",
+      "location": "Landrum, SC",
+      "zip": "29356",
+      "note": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance.",
+      "description": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance.",
+      "isUpcoming": true,
+      "url": "events.html#potions-pour-decisions-2026-11-06"
+    },
+    {
       "id": "fall-family-festival-market-2026-09-26",
       "name": "Fall Family Festival & Market",
       "title": "Fall Family Festival & Market",
@@ -1531,23 +1546,8 @@ window.YL_SEARCH_INDEX = {
       "zip": "29369",
       "note": "First-ever fall festival with 40+ craft vendors.",
       "description": "First-ever fall festival with 40+ craft vendors.",
-      "isUpcoming": true,
+      "isUpcoming": false,
       "url": "events.html#fall-family-festival-market-2026-09-26"
-    },
-    {
-      "id": "autumn-apothecary-faire",
-      "name": "Autumn Apothecary Faire",
-      "title": "Autumn Apothecary Faire",
-      "date": "2026-10-17T09:00:00-04:00",
-      "dateLabel": "October 17, 2026",
-      "endDate": null,
-      "type": "Artisan Fair",
-      "location": "Landrum, SC",
-      "zip": "29356",
-      "note": "Pop-up market table with handmade salves, soaks & soaps.",
-      "description": "Pop-up market table with handmade salves, soaks & soaps.",
-      "isUpcoming": true,
-      "url": "events.html#autumn-apothecary-faire"
     },
     {
       "id": "saturday-night-lights-2026-09-19",
