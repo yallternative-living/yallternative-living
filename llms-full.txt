@@ -126,7 +126,7 @@ yourself.
 
 ### Bourbon Vanilla Hand Scrub
 - **ID / slug**: `hand-scrub`
-- **Price**: $10 - $14 USD
+- **Price**: $12 - $16 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Size**: 2 oz, 4 oz
@@ -166,7 +166,7 @@ yourself.
 
 ### Bug Off B*tch Natural Bug Spray
 - **ID / slug**: `bug-spray`
-- **Price**: $10 USD
+- **Price**: $12 USD
 - **Category**: Body & Skin
 - **Availability**: In stock
 - **Description**: Tell the mosquitoes to buzz off, naturally. Citronella, lemongrass, and five other essential oils in a 2 oz amber spray, no DEET, no sticky residue, just Southern summer survival.
@@ -233,13 +233,13 @@ yourself.
 
 ### Grit & Grace Starter Set
 - **ID / slug**: `starter-self-care-set`
-- **Price**: $36 ($40 bought separately, 10% off)
+- **Price**: $36 ($44 bought separately, 18% off)
 - **Includes**: Y'all Heal Now Miracle Frankincense Salve, Bourbon Vanilla Hand Scrub, Bug Off B*tch Natural Bug Spray
 - **Description**: The essential trio for anyone navigating life south of the Mason-Dixon: the do-everything salve folks keep re-ordering, the bourbon-vanilla scrub that gets your hands actually clean, and the bug spray nobody admits they need until August. Three of our most-reviewed goods, one easy yes.
 
 ### Bourbon & Grit Gift Set
 - **ID / slug**: `bourbon-and-grit-set`
-- **Price**: $22 ($24 bought separately, 8% off)
+- **Price**: $22 ($26 bought separately, 15% off)
 - **Includes**: Bourbon Beard Salve, Bourbon Vanilla Hand Scrub
 - **Description**: Scent-matched on purpose. The beard salve softens the scruff; the hand scrub takes the grease off whatever he was working on. Both in the same bourbon, vanilla and cedarwood, so it reads as one gift, not two things from two different aisles.
 
@@ -257,7 +257,7 @@ yourself.
 
 ### Everyday Armor Kit
 - **ID / slug**: `everyday-armor-kit`
-- **Price**: $25 ($28 bought separately, 11% off)
+- **Price**: $25 ($30 bought separately, 17% off)
 - **Includes**: Protection Potion Keychain, Bug Off B*tch Natural Bug Spray, Lavender Epsom Salt Soak
 - **Description**: Everyday witchy armor, boxed up: a wax-sealed protection spell jar for your keys, the bug spray that tells mosquitoes to buzz off, naturally, and a lavender soak for taking up all the space you want in the tub. Grit and glitter for the ones who need it.
 
@@ -269,7 +269,7 @@ yourself.
 
 ### Discovery Flight
 - **ID / slug**: `discovery-flight`
-- **Price**: $42 ($50 bought separately, 16% off)
+- **Price**: $42 ($54 bought separately, 22% off)
 - **Includes**: Y'all Heal Now Miracle Frankincense Salve, Bourbon Vanilla Hand Scrub, Lavender Epsom Salt Soak, Bug Off B*tch Natural Bug Spray
 - **Description**: Can't decide? Try a little of everything. Four of our bestselling products bundled together for less than buying them one by one: the salve everybody re-orders, the bourbon-vanilla scrub, a lavender soak, and the bug spray that actually works. A full tour of the shop in one box.
 

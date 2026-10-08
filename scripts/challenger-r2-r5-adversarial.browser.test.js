@@ -640,7 +640,7 @@ async function testRitualInteractivity() {
     const modalPrice = await page.$eval("#lightboxRitualWrap #pdpRitualTotalPrice", (el) =>
       el.textContent.trim()
     );
-    assert(modalPrice === "$38", `Modal ritual bundle initial total is $37.99 (got ${modalPrice})`);
+    assert(modalPrice === "$40", `Modal ritual bundle initial total is $40 (got ${modalPrice})`);
 
     // Uncheck one item in modal (miracle balm $8.00)
     await modalCheckboxes[2].click();
@@ -650,8 +650,8 @@ async function testRitualInteractivity() {
       el.textContent.trim()
     );
     assert(
-      modalRecalcPrice === "$30",
-      `Modal ritual bundle recalculates to $29.99 on checkbox toggle`
+      modalRecalcPrice === "$32",
+      `Modal ritual bundle recalculates to $32 on checkbox toggle (got ${modalRecalcPrice})`
     );
 
     // Add selected from modal

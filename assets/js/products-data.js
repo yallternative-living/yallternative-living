@@ -605,7 +605,7 @@ window.YL_PRODUCTS = {
       "id": "hand-scrub",
       "name": "Bourbon Vanilla Hand Scrub",
       "category": "body",
-      "price": 10,
+      "price": 12,
       "image": "assets/img/hand-scrub.jpg",
       "images": [
         "assets/img/hand-scrub-alt1.jpg",
@@ -902,7 +902,7 @@ window.YL_PRODUCTS = {
       "id": "bug-spray",
       "name": "Bug Off B*tch Natural Bug Spray",
       "category": "body",
-      "price": 10,
+      "price": 12,
       "image": "assets/img/bug-spray.jpg",
       "images": [
         "assets/img/bug-spray-alt1.jpg",
