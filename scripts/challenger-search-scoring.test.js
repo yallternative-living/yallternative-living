@@ -605,13 +605,13 @@ it("Journal domain query 'small batch difference' ranks journal article at top",
   assert.strictEqual(res.journal[0].id, "small-batch-difference");
 });
 
-it("Events domain query 'autumn apothecary faire' ranks upcoming event at top", () => {
-  const res = mainJs.searchGlobal("autumn apothecary faire");
+it("Events domain query 'potions pour decisions' ranks the matching event at top", () => {
+  const res = mainJs.searchGlobal("potions pour decisions");
   assert.ok(res.events.length > 0, "Events results must not be empty");
   const topTitle = (res.events[0].name || res.events[0].title).toLowerCase();
   assert.ok(
-    topTitle.includes("autumn"),
-    `Top event should be Autumn Apothecary Faire, got: ${topTitle}`
+    topTitle.includes("potions"),
+    `Top event should be Potions & Pour Decisions, got: ${topTitle}`
   );
 });
 

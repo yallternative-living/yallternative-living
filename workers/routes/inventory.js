@@ -73,7 +73,9 @@ export async function handleInventory(request, env, origin, ctx) {
     return json({ error: "Too many requests. Please wait a minute." }, 429, origin, env);
   }
   const index = await loadProductIndex(env, ctx);
-  if (!index.size) {
+  /* No calendar means no workshop tickets in the index, and a sync without
+     them would erase the ticket counts (workers/state/tickets.js). */
+  if (!index.size || index.ticketsUnavailable) {
     return json({ error: "Live stock is unavailable." }, 503, origin, env);
   }
   await ensureSchema(env.STATE_DB);
@@ -102,7 +104,14 @@ export async function availabilityForCheckout(env, catalog) {
     const tracked = trackedProductsOf(catalog && catalog.products);
     if (!tracked.length) return new Map();
     await ensureSchema(env.STATE_DB);
-    await syncInventory(env.STATE_DB, tracked, Date.now(), catalog && catalog.fetchedAt);
+    /* A catalogue that could not read the calendar has no workshop tickets
+       in it (workers/checkout.js loadCatalog). Syncing that list would mark
+       every ticket row untracked, and the next full sync would reseed them
+       from scratch -- forgetting the tickets already sold. Read the counts
+       the ledger already has instead. */
+    if (!(catalog && catalog.ticketsUnavailable)) {
+      await syncInventory(env.STATE_DB, tracked, Date.now(), catalog && catalog.fetchedAt);
+    }
     return await availableCounts(
       env.STATE_DB,
       tracked.map((p) => p.id)

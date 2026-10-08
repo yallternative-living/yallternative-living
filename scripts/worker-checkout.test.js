@@ -174,8 +174,35 @@ const mockEvents = {
       zip: "29356"
     }
   ],
-  past: []
+  past: [],
+  /* Workshops & classes (workers/state/tickets.js): one selling tickets on
+     the site, one sold elsewhere (outside ticket link), one already over and
+     one full. Dated far ahead so the suite does not expire. */
+  workshops: [
+    {
+      name: "Potions Night",
+      date: "2099-11-06",
+      dateLabel: "November 6, 2099 · Friday, 6:30pm",
+      location: "Landrum, SC",
+      zip: "29356",
+      venue: "Landrum Depot",
+      price: 60,
+      spots: 12
+    },
+    {
+      name: "Square Night",
+      date: "2099-12-01",
+      dateLabel: "December 1, 2099",
+      location: "Landrum, SC",
+      price: 45,
+      spots: 10,
+      ticketUrl: "https://square.link/u/example"
+    },
+    { name: "Old Class", date: "2020-01-01", location: "Landrum, SC", price: 30, spots: 5 },
+    { name: "Full Class", date: "2099-10-01", location: "Landrum, SC", price: 40, spots: 0 }
+  ]
 };
+const POTIONS_TICKET = "ticket-potions-night-2099-11-06";
 const PICKUP_LABEL = "Landrum Farmers Market — Saturdays 9am-12pm (Landrum, SC)";
 
 const mockEnv = {
@@ -2586,6 +2613,125 @@ async function runWorkerCheckoutTests() {
     } finally {
       global.caches = originalCaches;
     }
+  }
+
+  /* ---- Workshop tickets (workers/state/tickets.js) ------------------------
+     A workshop in events.json's "workshops" list with a price and spots and
+     no outside link sells tickets here: priced from the calendar, never from
+     the client, counted by the ledger, and shipped nowhere. */
+  {
+    const only = await executeCheckout({ items: [{ id: POTIONS_TICKET, qty: 2 }] });
+    eq(only.status, 200, "ticket: a ticket-only cart checks out");
+    const p = only.sessionParams;
+    eq(
+      p.get("line_items[0][price_data][unit_amount]"),
+      "6000",
+      "ticket: priced at the workshop's $60 from events.json"
+    );
+    eq(p.get("line_items[0][quantity]"), "2", "ticket: quantity 2");
+    eq(
+      p.get("line_items[0][price_data][product_data][name]"),
+      "Ticket: Potions Night (November 6, 2099 · Friday, 6:30pm · Landrum Depot, Landrum, SC)",
+      "ticket: the receipt line names the workshop, when and where"
+    );
+    eq(
+      p.get("line_items[0][price_data][product_data][metadata][yl_kind]"),
+      "ticket",
+      "ticket: the line is recorded as kind 'ticket' (not reorderable)"
+    );
+    eq(
+      p.get("shipping_address_collection[allowed_countries][0]"),
+      null,
+      "ticket: no shipping address is asked for"
+    );
+    eq(p.get("shipping_options[0][shipping_rate_data][display_name]"), null, "ticket: no shipping");
+    eq(
+      p.get("metadata[free_gift]"),
+      null,
+      "ticket: $120 of tickets does not earn the free salve (nothing ships)"
+    );
+    eq(p.get("metadata[retention_product_ids]"), null, "ticket: no retention signals");
+
+    const mixed = await executeCheckout({
+      items: [
+        { id: POTIONS_TICKET, qty: 1 },
+        { id: "lavender-soak", qty: 1 }
+      ]
+    });
+    eq(mixed.status, 200, "ticket + product: checks out");
+    assert(
+      mixed.sessionParams.get("shipping_address_collection[allowed_countries][0]") !== null,
+      "ticket + product: the product still ships, so the address is asked for"
+    );
+    eq(
+      mixed.sessionParams.get("metadata[free_gift]"),
+      null,
+      "ticket + product: the ticket does not lift an $18 order over the free-salve line"
+    );
+
+    for (const [id, why] of [
+      ["ticket-square-night-2099-12-01", "sold elsewhere (outside ticket link)"],
+      ["ticket-old-class-2020-01-01", "already over"],
+      ["ticket-no-such-class", "not on the calendar"]
+    ]) {
+      const refused = await executeCheckout({ items: [{ id, qty: 1 }] });
+      eq(refused.status, 400, `ticket ${why}: refused`);
+    }
+    const full = await executeCheckout({ items: [{ id: "ticket-full-class-2099-10-01", qty: 1 }] });
+    eq(full.status, 400, "ticket for a full workshop (0 spots): refused");
+    assert(/Sold out/.test(String(full.data && full.data.error)), "...as sold out");
+
+    const capped = await executeCheckout({ items: [{ id: POTIONS_TICKET, qty: 20 }] });
+    eq(capped.status, 200, "ticket: asking for 20 of 12 spots still checks out...");
+    eq(
+      capped.sessionParams.get("line_items[0][quantity]"),
+      "12",
+      "...capped at the 12 spots there are"
+    );
+
+    // Tickets are sold tax-free: with Stripe Tax on, the ticket line carries
+    // Stripe's explicit Nontaxable code (a line with no code would fall back
+    // to the account's taxable preset), while a product beside it is taxed.
+    const taxed = await executeCheckout(
+      {
+        items: [
+          { id: POTIONS_TICKET, qty: 1 },
+          { id: "lavender-soak", qty: 1 }
+        ]
+      },
+      { env: { STRIPE_TAX_ENABLED: "true" } }
+    );
+    eq(taxed.status, 200, "ticket, tax on: checks out");
+    eq(
+      taxed.sessionParams.get("line_items[0][price_data][product_data][tax_code]"),
+      "txcd_00000000",
+      "ticket, tax on: the ticket line is marked Nontaxable"
+    );
+    eq(
+      taxed.sessionParams.get("line_items[1][price_data][product_data][tax_code]"),
+      "txcd_99999999",
+      "ticket, tax on: the product beside it keeps its taxable goods code"
+    );
+
+    // The ledger holds ticket spots like product units.
+    const { DatabaseSync } = require("node:sqlite");
+    const { makeD1 } = require("./lib/d1-emulator.js");
+    const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
+    const { holdRows, resetInventoryMemo } = await import("../workers/state/inventory.js");
+    resetSchemaMemo();
+    resetInventoryMemo();
+    const db = makeD1(new DatabaseSync(":memory:"));
+    await applyMigrations(db);
+    const held = await executeCheckout(
+      { items: [{ id: POTIONS_TICKET, qty: 3 }] },
+      { env: { STATE_DB: db } }
+    );
+    eq(held.status, 200, "ticket, ledger bound: checks out");
+    eq(
+      (await holdRows(db, "cs_test_mock_session")).map((r) => [r.product_id, r.qty, r.state]),
+      [[POTIONS_TICKET, 3, "active"]],
+      "ticket, ledger bound: the session holds 3 spots"
+    );
   }
 
   console.log(`\nworker-checkout.test.js: ${passed} passed, ${failed} failed`);

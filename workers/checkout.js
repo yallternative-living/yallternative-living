@@ -222,6 +222,7 @@ import { giftCardLedger, LedgerError } from "./state/gift-card-ledger.js";
 // Read-only and degrading (an unreachable content.json reads as "codes on"),
 // so the money path gains no new way to fail from it.
 import { loadSiteSettings } from "./state/site-data.js";
+import { easternToday, ticketEntriesOf } from "./state/tickets.js";
 import {
   availabilityForCheckout,
   handleInventory,
@@ -241,6 +242,10 @@ const TAX_CODE_GIFT_CARD = "txcd_10502000"; // Gift Card (multi-purpose)
 const TAX_CODE_APPAREL = "txcd_30011000"; // Clothing & Footwear
 const TAX_CODE_GOODS = "txcd_99999999"; // General - Tangible Goods
 const TAX_CODE_SHIPPING = "txcd_92010001"; // Shipping
+// Workshop tickets are sold tax-free (the owner's call, 2026-10-08). The
+// code has to be sent explicitly: a line with NO tax code falls back to the
+// account's preset code in Stripe Tax, which is a taxable one.
+const TAX_CODE_NONTAXABLE = "txcd_00000000"; // Nontaxable
 
 const MAX_QTY_PER_ITEM = 99;
 const MAX_LINE_ITEMS = 50;
@@ -334,6 +339,30 @@ async function loadCatalog(env, ctx) {
     configurable: true,
     writable: true
   });
+  /* Workshop tickets sold on the site are catalogue entries too, built from
+     events.json's "Workshops & classes" list (workers/state/tickets.js), so
+     pricing, the sold-out refusals and the inventory ledger treat a ticket
+     exactly like a tracked product. Added after applySales on purpose: a
+     category sale never touches a ticket, which is priced as the CMS says on
+     the card. When the calendar cannot be read, no ticket can be sold (its
+     line is refused as unknown) and the catalogue is flagged so
+     availabilityForCheckout does not sync a ticket-less list into the ledger
+     -- that would mark every ticket row untracked and erase the sales. */
+  if (!Array.isArray(catalog.products)) catalog.products = [];
+  try {
+    const events = await loadEvents(env, ctx);
+    catalog.products = catalog.products.concat(ticketEntriesOf(events, easternToday()));
+    if (Number.isFinite(events && events.fetchedAt)) {
+      catalog.fetchedAt = Math.min(catalog.fetchedAt, events.fetchedAt);
+    }
+  } catch (err) {
+    console.warn("checkout: events.json unreachable, no tickets on sale:", err && err.message);
+    Object.defineProperty(catalog, "ticketsUnavailable", {
+      value: true,
+      enumerable: false,
+      configurable: true
+    });
+  }
   return catalog;
 }
 
@@ -354,7 +383,20 @@ async function loadEvents(env, ctx) {
     }
   }
   if (!res.ok) throw new Error("Could not load events");
-  return res.json();
+  const events = await res.json();
+  // When the site served it (see loadCatalog): ticket rows in the inventory
+  // ledger are seeded from this file, under the same reseed guard.
+  const dateHeader =
+    res.headers && typeof res.headers.get === "function" ? res.headers.get("date") : null;
+  const served = Date.parse(dateHeader || "");
+  if (events && typeof events === "object" && Number.isFinite(served)) {
+    Object.defineProperty(events, "fetchedAt", {
+      value: served,
+      enumerable: false,
+      configurable: true
+    });
+  }
+  return events;
 }
 
 /**
@@ -511,7 +553,11 @@ function pickupLabelFor(evt) {
 // order that merely sent the field). Returns the calendar event, or null.
 function findPickupEvent(events, pickupMarket) {
   if (!events || !pickupMarket || typeof pickupMarket !== "string") return null;
-  const upcoming = Array.isArray(events.upcoming) ? events.upcoming : [];
+  // Workshops are on the calendar too (the events page and cart.js list them
+  // with the markets), and an order can be picked up at one.
+  const upcoming = (Array.isArray(events.upcoming) ? events.upcoming : []).concat(
+    Array.isArray(events.workshops) ? events.workshops : []
+  );
   return upcoming.find((e) => pickupLabelFor(e) === pickupMarket) || null;
 }
 
@@ -1378,6 +1424,9 @@ function buildLineItems(catalog, items, allocation, env, metadata) {
     }
 
     const isGiftCard = item.id === GIFT_CARD_ID;
+    // A workshop ticket (workers/state/tickets.js): priced and counted like a
+    // product, but nothing ships -- see physicalSubtotalCents below.
+    const isTicket = entry.isTicket === true;
     const isBundle = !isGiftCard && bundleMapOf(catalog).has(entry.id);
     // A set is only as available as its members: a sold-out or
     // coming-soon member refuses the whole set, exactly as it would be
@@ -1527,12 +1576,18 @@ function buildLineItems(catalog, items, allocation, env, metadata) {
     // them too. Only apparel and gift cards need to differ.
     const taxCode = isGiftCard
       ? TAX_CODE_GIFT_CARD
-      : entry.category === "apparel"
-        ? TAX_CODE_APPAREL
-        : TAX_CODE_GOODS;
+      : isTicket
+        ? TAX_CODE_NONTAXABLE
+        : entry.category === "apparel"
+          ? TAX_CODE_APPAREL
+          : TAX_CODE_GOODS;
 
-    retentionProductIds.push(entry.id);
-    if (entry.category) retentionCategories.push(entry.category);
+    // A ticket is not a product to ask "how are you liking it?" about, and
+    // has no usage guide: it stays out of the retention signals.
+    if (!isTicket) {
+      retentionProductIds.push(entry.id);
+      if (entry.category) retentionCategories.push(entry.category);
+    }
 
     /* What the order history needs to put this line back in the cart
        (routes/orders.js, assets/js/orders.js): the catalog id, the
@@ -1541,11 +1596,13 @@ function buildLineItems(catalog, items, allocation, env, metadata) {
        but not reorderable -- their choices live in session metadata. */
     const kind = isGiftCard
       ? "gift-card"
-      : isBundle
-        ? bundleChoices.length
-          ? "gift-set"
-          : "bundle"
-        : "product";
+      : isTicket
+        ? "ticket"
+        : isBundle
+          ? bundleChoices.length
+            ? "gift-set"
+            : "bundle"
+          : "product";
     return {
       name,
       image,
@@ -1553,6 +1610,7 @@ function buildLineItems(catalog, items, allocation, env, metadata) {
       unitAmount,
       qty,
       isGiftCard,
+      isTicket,
       taxCode,
       productId: String(entry.id),
       variant: variantOption ? variantOption.label : "",
@@ -1817,8 +1875,11 @@ async function handleCheckout(request, env, ctx, origin) {
       // from Landrum, SC -- that one genuinely is a business constant, not
       // CMS-editable. Gift cards are emailed, not shipped, so an order
       // that's ALL gift cards gets no shipping line at all.
+      // Gift cards and workshop tickets ship nothing: they never count toward
+      // shipping, free shipping or the free-salve milestone, and a cart of
+      // nothing else gets no address form and no shipping line.
       const physicalSubtotalCents = lineItems
-        .filter((li) => !li.isGiftCard)
+        .filter((li) => !li.isGiftCard && !li.isTicket)
         .reduce((sum, li) => sum + li.unitAmount * li.qty, 0);
       const hasPhysicalItems = physicalSubtotalCents > 0;
       const freeShippingThresholdCents = resolveFreeShippingThresholdCents(catalog);

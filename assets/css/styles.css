@@ -5412,6 +5412,24 @@ dialog.gift-modal[open]::backdrop {
   text-align: center;
   flex: 1;
 }
+/* Workshop cards: the ticket price and, from the live count, spots left. */
+.event-price,
+.event-spots {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--paper);
+  margin: 0 auto 8px;
+  text-align: center;
+}
+.event-spots {
+  font-size: 0.82rem;
+  color: var(--paper-dim);
+}
+.event-spots.low-stock,
+.event-spots.sold-out {
+  font-weight: 700;
+  color: var(--paper);
+}
 .event-actions-row {
   margin-top: auto;
   padding-top: 14px;

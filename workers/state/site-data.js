@@ -19,6 +19,8 @@
  * webhook from crediting points or recording an order.
  */
 
+import { easternToday, ticketEntriesOf } from "./tickets.js";
+
 /** Used when content.json is unreachable or has no value. Matches cart.js. */
 export const DEFAULT_POINTS_PER_DOLLAR = 1;
 
@@ -138,6 +140,48 @@ export async function loadProductIndex(env, ctx) {
           : []
       });
     }
+  }
+  /* Workshop tickets sold on the site (workers/state/tickets.js), the same
+     entries workers/checkout.js loadCatalog adds, so /api/inventory syncs and
+     reports them with the products. Without the calendar this index must not
+     be synced into the ledger at all -- ticketsUnavailable tells
+     routes/inventory.js so (see the note in tickets.js). */
+  let events = null;
+  let eventsFetchedAt = null;
+  try {
+    ({ data: events, fetchedAt: eventsFetchedAt } = await loadSiteJsonWithAge(
+      env,
+      ctx,
+      "/assets/data/events.json"
+    ));
+  } catch (err) {
+    console.warn("site-data: events.json is unreachable:", err && err.message);
+  }
+  if (!events || typeof events !== "object") {
+    Object.defineProperty(index, "ticketsUnavailable", {
+      value: true,
+      enumerable: false,
+      configurable: true
+    });
+    return index;
+  }
+  for (const ticket of ticketEntriesOf(events, easternToday())) {
+    if (index.has(ticket.id)) continue;
+    index.set(ticket.id, {
+      id: ticket.id,
+      name: ticket.name,
+      category: ticket.category,
+      usageGuide: null,
+      stock: ticket.stock,
+      inStock: undefined,
+      comingSoon: undefined,
+      squareSkus: [],
+      productIds: [],
+      isTicket: true
+    });
+  }
+  if (Number.isFinite(eventsFetchedAt) && Number.isFinite(index.fetchedAt)) {
+    index.fetchedAt = Math.min(index.fetchedAt, eventsFetchedAt);
   }
   return index;
 }

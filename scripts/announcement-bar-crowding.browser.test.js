@@ -43,9 +43,46 @@ const MIME = {
   ".xml": "application/xml"
 };
 
+/* The ticker only carries an event name (#heroEventDetails) while something
+   is on the calendar; with nothing upcoming it reads "Stay tuned for new
+   confirmed market dates!" and the name swaps below have nothing to swap.
+   assets/data/events.json is live CMS data that empties as dates pass, so
+   the server answers assets/js/events-data.js with one fixture market two
+   weeks out (Eastern time) instead of whatever the calendar holds today. */
+function fixtureEventsJs() {
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+  const [y, m, d] = today.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + 14)).toISOString().slice(0, 10);
+  const events = {
+    upcoming: [
+      {
+        id: "fixture-market",
+        date,
+        dateLabel: date + " · 10am–2pm",
+        name: FIXTURE_NAME,
+        type: "Market",
+        location: FIXTURE_LOCATION,
+        zip: "29356"
+      }
+    ],
+    past: []
+  };
+  return "window.YL_EVENTS = " + JSON.stringify(events) + ";\n";
+}
+
 function createServer() {
   const server = http.createServer((req, res) => {
     let reqPath = decodeURIComponent(req.url.split("?")[0].split("#")[0]);
+    if (reqPath === "/assets/js/events-data.js") {
+      res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+      res.end(fixtureEventsJs());
+      return;
+    }
     if (reqPath === "/") reqPath = "/index.html";
     let filePath = path.join(ROOT, reqPath);
     if (
@@ -86,11 +123,15 @@ function check(desc, ok, extra = "") {
   }
 }
 
-/* Both names are FIXTURES, deliberately not read from events.json, so that
-   what this suite measures is the crowding logic and not Savanna's calendar.
+/* Every name here is a FIXTURE, deliberately not read from events.json, so
+   that what this suite measures is the crowding logic and not Savanna's
+   calendar. FIXTURE_NAME is the market the served calendar carries (see
+   fixtureEventsJs above), a mid-length name like most real ones.
    LONG_NAME is the one the audit measured wrapping the bar from 1101px to
    1327px; SHORT_NAME is short enough that the segment must fit at every width
    above the CSS floor. */
+const FIXTURE_NAME = "Fixture Night Market";
+const FIXTURE_LOCATION = "Landrum, SC";
 const SHORT_NAME = "Faire";
 const SHORT_LOCATION = "Landrum, SC";
 const LONG_NAME = "Spartanburg Punk Flea Market";
@@ -125,6 +166,18 @@ async function run() {
         check(`@${width}px: #yl-countdown-ticker exists`, false, "element missing from index.html");
         continue;
       }
+      /* The fixture calendar reached the page: the ticker names its market.
+         Without this, a served calendar that stopped applying would leave the
+         "Stay tuned" text in place and every name swap below a no-op. */
+      const tickerName = await page.evaluate(() => {
+        const el = document.getElementById("heroEventDetails");
+        return el ? el.textContent : null;
+      });
+      check(
+        `@${width}px: the ticker counts down to the fixture market`,
+        typeof tickerName === "string" && tickerName.includes(FIXTURE_NAME),
+        `#heroEventDetails = ${JSON.stringify(tickerName)}`
+      );
       if (!before.hasSegment) {
         // The free-shipping segment did not fold in on this run (e.g. no
         // threshold configured) -- nothing for the crowding logic to guard,
@@ -167,14 +220,14 @@ async function run() {
         // do not fit at 1101px -- and the logic hiding the segment there was
         // doing exactly its job.
         check(
-          `@${width}px: with the real event name the bar is one line and any hidden segment is hidden by is-crowded`,
+          `@${width}px: with the fixture event name the bar is one line and any hidden segment is hidden by is-crowded`,
           normal.height < 60 && (normal.segmentVisible || normal.isCrowded),
           `height=${normal.height}px, is-crowded=${normal.isCrowded}, segmentVisible=${normal.segmentVisible}`
         );
         /* The stuck-on regression needs a width where the segment MUST be
-           visible, and the real event name cannot promise one -- at 1440px it
-           happens to fit today, but that is still the calendar answering, not
-           the code. So this half supplies its own short name and then holds
+           visible, and a CMS event name cannot promise one -- whether a given
+           name fits at 1440px is the calendar answering, not the code. So
+           this half supplies its own short name and then holds
            the assertion at EVERY width above the floor, which is strictly more
            than the widest-width-only version it replaces. */
         await page.evaluate(

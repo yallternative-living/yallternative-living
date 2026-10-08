@@ -1117,6 +1117,111 @@ singletons:
               readonly: true,
               hint: "Leave blank and it's made from the name. It's part of the event's page link, so don't change it once live."
             }
+      # Workshops & classes: Savanna's own ticketed nights. Folded into the
+      # upcoming calendar at build time (scripts/build-site-data.js
+      # mergeWorkshopsIntoUpcoming), so the countdown, events page, search and
+      # archive treat them like any date. With a price and spots and no outside
+      # link, tickets sell through the site's own checkout: the Worker prices
+      # them from this file and the inventory ledger counts the spots down
+      # (workers/state/tickets.js).
+      - name: workshops
+        label: "Workshops & classes"
+        widget: list
+        label_singular: Workshop
+        required: false
+        collapsed: true
+        summary: "{{fields.dateLabel}} — {{fields.name}}"
+        hint: "Your own ticketed nights. Fill in a price and the number of spots and people can buy tickets right on the website — no Square link needed."
+        comment: "Each workshop shows on the Events page with a Buy Tickets button. Tickets go through the same checkout as the shop, and the spots count down on their own as they sell. Once the date passes it moves to 'Where We've Been'."
+        fields:
+          - { name: name, label: "Workshop name", widget: string, hint: "e.g. Potions & Pour Decisions" }
+          - {
+              name: date,
+              label: "Date",
+              widget: datetime,
+              format: "YYYY-MM-DD",
+              date_format: "MM/DD/YYYY",
+              time_format: false,
+              hint: "Ticket sales close the day after."
+            }
+          - {
+              name: dateLabel,
+              label: "Date & time as shown on the page",
+              widget: string,
+              hint: "Put the start time in -- the homepage countdown counts down to it. e.g. Friday, November 6, 2026 · 6:30pm"
+            }
+          - {
+              name: price,
+              label: "Ticket price ($)",
+              widget: number,
+              value_type: float,
+              min: 0,
+              required: false,
+              hint: "Per person, e.g. 60. Leave blank while tickets aren't on sale yet."
+            }
+          - {
+              name: spots,
+              label: "Tickets available",
+              widget: number,
+              value_type: int,
+              min: 0,
+              required: false,
+              hint: "How many tickets the website can sell. It counts down by itself as people buy, so only change it to correct the number left (say, after selling some in person). Changing the workshop's name or date after tickets sell starts the count over -- fix this number if you do."
+            }
+          - {
+              name: ticketUrl,
+              label: "Outside ticket link (optional)",
+              widget: string,
+              type: url,
+              required: false,
+              hint: "Only if you're selling tickets somewhere else (Square, Eventbrite). Leave blank to sell on the website."
+            }
+          - { name: location, label: "Town", widget: string, hint: "e.g. Landrum, SC" }
+          - {
+              name: venue,
+              label: "Venue / Place name",
+              widget: string,
+              required: false,
+              hint: "e.g. Landrum Depot"
+            }
+          - {
+              name: address,
+              label: "Street address",
+              widget: string,
+              required: false,
+              hint: "e.g. 211 N Trade Ave (without city, state, or ZIP)"
+            }
+          - {
+              name: zip,
+              label: "ZIP code",
+              widget: string,
+              required: false,
+              pattern: ["^$|^[0-9]{5}$", "Enter a 5-digit ZIP code, or leave blank."],
+              hint: "Lets shoppers pick up online orders at the workshop, with the right sales tax."
+            }
+          - {
+              name: emoji,
+              label: "Emoji",
+              widget: string,
+              required: false,
+              pattern: ["^$|^.{1,16}$", "One emoji only (or leave blank)."],
+              hint: "One emoji, e.g. 🔮. Shown in the countdown when this is the next thing on the calendar."
+            }
+          - {
+              name: note,
+              label: "What's included",
+              widget: text,
+              required: false,
+              hint: "A sentence or two: what people make, what's included."
+            }
+          - {
+              name: id,
+              label: "Workshop ID",
+              widget: string,
+              required: false,
+              readonly: true,
+              hint: "Leave blank and it's made from the name and date."
+            }
       - name: past
         label: "Past appearances"
         widget: list
@@ -2130,6 +2235,18 @@ singletons:
             collapsed: true
             fields:
               - { name: upcomingTitle, label: "“Upcoming Pop-Ups” heading", widget: string }
+              - {
+                  name: workshopsTitle,
+                  label: "“Workshops & Classes” heading",
+                  widget: string,
+                  required: false
+                }
+              - {
+                  name: workshopsIntro,
+                  label: "Workshops & Classes — intro line",
+                  widget: text,
+                  required: false
+                }
               - { name: recentTitle, label: "“Recent Appearances” heading", widget: string }
               - { name: followTitle, label: "Follow-along band — heading", widget: string }
               - {

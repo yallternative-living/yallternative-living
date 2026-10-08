@@ -1697,6 +1697,55 @@ eq(
 );
 delete global.window.YL_PRODUCTS;
 
+/* ---- Workshop tickets (workers/state/tickets.js) ----
+   A ticket line ships nothing, is known from the calendar rather than the
+   catalog, and is re-priced from its workshop like a product from the
+   catalog. */
+global.window.YL_PRODUCTS = bundleCatalog;
+global.window.YL_EVENTS = {
+  upcoming: [
+    {
+      id: "potions-night-2099-11-06",
+      name: "Potions Night",
+      kind: "workshop",
+      price: 65,
+      spots: 12,
+      ticketId: "ticket-potions-night-2099-11-06"
+    }
+  ],
+  past: []
+};
+const ticketCart = cart.sanitizeStoredItems([
+  { id: "ticket-potions-night-2099-11-06", name: "Ticket: Potions Night", price: 60, qty: 2 },
+  { id: "ticket-some-old-class", name: "Ticket: Old", price: 30, qty: 1 },
+  { id: "salve-1", price: 20, qty: 1 }
+]);
+eq(
+  ticketCart.items.map(function (it) {
+    return [it.id, it.price];
+  }),
+  [
+    ["ticket-potions-night-2099-11-06", 65],
+    ["salve-1", 20]
+  ],
+  "a saved ticket is kept and re-priced from its workshop; one no longer on the calendar is dropped"
+);
+eq(
+  cart.physicalSubtotal(ticketCart.items),
+  20,
+  "tickets ship nothing: they stay out of the physical subtotal (shipping, milestones)"
+);
+delete global.window.YL_EVENTS;
+const noCalendar = cart.sanitizeStoredItems([
+  { id: "ticket-potions-night-2099-11-06", name: "Ticket: Potions Night", price: 60, qty: 1 }
+]);
+eq(
+  noCalendar.items.length,
+  1,
+  "a page without the calendar keeps a ticket line instead of guessing it is gone"
+);
+delete global.window.YL_PRODUCTS;
+
 Promise.all(asyncChecks).then(
   () => {
     console.log(`\ncart-engine.test.js: ${passed} passed, ${failed} failed`);

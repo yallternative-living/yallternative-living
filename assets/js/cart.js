@@ -39,6 +39,23 @@
   var DEFAULT_FREE_SHIP = 40; // products.json shop.freeShippingThreshold
   var MAX_QTY = 99;
   var GIFT_CARD_ID = "yallternative-gift-card";
+  /* Workshop tickets: cart lines "ticket-<workshop id>", offered by the Buy
+     Tickets button on an events-page workshop card and priced by the Worker
+     from the same CMS entry (workers/state/tickets.js). */
+  var TICKET_ID_PREFIX = "ticket-";
+  /* Marks a known-id table built without the calendar: every ticket id
+     passes it (see knownItemIds). Not a string any real id can be. */
+  var ANY_TICKET = "\u0000any-ticket";
+
+  /* A line that ships nothing: the gift card (emailed) and workshop tickets.
+     Neither counts toward shipping, the free-shipping or free-salve
+     milestones, the dispatch countdown or the pickup toggle -- the same split
+     workers/checkout.js makes with physicalSubtotalCents. */
+  function shipsNothing(it) {
+    if (!it) return false;
+    var id = String(it.id);
+    return id === GIFT_CARD_ID || id.indexOf(TICKET_ID_PREFIX) === 0;
+  }
   /* Flat shipping rate below the free-shipping threshold. Mirrors
      flatShippingRateCents in workers/checkout.js -- a business constant, not
      a CMS field -- so the drawer quotes the same number Stripe charges. */
@@ -1624,7 +1641,44 @@
     PSEUDO_ITEM_IDS.forEach(function (id) {
       ids[id] = true;
     });
+    /* Workshop tickets are not catalog products: they are known from the
+       calendar (events-data.js), where the build gives each workshop selling
+       tickets here its cart id. A page without the calendar keeps a ticket
+       line rather than guessing it is gone -- the Worker refuses one whose
+       workshop is over or off sale, and the drawer drops it then. */
+    var events =
+      (typeof root !== "undefined" && root && root.YL_EVENTS) ||
+      (typeof window !== "undefined" && window && window.YL_EVENTS) ||
+      null;
+    var upcoming = events && Array.isArray(events.upcoming) ? events.upcoming : null;
+    if (upcoming) {
+      upcoming.forEach(function (ev) {
+        if (ev && typeof ev.ticketId === "string" && ev.ticketId) ids[ev.ticketId] = true;
+      });
+    } else {
+      ids[ANY_TICKET] = true;
+    }
     return ids;
+  }
+
+  function isKnownId(known, id) {
+    if (!known) return true;
+    if (known[id]) return true;
+    return !!known[ANY_TICKET] && String(id).indexOf(TICKET_ID_PREFIX) === 0;
+  }
+
+  /* The upcoming workshop selling this ticket id on the site, or null. */
+  function calendarTicket(id) {
+    var events =
+      (typeof root !== "undefined" && root && root.YL_EVENTS) ||
+      (typeof window !== "undefined" && window && window.YL_EVENTS) ||
+      null;
+    var upcoming = events && Array.isArray(events.upcoming) ? events.upcoming : [];
+    for (var i = 0; i < upcoming.length; i++) {
+      var ev = upcoming[i];
+      if (ev && ev.ticketId === id && Number(ev.price) > 0) return ev;
+    }
+    return null;
   }
 
   function catalogProduct(id) {
@@ -1670,7 +1724,7 @@
         dropped++;
         return;
       }
-      if (known && !known[it.id]) {
+      if (!isKnownId(known, it.id)) {
         dropped++;
         return;
       }
@@ -1728,8 +1782,13 @@
          number in the drawer and was billed the new one at Stripe (red-team
          finding 1, 2026-09-03). The stored price only survives for a line
          the catalog cannot vouch for, which `known` has already dropped. */
+      var liveTicket = String(it.id).indexOf(TICKET_ID_PREFIX) === 0 ? calendarTicket(it.id) : null;
       if (liveBundle) {
         price = bundleLinePrice(liveBundle, it.bundleVariants, null) || price;
+      } else if (liveTicket) {
+        // A ticket is priced from its workshop on the calendar, as the Worker
+        // prices it (workers/state/tickets.js).
+        price = Number(liveTicket.price);
       } else if (live && typeof live.price === "number") {
         price = live.price;
         if (live.variants && Array.isArray(live.variants.options) && it.variantLabel) {
@@ -2288,7 +2347,7 @@
 
   function physicalSubtotal(items) {
     var raw = (items || []).reduce(function (sum, it) {
-      if (it.id === GIFT_CARD_ID) return sum;
+      if (shipsNothing(it)) return sum;
       return sum + unitPrice(it, items) * it.qty;
     }, 0);
     return Math.round(raw * 100) / 100;
@@ -2338,7 +2397,7 @@
         !root.YL_CONTENT.site ||
         root.YL_CONTENT.site.enableDispatchCountdown !== false;
       var dispatchHasPhysical = state.items.some(function (it) {
-        return it.id !== GIFT_CARD_ID;
+        return !shipsNothing(it);
       });
       if (dispatchEnabled && dispatchHasPhysical) {
         var status = calculateDispatchStatus();
@@ -2523,7 +2582,7 @@
     /* A gift-card-only cart has nothing to ship: no milestone bar, no
        pickup toggle, no dispatch countdown (verify-B H-5). */
     var hasPhysical = state.items.some(function (it) {
-      return it.id !== GIFT_CARD_ID;
+      return !shipsNothing(it);
     });
     var milestoneStatus = calculateMilestoneStatus(
       physSub,

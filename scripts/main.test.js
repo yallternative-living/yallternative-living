@@ -919,6 +919,58 @@ eq(
   "pickNextEvent ignores entries with a missing or unparseable date"
 );
 
+/* The countdown counts to the event's own start time. The CMS stores the day
+   only, so a date-only event takes its start from the first clock time in
+   dateLabel, read as Eastern time whatever zone the visitor is in (absolute
+   instants below, so the assertions hold in any TZ the suite runs under). */
+function startOf(evt) {
+  const picked = main.pickNextEvent([evt], TODAY);
+  return picked ? picked.startTime : null;
+}
+eq(
+  startOf({ date: "2026-11-06", dateLabel: "November 6, 2026 · Friday, 6:30pm", name: "Evening" }),
+  Date.parse("2026-11-06T18:30:00-05:00"),
+  "countdown targets a date-only event's 6:30pm label time, in Eastern standard time"
+);
+eq(
+  startOf({
+    date: "2026-09-19",
+    dateLabel: "September 19, 2026 · Saturday, 4pm–9pm",
+    name: "Range"
+  }),
+  Date.parse("2026-09-19T16:00:00-04:00"),
+  "countdown takes the opening time of an hours range, in Eastern daylight time"
+);
+eq(
+  startOf({
+    date: "2026-08-29",
+    endDate: "2026-08-30",
+    dateLabel: "August 29–30, 2026 · Sat & Sun, 11:30am–7pm",
+    name: "Two Day"
+  }),
+  Date.parse("2026-08-29T11:30:00-04:00"),
+  "countdown skips the day numbers in a multi-day label and reads 11:30am"
+);
+eq(
+  startOf({ date: "2026-10-03", dateLabel: "October 3, 2026 · Saturday, 12pm–4pm", name: "Noon" }),
+  Date.parse("2026-10-03T12:00:00-04:00"),
+  "countdown reads 12pm as noon"
+);
+eq(
+  startOf({ date: "2026-10-17", dateLabel: "October 17, 2026", name: "No Hours" }),
+  Date.parse("2026-10-17T09:00:00-04:00"),
+  "countdown falls back to 9am Eastern when the label carries no time"
+);
+eq(
+  startOf({
+    date: "2026-10-17T13:15:00-04:00",
+    dateLabel: "October 17, 2026 · 6pm",
+    name: "Stamped"
+  }),
+  Date.parse("2026-10-17T13:15:00-04:00"),
+  "countdown uses a full ISO date as written, ahead of the label"
+);
+
 /* 8. Milestone 2: Calendar, Maps & Pickup deep-linking exports */
 const testEv = {
   id: "punk-flea",
@@ -2854,8 +2906,10 @@ eq(main.quizParamName({}, 3), "quiz-step4", "quizParamName falls back to quiz-st
    drifts, so pin them together against the real assets/data/events.json.
    Asserts the tag EXISTS first: an empty match would otherwise make this
    check pass by comparing nothing. */
-const eventsJsonSrc = JSON.parse(
-  fs404.readFileSync(path404.join(repoRoot, "assets/data/events.json"), "utf8")
+/* Workshops (events.json `workshops`) are folded into the upcoming calendar
+   by the build, and so into its Event JSON-LD: run the same fold here. */
+const eventsJsonSrc = require("./build-site-data.js").mergeWorkshopsIntoUpcoming(
+  JSON.parse(fs404.readFileSync(path404.join(repoRoot, "assets/data/events.json"), "utf8"))
 );
 const contentJsonSrc = JSON.parse(
   fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
