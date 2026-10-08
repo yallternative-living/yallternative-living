@@ -956,6 +956,37 @@ eq(
   Date.parse("2026-10-03T12:00:00-04:00"),
   "countdown reads 12pm as noon"
 );
+/* Red team, 2026-10-08: a range sharing ONE am/pm, a spelled-out meridiem,
+   noon and 24-hour times. The old pattern took the first time with its own
+   am/pm, so "6:30–9pm" counted down to 9pm while the workshop ran. */
+[
+  [
+    "Friday, 6:30–9pm",
+    "2026-11-06T18:30:00-05:00",
+    "a range sharing the closing pm opens at 6:30pm"
+  ],
+  ["Friday, 6–9pm", "2026-11-06T18:00:00-05:00", "a bare-hour range sharing pm opens at 6pm"],
+  [
+    "Friday, 11–2pm",
+    "2026-11-06T11:00:00-05:00",
+    "a start later on the clock than the end is the morning"
+  ],
+  ["Friday, noon–4pm", "2026-11-06T12:00:00-05:00", "noon opens at 12pm"],
+  ["Friday, 6:30 p.m.", "2026-11-06T18:30:00-05:00", "a spelled-out p.m. is read"],
+  ["Friday, 18:30", "2026-11-06T18:30:00-05:00", "a 24-hour time is read"],
+  [
+    "Friday, 6:30 - 9:00 pm",
+    "2026-11-06T18:30:00-05:00",
+    "a spaced range with minutes opens at 6:30pm"
+  ],
+  ["Sat 10 AM - 2 PM", "2026-11-06T10:00:00-05:00", "upper-case AM/PM with spaces"]
+].forEach(function (c) {
+  eq(
+    startOf({ date: "2026-11-06", dateLabel: "November 6, 2026 · " + c[0], name: "Workshop" }),
+    Date.parse(c[1]),
+    "countdown: " + c[2]
+  );
+});
 eq(
   startOf({ date: "2026-10-17", dateLabel: "October 17, 2026", name: "No Hours" }),
   Date.parse("2026-10-17T09:00:00-04:00"),
@@ -1084,6 +1115,62 @@ assert(
 assert(
   !main.eventCardHTML(testEv, { past: true }).includes("event-share-btn"),
   "a past card has no Share button"
+);
+
+/* Share: a share sheet that never opens (NotAllowedError in an in-app
+   browser or iframe) falls back to copying the link; a dismissal does not
+   (red team, 2026-10-08). */
+const pendingAsync = [];
+async function shareOutcome(errName) {
+  const copiedUrls = [];
+  const savedNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const label = { textContent: "Share" };
+  const btn = {
+    classList: { add() {}, remove() {} },
+    querySelector: () => label
+  };
+  // defineProperty, not assignment: Node's own global `navigator` is an
+  // accessor, and a plain assignment to it is silently ignored.
+  const mockNavigator = {
+    userAgent: "node",
+    share: () => {
+      const err = new Error(errName);
+      err.name = errName;
+      return Promise.reject(err);
+    },
+    clipboard: {
+      writeText: (u) => {
+        copiedUrls.push(u);
+        return Promise.resolve();
+      }
+    }
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    value: mockNavigator,
+    configurable: true,
+    writable: true
+  });
+  try {
+    main.shareEvent({ id: "potions-night", name: "Potions Night" }, btn);
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+  } finally {
+    if (savedNavigator) Object.defineProperty(globalThis, "navigator", savedNavigator);
+  }
+  return { copiedUrls, label: label.textContent };
+}
+pendingAsync.push(
+  (async () => {
+    const blocked = await shareOutcome("NotAllowedError");
+    assert(
+      blocked.copiedUrls.length === 1 &&
+        /events\.html#potions-night$/.test(blocked.copiedUrls[0]) &&
+        blocked.label === "Link copied",
+      "share: a share sheet that cannot open copies the link instead"
+    );
+    const dismissed = await shareOutcome("AbortError");
+    assert(dismissed.copiedUrls.length === 0, "share: a dismissed share sheet copies nothing");
+  })()
 );
 const outside = main.eventCardHTML(
   Object.assign({}, workshopBase, { ticketUrl: "https://square.link/u/x" })
@@ -3421,6 +3508,7 @@ eq(
     "placeholder-coming-soon.svg contains botanical artwork"
   );
 
+  await Promise.all(pendingAsync);
   console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

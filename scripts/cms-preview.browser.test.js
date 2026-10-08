@@ -14,6 +14,7 @@ const puppeteer = require("puppeteer");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { resolveRequestPath } = require("./serve.js");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const PORT = 8105;
@@ -37,11 +38,14 @@ function startServer() {
     server = http.createServer((req, res) => {
       let reqPath = req.url.split("?")[0];
       if (reqPath === "/") reqPath = "/index.html";
-      let filePath = path.join(ROOT_DIR, reqPath);
-      if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+      // serve.js's resolver, not path.join: a raw join let
+      // /../../../etc/passwd (and /.git/, /.env) out of the repository while
+      // this suite ran (red team, 2026-10-08).
+      let filePath = resolveRequestPath(ROOT_DIR, reqPath);
+      if (filePath && fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
         filePath = path.join(filePath, "index.html");
       }
-      if (!fs.existsSync(filePath)) {
+      if (!filePath || !fs.existsSync(filePath)) {
         res.writeHead(404);
         res.end("Not Found");
         return;
@@ -61,7 +65,8 @@ function startServer() {
       res.end(fs.readFileSync(filePath));
     });
 
-    server.listen(PORT, resolve);
+    // Loopback only: with no host, listen() takes every interface.
+    server.listen(PORT, "127.0.0.1", resolve);
   });
 }
 

@@ -953,6 +953,51 @@ async function run() {
   }
 
   /* ======================================================================
+     Red team, 2026-10-08: each row is guarded by its own file's fetch time.
+     Workshop tickets come from events.json, products from products.json,
+     cached separately. Stamping every row with the older of the two
+     refused a fresh ticket correction whenever the products copy predated
+     the last seed -- through the real loadCatalog/trackedProductsOf path.
+     ====================================================================== */
+  {
+    const db = await freshDb();
+    inv.resetInventoryMemo();
+    const P1 = 100_000; // products.json copy, served first
+    const E1 = 100_100; // events.json copy, 100s newer
+    const tracked = (spots, eventsAt) =>
+      inv.trackedProductsOf([
+        { id: "shea", stock: 10 },
+        { id: "ticket-night", stock: spots, isTicket: true, fetchedAt: eventsAt }
+      ]);
+    eq(
+      tracked(12, E1).find((p) => p.id === "ticket-night").fetchedAt,
+      E1,
+      "trackedProductsOf keeps an entry's own fetch time"
+    );
+    await inv.syncInventory(db, tracked(12, E1), E1 + 5, P1);
+    // The owner corrects the spots to 8. events.json is refetched; the
+    // products copy is still the same edge-cached one.
+    const E2 = E1 + 200;
+    const fix = await inv.syncInventory(db, tracked(8, E2), E2 + 5, P1);
+    eq(fix.changed, 1, "a ticket correction applies though the products copy is older");
+    const rows = await inv.readAvailability(db, ["shea", "ticket-night"]);
+    eq(
+      [rows.get("shea").onHand, rows.get("ticket-night").onHand],
+      [10, 8],
+      "...the ticket row takes the new count and the product row is untouched"
+    );
+    // A stale events copy (older than the correction) still cannot undo it.
+    inv.resetInventoryMemo();
+    const stale = await inv.syncInventory(db, tracked(12, E1), E2 + 50, P1 + 400);
+    eq(stale.changed, 0, "an older events.json copy cannot reseed the ticket backwards");
+    eq(
+      (await inv.readAvailability(db, ["ticket-night"])).get("ticket-night").onHand,
+      8,
+      "...the correction stands"
+    );
+  }
+
+  /* ======================================================================
      Red team, 2026-09-09: reseed monotonicity, untrack/retrack, bind
      chunking, seed clamp, and the v7 -> v8 column migration on a live DB.
      ====================================================================== */

@@ -183,12 +183,36 @@ function installGitHubStub(state) {
           headers: { "Content-Type": "application/json", "X-RateLimit-Remaining": "0" }
         });
       }
+      if (state.probeFail === "secondary") {
+        // GitHub's SECONDARY limit: a non-zero remaining count, Retry-After.
+        return new Response(
+          JSON.stringify({ message: "You have exceeded a secondary rate limit." }),
+          {
+            status: 403,
+            headers: {
+              "Content-Type": "application/json",
+              "X-RateLimit-Remaining": "4321",
+              "Retry-After": "60"
+            }
+          }
+        );
+      }
       if (state.probeFail) return ghResponse(state.probeFail, {});
-      return info.contentsWrite
+      // A classic token writes when its account may push (the scopes were
+      // checked first) unless `contentsWrite` says otherwise -- an OAuth app
+      // the organisation has not approved, say.
+      const canWrite = info.contentsWrite !== undefined ? info.contentsWrite : info.push;
+      return canWrite
         ? ghResponse(422, { message: "Object does not exist" })
         : ghResponse(403, { message: "Resource not accessible by personal access token" });
     }
     if (route.startsWith("/repos/")) {
+      if (state.repoNotJson) {
+        return new Response("<html>upstream error</html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" }
+        });
+      }
       // `noPerms`: a 200 with no permissions object at all.
       return ghResponse(
         200,
@@ -378,7 +402,8 @@ async function main() {
     // GitHub failing to answer the write check is about us, not the token.
     for (const [fail, label] of [
       [500, "a 5xx"],
-      ["rate", "a rate-limited 403"]
+      ["rate", "a rate-limited 403"],
+      ["secondary", "a secondary-rate-limit 403"]
     ]) {
       gh.probeFail = fail;
       const fg = "github_pat_" + freshOwnerToken().slice(4);
@@ -389,6 +414,25 @@ async function main() {
       const again = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
       assert(again.status === 200, `${label} from the write check is not cached`);
     }
+  }
+
+  {
+    // A 200 from the repository check that is not JSON is GitHub failing to
+    // answer -- not a five-minute refusal of the owner.
+    gh.repoNotJson = true;
+    const token = freshOwnerToken();
+    const res = await handleUnfulfilledOrders(request(bearer(token)), env, ORIGIN);
+    assert(res.status === 503, "a non-JSON 200 from the repository check answers 503");
+    gh.repoNotJson = false;
+    const again = await handleUnfulfilledOrders(request(bearer(token)), env, ORIGIN);
+    assert(again.status === 200, "a non-JSON 200 from the repository check is not cached");
+  }
+  {
+    // A classic token with the scope, on an account with push, that still
+    // cannot write -- another OAuth app the organisation has not approved.
+    const token = freshOwnerToken({ contentsWrite: false });
+    const res = await handleUnfulfilledOrders(request(bearer(token)), env, ORIGIN);
+    assert(res.status === 403, "a classic token that cannot write is refused (write check)");
   }
 
   // Absent `permissions` must never be read as permission.
@@ -415,9 +459,12 @@ async function main() {
     await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
     const afterFirst = gh.calls.length;
     await handleUnfulfilledOrders(request(AUTH), env, ORIGIN);
-    assert(afterFirst === 2, "the first verification asks GitHub twice (/user, then the repo)");
     assert(
-      gh.calls.length === 2,
+      afterFirst === 3,
+      "the first verification asks GitHub three times (/user, the repo, the write check)"
+    );
+    assert(
+      gh.calls.length === 3,
       "a repeat request inside the cache window calls GitHub again 0 times"
     );
     assert(gh.calls[0].url === "https://api.github.com/user", "identity and scopes come first");
@@ -453,7 +500,9 @@ async function main() {
       ORIGIN
     );
     assert(
-      gh.calls.length === 2 && gh.calls[1].url.endsWith("/repos/someone/else"),
+      gh.calls.length === 3 &&
+        gh.calls[1].url.endsWith("/repos/someone/else") &&
+        gh.calls[2].url.endsWith("/repos/someone/else/git/refs"),
       "GITHUB_REPO picks the repository that is checked"
     );
   }
@@ -607,6 +656,80 @@ async function main() {
     // ...but an owner already verified in this isolate is served from cache.
     const warmOwner = await handleUnfulfilledOrders(request(AUTH), limitedEnv, ORIGIN);
     assert(warmOwner.status === 200, "a full bucket does not lock out a cached owner");
+  }
+  {
+    // THE LOCKOUT, second form (red team, 2026-10-08): 30 well-formed fake
+    // tokens a minute hold the global bucket for as long as they keep coming,
+    // and the owner's cache entry lasts one minute in one isolate. A token
+    // GitHub said yes to before -- in ANY isolate, so remembered in D1 -- is
+    // counted in a bucket of its own once the global one is full.
+    const crypto = require("crypto");
+    const digest = (t) => crypto.createHash("sha256").update(t).digest("hex");
+    const calls = [];
+    const floodedLimiter = {
+      calls,
+      async limit({ key }) {
+        calls.push(key);
+        return { success: key !== "admin-auth" };
+      }
+    };
+    const floodedEnv = { ...env, RATE_LIMITER: floodedLimiter };
+
+    // Verified in another isolate: the row is there, this isolate's cache is not.
+    const remembered = freshOwnerToken();
+    await env.STATE_DB.prepare("INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?)")
+      .bind("admin-known:" + digest(remembered), Date.now())
+      .run();
+    const owner = await handleUnfulfilledOrders(request(bearer(remembered)), floodedEnv, ORIGIN);
+    assert(
+      owner.status === 200,
+      "a flooded bucket does not lock out a token GitHub verified before"
+    );
+    assert(
+      calls.length === 2 &&
+        calls[0] === "admin-auth" &&
+        calls[1] === "admin-auth-known:" + digest(remembered),
+      "the remembered token is counted in its own bucket, keyed by its digest"
+    );
+
+    const stranger = await handleUnfulfilledOrders(
+      request(bearer(unknownToken(900))),
+      floodedEnv,
+      ORIGIN
+    );
+    assert(stranger.status === 429, "a flooded bucket still refuses a token never verified");
+
+    const stale = freshOwnerToken();
+    await env.STATE_DB.prepare("INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?)")
+      .bind("admin-known:" + digest(stale), Date.now() - 91 * 24 * 60 * 60 * 1000)
+      .run();
+    const staleRes = await handleUnfulfilledOrders(request(bearer(stale)), floodedEnv, ORIGIN);
+    assert(staleRes.status === 429, "a yes older than KNOWN_TOKEN_MS is not honoured");
+
+    // Any successful verification is remembered...
+    const fresh = freshOwnerToken();
+    await handleUnfulfilledOrders(request(bearer(fresh)), env, ORIGIN);
+    const row = await env.STATE_DB.prepare("SELECT job FROM job_state WHERE job = ?")
+      .bind("admin-known:" + digest(fresh))
+      .first();
+    assert(row !== null, "a verified token is remembered by its digest");
+    const leaked = await env.STATE_DB.prepare("SELECT job FROM job_state WHERE job LIKE ?")
+      .bind("%" + fresh + "%")
+      .first();
+    assert(leaked === null, "the token itself is never written to D1");
+
+    // ...and a token GitHub now refuses is forgotten at once.
+    const revoked = freshOwnerToken();
+    await env.STATE_DB.prepare("INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?)")
+      .bind("admin-known:" + digest(revoked), Date.now())
+      .run();
+    delete TOKENS[revoked];
+    const revokedRes = await handleUnfulfilledOrders(request(bearer(revoked)), floodedEnv, ORIGIN);
+    assert(revokedRes.status === 401, "a remembered token GitHub refuses is still refused");
+    const gone = await env.STATE_DB.prepare("SELECT job FROM job_state WHERE job = ?")
+      .bind("admin-known:" + digest(revoked))
+      .first();
+    assert(gone === null, "a refused token loses its remembered row");
   }
   {
     // The bucket must not be pickable by the caller: on the workers.dev

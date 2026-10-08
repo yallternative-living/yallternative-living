@@ -27,6 +27,9 @@
  */
 
 export const TICKET_ID_PREFIX = "ticket-";
+/** How every ticket's Stripe line name starts (ticketName). The order digest
+    reads it to tell a ticket from something to pack. */
+export const TICKET_NAME_PREFIX = "Ticket: ";
 export const TICKET_CATEGORY = "workshops";
 
 /** Mirror of scripts/build-site-data.js slugify(). Keep them identical. */
@@ -70,11 +73,25 @@ export function sellsTicketsOnSite(workshop) {
   return Number.isFinite(price) && price > 0 && Number.isInteger(spots) && spots >= 0;
 }
 
+/**
+ * The ticket image as a path on this site, or null. checkout.js prefixes it
+ * with SITE_ORIGIN, so an outside URL typed into the CMS would come out as
+ * `https://site/https://...` -- a broken image on the Stripe page. The CMS
+ * field no longer takes URLs (admin/config.yml `choose_url: false`); a
+ * hand-edited one falls back to the logo here.
+ */
+function siteImagePath(image) {
+  if (typeof image !== "string" || !image.trim()) return null;
+  const value = image.trim();
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//")) return null;
+  return value;
+}
+
 function ticketName(workshop) {
   const when = workshop.dateLabel || workshop.date || "";
   const where = [workshop.venue, workshop.location].filter(Boolean).join(", ");
   const detail = [when, where].filter(Boolean).join(" · ");
-  return `Ticket: ${workshop.name}${detail ? ` (${detail})` : ""}`;
+  return `${TICKET_NAME_PREFIX}${workshop.name}${detail ? ` (${detail})` : ""}`;
 }
 
 /**
@@ -103,7 +120,7 @@ export function ticketEntriesOf(events, todayStr) {
       category: TICKET_CATEGORY,
       price: Math.round(Number(workshop.price) * 100) / 100,
       stock: Number(workshop.spots),
-      image: typeof workshop.image === "string" && workshop.image ? workshop.image : null,
+      image: siteImagePath(workshop.image),
       isTicket: true,
       workshopId
     });

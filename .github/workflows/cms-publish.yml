@@ -19,15 +19,32 @@ name: CMS Auto-Publisher
 # 5. Every branch that passes is committed into `main` in one batch. One bad branch
 #    does not hold the others hostage: the owner's legitimate saves still go live,
 #    and the run is failed red at the very end so the rejected branch is noticed.
-# 6. Full data compilation and static QA gates run before pushing to guarantee zero breakage.
-#    They run WITHOUT ambient git credentials (`persist-credentials: false`); the token is
-#    only handed to the fetch (unset before any merge) and to the push step, which also
-#    disables git hooks.
+# 6. Before anything is pushed the merged result is compiled and put through every gate
+#    that CONTENT can fail: the smoke gate, `npm test` (the unit pool, several suites of
+#    which read the real data files, plus qa-check's static assertions: JSON-LD, links,
+#    images, prices, ratings), and the two browser gates whose subject is what the
+#    content renders as -- a11y-check.js (axe-core over every page: alt text, link text,
+#    duplicate ids) and text-layout.browser.test.js (a long name clipped or orphaned at
+#    phone width). They have to run HERE: this job pushes with GITHUB_TOKEN, and a push
+#    made with that token starts no other workflow, so test.yml never runs on a CMS
+#    publish (red team, 2026-10-08 -- only the smoke gate and qa-check stood between a
+#    save and production).
+#    What is deliberately NOT run: lint, the other browser suites (cart, search,
+#    translation, promo codes, CSP stress, reveal -- code behaviour, several of them on
+#    fixture data on purpose) and the Firefox/WebKit cross-browser gate. A content-only
+#    merge cannot change what they test, test.yml runs all of them on every code change,
+#    and each one added here is one more way a timing flake the owner cannot diagnose
+#    holds back a product edit. Chromium only, so no Playwright engines to download.
+#    All of it runs WITHOUT ambient git credentials (`persist-credentials: false`); the
+#    token is only handed to the fetch (unset before any merge) and to the push step,
+#    which also disables git hooks.
 # 7. Netlify detects the single push to `main` and runs EXACTLY ONE production build.
 # 8. Merged CMS branches are deleted (only if they still point at the commit that was
 #    checked -- a save made mid-run is kept) and their PRs closed, marking entries
 #    published in Sveltia. A rejected branch is not contained in main, so it and its PR
-#    stay for the owner to review or delete by hand.
+#    stay for the owner to review or delete by hand. A branch found ALREADY in main (a
+#    run cut off between its push and its cleanup) is cleaned up too, even when nothing
+#    new is published -- it used to wait for some unrelated save.
 # 9. If any branch was rejected the run then fails with an ::error:: summary.
 #
 # LIMITS OF THE GATE: it only matters while `main` has a ruleset blocking direct
@@ -61,7 +78,8 @@ jobs:
   batch-and-publish:
     name: Batch & Publish CMS Edits
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The two browser gates (step 6) take about five minutes of this.
+    timeout-minutes: 25
     env:
       PUPPETEER_SKIP_DOWNLOAD: "true"
       PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
@@ -183,6 +201,7 @@ jobs:
           if [ -z "$CMS_BRANCHES" ]; then
             echo "No CMS branches pending publication."
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
             echo "rejected=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -191,6 +210,7 @@ jobs:
           echo "$CMS_BRANCHES"
 
           merged_count=0
+          stale_count=0
           rejected_branches=""
           raw_diff=$(mktemp)
 
@@ -211,6 +231,20 @@ jobs:
             # Already contained in main (e.g. a run whose cleanup was cut short).
             if git merge-base --is-ancestor "$branch_clean" HEAD; then
               echo "::notice title=CMS branch has no changes::$branch_clean is already in main; nothing to merge (it is deleted at cleanup)."
+              stale_count=$((stale_count + 1))
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Every commit on the branch lands in main's history, not just the net
+            # change the allow-list checks below. A message carrying a CI/deploy skip
+            # token would ride along -- and Netlify honours `[skip netlify]` anywhere in
+            # a push, so that production build would be silently skipped (AGENTS.md).
+            # Sveltia never writes one; a branch that has one did not come from it.
+            if git log --format=%B "HEAD..$branch_clean" |
+              grep -Eiq '\[(skip|no)[ _-]?(ci|netlify|actions)\]|\[(ci|netlify|actions)[ _-]?skip\]|^skip-checks:[[:space:]]*true'; then
+              echo "::error title=CMS branch carries a skip token::$branch_clean was NOT merged: a commit message on it contains a CI or deploy skip token ([skip netlify], [skip ci], ...), which would ride into main's history and skip the production build. Sveltia never writes one. Other CMS branches still publish; review or delete this one."
+              rejected_branches="${rejected_branches}${branch_clean} "
               echo "::endgroup::"
               continue
             fi
@@ -295,6 +329,12 @@ jobs:
             echo "Rejected (skipped, not merged): ${rejected}"
           fi
 
+          if [ "$stale_count" -gt 0 ]; then
+            echo "has_stale=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
           if [ "$merged_count" -eq 0 ]; then
             echo "No CMS branch passed the gate with changes; nothing to publish."
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
@@ -310,6 +350,12 @@ jobs:
         # merged tree and must not be able to push or call the GitHub API.
         run: |
           set -euo pipefail
+          # Writes a blank workshop id once (the slug already in use), so a later
+          # rename or new date keeps the ticket count and shared links. Committed
+          # below with the build output.
+          echo "Stamping workshop ids..."
+          node scripts/stamp-workshop-ids.js
+
           echo "Rebuilding site data and product pages..."
           node scripts/build-site-data.js
 
@@ -322,12 +368,28 @@ jobs:
           echo "Running fast smoke gate..."
           node scripts/smoke-test.js
 
-          echo "Running static QA assertion gate..."
-          node scripts/qa-check.js
+          echo "Running the unit pool and the static QA assertion gate..."
+          npm test
+
+      - name: Accessibility & Text-Layout Gates
+        if: steps.merge-cms.outputs.has_changes == 'true'
+        # The two browser gates content can fail (step 6 in the header says which, and
+        # why the rest are left to test.yml). Same rule as the step above: no token
+        # here. The job-level skip switches keep `npm ci` light; this step installs the
+        # one browser it is about to open.
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "false"
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "false"
+        run: |
+          set -euo pipefail
+          node node_modules/puppeteer/install.mjs
+          node scripts/a11y-check.js
+          node scripts/text-layout.browser.test.js
 
       - name: Push to Main & Clean Up CMS Branches
-        if: steps.merge-cms.outputs.has_changes == 'true'
+        if: steps.merge-cms.outputs.has_changes == 'true' || steps.merge-cms.outputs.has_stale == 'true'
         env:
+          HAS_CHANGES: ${{ steps.merge-cms.outputs.has_changes }}
           # Token is scoped to this step only (explicit push auth + `gh pr close`).
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -352,8 +414,12 @@ jobs:
           # gh reads GH_TOKEN; the raw token is not needed past this point.
           unset B64 GITHUB_TOKEN
 
-          echo "Pushing batched publication to origin/main..."
-          git push origin main
+          if [ "$HAS_CHANGES" = "true" ]; then
+            echo "Pushing batched publication to origin/main..."
+            git push origin main
+          else
+            echo "Nothing new to publish; cleaning up CMS branches already in main."
+          fi
 
           echo "Cleaning up merged CMS remote branches..."
           # Only a branch now contained in main is deleted (a rejected one was never

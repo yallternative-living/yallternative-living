@@ -102,10 +102,15 @@ export function trackedProductsOf(entries) {
   const out = [];
   for (const entry of entries || []) {
     if (!entry || typeof entry.id !== "string" || !isTracked(entry)) continue;
-    out.push({
+    const row = {
       id: entry.id,
       stock: Math.min(MAX_SEED_STOCK, Math.max(0, Math.floor(entry.stock)))
-    });
+    };
+    // An entry read from a different file than the rest of the catalog (a
+    // workshop ticket, from events.json) carries that file's own fetch time;
+    // see syncInventory.
+    if (Number.isFinite(entry.fetchedAt)) row.fetchedAt = entry.fetchedAt;
+    out.push(row);
   }
   return out;
 }
@@ -159,9 +164,16 @@ export async function syncInventory(db, tracked, now = Date.now(), catalogFetche
      colo) used to flip the row back to the old count and erase the sales in
      between (red team, 2026-09-09). Without a fetch time the sync stamps
      `now`, which keeps the guard strictly forward-moving. */
-  const seenAt = Number.isFinite(catalogFetchedAt) ? Math.floor(catalogFetchedAt) : now;
+  const catalogSeenAt = Number.isFinite(catalogFetchedAt) ? Math.floor(catalogFetchedAt) : now;
   const statements = [];
   for (const p of list) {
+    /* Each row is guarded by the fetch time of the file ITS count came from.
+       A workshop ticket's spots come from events.json, cached separately
+       from products.json; stamping every row with the older of the two
+       refused a fresh correction whenever the other file's cached copy
+       predated the last seed -- and the memo below then never retried it
+       (red team, 2026-10-08). */
+    const seenAt = Number.isFinite(p.fetchedAt) ? Math.floor(p.fetchedAt) : catalogSeenAt;
     statements.push(
       db
         .prepare(

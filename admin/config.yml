@@ -1166,7 +1166,7 @@ singletons:
               value_type: int,
               min: 0,
               required: false,
-              hint: "How many tickets the website can sell. It counts down by itself as people buy, so only change it to correct the number left (say, after selling some in person). Changing the workshop's name or date after tickets sell starts the count over -- fix this number if you do."
+              hint: "How many tickets the website can sell. It counts down by itself as people buy, so only change it to correct the number left (say, after selling some in person)."
             }
           - {
               name: ticketUrl,
@@ -1232,6 +1232,8 @@ singletons:
               name: image,
               label: "Ticket image",
               widget: image,
+              choose_url: false,
+              accept: "image/jpeg,image/png",
               required: false,
               hint: "Optional. Shown next to the ticket in the cart and on the checkout page. Without one, the logo is used."
             }
@@ -1241,7 +1243,7 @@ singletons:
               widget: string,
               required: false,
               readonly: true,
-              hint: "Leave blank and it's made from the name and date."
+              hint: "Filled in by itself from the name and date the first time you save, then never changes -- so renaming the workshop or moving its date later keeps its ticket count and any links people have shared."
             }
       - name: past
         label: "Past appearances"

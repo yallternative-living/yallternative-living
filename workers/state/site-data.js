@@ -177,11 +177,11 @@ export async function loadProductIndex(env, ctx) {
       comingSoon: undefined,
       squareSkus: [],
       productIds: [],
-      isTicket: true
+      isTicket: true,
+      // Judged by events.json's own fetch time in the ledger, not
+      // products.json's (workers/state/inventory.js syncInventory).
+      ...(Number.isFinite(eventsFetchedAt) ? { fetchedAt: eventsFetchedAt } : {})
     });
-  }
-  if (Number.isFinite(eventsFetchedAt) && Number.isFinite(index.fetchedAt)) {
-    index.fetchedAt = Math.min(index.fetchedAt, eventsFetchedAt);
   }
   return index;
 }

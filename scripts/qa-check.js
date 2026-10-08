@@ -182,7 +182,9 @@ PAGES.forEach(function (page) {
     return;
   }
   var html = fs.readFileSync(full, "utf8");
-  var blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g) || [];
+  // `[^>]*`: the events page's block carries an id, and the old pattern
+  // (`json">` exactly) skipped it -- the one block CMS titles flow into.
+  var blocks = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g) || [];
   blocks.forEach(function (block, i) {
     var jsonText = block.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, "");
     try {
@@ -190,6 +192,13 @@ PAGES.forEach(function (page) {
       ok(page + " JSON-LD block #" + (i + 1));
     } catch (e) {
       fail(page + " JSON-LD block #" + (i + 1), e.message);
+    }
+    // Valid JSON is not enough inside <script>: "<!--" followed by
+    // "<script" puts the HTML parser in its escaped state and the block
+    // swallows the page up to the next </script>. The build escapes every
+    // "<" (escapeJsonForScript), so a raw one here is a missed block.
+    if (/<!--|<script/i.test(jsonText)) {
+      fail(page + " JSON-LD block #" + (i + 1), 'holds a raw "<!--" or "<script"');
     }
   });
 });
@@ -2245,6 +2254,58 @@ if (!fs.existsSync(configYmlPath)) {
       "sidebar sections missing divider: true partitions or corrupting singletons"
     );
   }
+
+  // Every image upload field must take only what the publisher accepts.
+  // .github/workflows/cms-publish.yml lets assets/img/ .jpg/.jpeg/.png
+  // through and refuses the WHOLE cms/ branch over anything else, so one
+  // field without `accept` let a .webp ticket image block the save it came
+  // with; without `choose_url: false` the owner could type an outside URL the
+  // Worker then prefixes with the site origin (red team, 2026-10-08).
+  (function () {
+    var parsed = null;
+    try {
+      parsed = require("js-yaml").load(configYml);
+    } catch (e) {
+      fail("admin/config.yml image fields", "config.yml could not be parsed: " + e.message);
+      return;
+    }
+    var imageFields = [];
+    (function walk(node, trail) {
+      if (Array.isArray(node)) {
+        node.forEach(function (child) {
+          walk(child, trail);
+        });
+      } else if (node && typeof node === "object") {
+        var here = node.name ? trail.concat(String(node.name)) : trail;
+        if (node.widget === "image") imageFields.push({ field: node, at: here.join(" > ") });
+        Object.keys(node).forEach(function (k) {
+          walk(node[k], here);
+        });
+      }
+    })(parsed, []);
+    var loose = imageFields.filter(function (f) {
+      return f.field.accept !== "image/jpeg,image/png" || f.field.choose_url !== false;
+    });
+    if (imageFields.length === 0) {
+      fail("admin/config.yml image fields", "found no widget: image fields at all");
+    } else if (loose.length) {
+      fail(
+        "admin/config.yml image fields",
+        'missing accept: "image/jpeg,image/png" or choose_url: false: ' +
+          loose
+            .map(function (f) {
+              return f.at;
+            })
+            .join(", ")
+      );
+    } else {
+      ok(
+        "all " +
+          imageFields.length +
+          " CMS image fields take only .jpg/.png uploads (what cms-publish lets through)"
+      );
+    }
+  })();
 
   // Every real top-level key in each CMS-editable JSON file needs a
   // corresponding field defined in config.yml, or the CMS would silently
