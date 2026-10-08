@@ -164,14 +164,23 @@ const INCOMPLETE_BASELINE = {
      day four September pop-ups were added -- exactly the edit the owner
      makes without a developer -- so the pin is a base for the page chrome
      plus one node per rendered button. Adding an event never moves it;
-     a new undecidable element on the page still does. */
+     a new undecidable element on the page still does. With nothing on the
+     calendar the cards give way to the "New Pop-Ups Land Here" block, whose
+     Instagram and TikTok buttons are the same undecidable kind (measured
+     2026-10-08: 21 nodes = 19 chrome + those 2), so they count the same way. */
   "events.html [dark]": {
     base: 19,
-    perElement: [{ selector: ".event-actions-row .btn", allowance: 1 }]
+    perElement: [
+      { selector: ".event-actions-row .btn", allowance: 1 },
+      { selector: ".event-empty .btn", allowance: 1 }
+    ]
   },
   "events.html [light]": {
     base: 19,
-    perElement: [{ selector: ".event-actions-row .btn", allowance: 1 }]
+    perElement: [
+      { selector: ".event-actions-row .btn", allowance: 1 },
+      { selector: ".event-empty .btn", allowance: 1 }
+    ]
   },
   "faq.html [dark]": 11,
   "faq.html [light]": 11,
@@ -343,6 +352,20 @@ const INTERACTIVE_STATES = [
     name: "nav open @390",
     pages: ["index.html", "shop.html"],
     settle: 400,
+    /* The open panel makes everything outside the header inert on purpose
+       (main.js syncNavInert: Tab stays in the menu), so the page's <main>
+       and <h1> are correctly hidden from assistive tech while it is open.
+       axe only passes these two page-level rules in that state when its
+       isModalOpen() heuristic decides the panel is a modal -- five sample
+       points, the top one 105.5px down a 390x844 viewport, must all land on
+       it. The panel starts under the announcement bar, so the verdict hung
+       on the bar's height: one line (a countdown) put the panel's top at
+       104px and passed; two lines (the empty-calendar "Stay tuned..." text,
+       or any long event name) put it at 119px and failed. Both rules are
+       about the page itself and are asserted on the same pages by the
+       "mobile @390" scan above; here they only measured the bar. Every
+       other rule still runs on this state. */
+    skipPageRules: ["landmark-one-main", "page-has-heading-one"],
     open: `
       ${OPEN_HELPERS}
       var toggle = assertPresent(".nav-toggle", "the mobile nav toggle");
@@ -444,12 +467,20 @@ function budgetFor(label) {
 /* Runs axe on whatever is currently on `page` and records the result under
    `label`. Shared by both phases so they cannot drift apart. Returns the
    number of violations found. */
-async function scanAndRecord(page, label, axeSource, incompleteByPage, pin) {
+async function scanAndRecord(page, label, axeSource, incompleteByPage, pin, skipRules = []) {
   await page.evaluate(axeSource);
-  const result = await page.evaluate(async (tags) => {
-    // eslint-disable-next-line no-undef
-    return await axe.run(document, { runOnly: { type: "tag", values: tags } });
-  }, AXE_TAGS);
+  const result = await page.evaluate(
+    async (tags, skip) => {
+      const rules = {};
+      skip.forEach((id) => {
+        rules[id] = { enabled: false };
+      });
+      // eslint-disable-next-line no-undef
+      return await axe.run(document, { runOnly: { type: "tag", values: tags }, rules });
+    },
+    AXE_TAGS,
+    skipRules
+  );
 
   const incomplete = result.incomplete || [];
   const incompleteNodes = incomplete.reduce((n, v) => n + v.nodes.length, 0);
@@ -692,7 +723,8 @@ async function scanAndRecord(page, label, axeSource, incompleteByPage, pin) {
               label,
               axeSource,
               incompleteByPage,
-              interactiveBaselineFor(label)
+              interactiveBaselineFor(label),
+              state.skipPageRules || []
             );
             if (found) violationCount += found;
             else console.log(`  ✓ ${label} -- ${note}`);
