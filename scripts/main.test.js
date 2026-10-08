@@ -2906,8 +2906,10 @@ eq(main.quizParamName({}, 3), "quiz-step4", "quizParamName falls back to quiz-st
    drifts, so pin them together against the real assets/data/events.json.
    Asserts the tag EXISTS first: an empty match would otherwise make this
    check pass by comparing nothing. */
-const eventsJsonSrc = JSON.parse(
-  fs404.readFileSync(path404.join(repoRoot, "assets/data/events.json"), "utf8")
+/* Workshops (events.json `workshops`) are folded into the upcoming calendar
+   by the build, and so into its Event JSON-LD: run the same fold here. */
+const eventsJsonSrc = require("./build-site-data.js").mergeWorkshopsIntoUpcoming(
+  JSON.parse(fs404.readFileSync(path404.join(repoRoot, "assets/data/events.json"), "utf8"))
 );
 const contentJsonSrc = JSON.parse(
   fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")

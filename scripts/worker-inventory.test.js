@@ -833,9 +833,30 @@ async function run() {
   {
     const env = await makeEnv();
     const originalFetch = global.fetch;
+    /* The calendar is read too: a workshop selling tickets on the site is a
+       tracked entry like a product (workers/state/tickets.js). `eventsDown`
+       stands in for an unreachable events.json. */
+    let eventsDown = false;
+    const mockEvents = {
+      upcoming: [],
+      past: [],
+      workshops: [
+        {
+          name: "Potions Night",
+          date: "2099-11-06",
+          dateLabel: "November 6, 2099 · 6:30pm",
+          location: "Landrum, SC",
+          price: 60,
+          spots: 12
+        }
+      ]
+    };
     global.fetch = async (url) => {
       if (String(url).includes("products.json")) {
         return { ok: true, clone: () => ({ body: null }), json: async () => mockCatalog };
+      }
+      if (String(url).includes("events.json") && !eventsDown) {
+        return { ok: true, clone: () => ({ body: null }), json: async () => mockEvents };
       }
       return { ok: false, status: 404, json: async () => ({}) };
     };
@@ -863,12 +884,32 @@ async function run() {
             "single-tee": { available: 0, tracked: true },
             "boxable-salve": { available: 2, tracked: true },
             "boxable-soak": { available: 9, tracked: true },
-            "boxable-body": { available: 9, tracked: true }
+            "boxable-body": { available: 9, tracked: true },
+            "ticket-potions-night-2099-11-06": { available: 12, tracked: true }
           }
         },
-        "the shape is { products: { id: { available, tracked: true } } } for tracked products only"
+        "the shape is { products: { id: { available, tracked: true } } } for tracked products only, workshop tickets included"
       );
       assert(!("lavender-soak" in body.products), "an untracked product is absent, not zero");
+
+      /* No calendar: no tickets in the index, and syncing that would mark the
+         ticket row untracked so the next sync reseeds it -- forgetting tickets
+         sold. The route refuses instead, and the row is left exactly as is. */
+      await env.STATE_DB.prepare(
+        "UPDATE inventory SET on_hand = 5 WHERE product_id = 'ticket-potions-night-2099-11-06'"
+      ).run();
+      inv.resetInventoryMemo();
+      eventsDown = true;
+      const down = await get(env, "2.2.2.2");
+      eq(down.status, 503, "events.json unreachable: GET /api/inventory answers 503, no sync");
+      eventsDown = false;
+      inv.resetInventoryMemo();
+      const back = await (await get(env, "3.3.3.3")).json();
+      eq(
+        back.products["ticket-potions-night-2099-11-06"],
+        { available: 5, tracked: true },
+        "...and the ticket count (7 of 12 sold) survives: the next sync does not reseed it"
+      );
 
       const { INVENTORY_RATE_LIMIT } = routes;
       let last;

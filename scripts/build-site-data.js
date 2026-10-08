@@ -1427,6 +1427,60 @@ function ensureEventId(evt, usedIds, idx) {
   }
   return evt.id;
 }
+
+/* Workshops & classes (the CMS's "Workshops & classes" list, events.json
+   `workshops`). The same rule workers/state/tickets.js sellsTicketsOnSite()
+   applies before the Worker will price a ticket -- the two MUST agree, or a
+   card offers a ticket checkout refuses (scripts/worker-tickets.test.js pins
+   them together): a positive price, a whole number of spots, and no outside
+   ticket link. */
+function workshopSellsOnSite(w) {
+  if (!w || typeof w !== "object") return false;
+  if (typeof w.ticketUrl === "string" && w.ticketUrl.trim()) return false;
+  const price = Number(w.price);
+  const spots = Number(w.spots);
+  return Number.isFinite(price) && price > 0 && Number.isInteger(spots) && spots >= 0;
+}
+
+/* Folds events.json's `workshops` into `upcoming`, so everything that reads
+   the calendar -- the events page, the countdown, search, Event JSON-LD, the
+   day-after archive and the cart's pickup list -- has them with no second
+   code path. Each one gets `kind: "workshop"`, its id (the CMS id, else the
+   slug of "<name> <date>" ensureEventId would make; the Worker derives the
+   same one, so it has to be the bare slug -- never a "-2" suffix) and, when
+   tickets sell on the site, the cart line id `ticketId`. Mutates and returns
+   `events`; `workshops` is removed so nothing reads them twice. */
+function mergeWorkshopsIntoUpcoming(events) {
+  if (!events || typeof events !== "object") return events;
+  const workshops = Array.isArray(events.workshops) ? events.workshops : [];
+  if (!Array.isArray(events.upcoming)) events.upcoming = [];
+  const seen = new Set();
+  workshops.forEach(function (w) {
+    if (!w || typeof w !== "object") return;
+    const id =
+      typeof w.id === "string" && w.id.trim()
+        ? w.id.trim()
+        : slugify([w.name, w.date].filter(Boolean).join(" "));
+    if (!id) {
+      throw new Error(
+        "A workshop in assets/data/events.json has neither a name nor a date -- it needs both."
+      );
+    }
+    if (seen.has(id)) {
+      throw new Error(
+        'Two workshops in assets/data/events.json come out as "' +
+          id +
+          '" (same name and date). Give one of them a different name.'
+      );
+    }
+    seen.add(id);
+    const merged = Object.assign({}, w, { id: id, kind: "workshop" });
+    if (workshopSellsOnSite(w)) merged.ticketId = "ticket-" + id;
+    events.upcoming.push(merged);
+  });
+  delete events.workshops;
+  return events;
+}
 /* A bundle's price is either set outright (`price`) or worked out as a
    percentage off the sum of its parts (`discountPercent`, the older form
    and still the fallback). A chosen member option that costs more (the
@@ -2250,7 +2304,7 @@ function buildSiteData() {
   // window.YL_EVENTS global the pages load -- is GENERATED from it below, exactly
   // like products.json -> products-data.js. (Previously events-data.js was the
   // hand-edited source; flipped so Savanna can edit dates in the /admin editor.)
-  const EVENTS = readJson("assets/data/events.json");
+  const EVENTS = mergeWorkshopsIntoUpcoming(readJson("assets/data/events.json"));
   // Customer reviews: assets/data/site-reviews.json is the canonical, CMS-edited
   // source (Savanna approves + adds reviews at /admin); assets/js/site-reviews-data.js
   // -- the window.YL_SITE_REVIEWS global shop.html loads -- is generated from it
@@ -2682,7 +2736,8 @@ function buildSiteData() {
           zip: evt.zip,
           emoji: evt.emoji,
           url: evt.url,
-          note: evt.note
+          note: evt.note,
+          kind: evt.kind
         });
       } else {
         stillUpcoming.push(evt);
@@ -4159,7 +4214,7 @@ function buildSiteData() {
 
   /* ---------- 4b) events.html Past Events Pre-population ---------- */
   let eventsHtml = readText("events.html", "events page");
-  const eventsJson = readJson("assets/data/events.json");
+  const eventsJson = mergeWorkshopsIntoUpcoming(readJson("assets/data/events.json"));
 
   const rawUpcoming = eventsJson.upcoming || [];
   const rawPast = eventsJson.past || [];
@@ -8992,6 +9047,8 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     assertBundlePricesSane,
     formatMoney: formatMoney,
+    mergeWorkshopsIntoUpcoming: mergeWorkshopsIntoUpcoming,
+    workshopSellsOnSite: workshopSellsOnSite,
     loadJournal,
     listJournalFiles,
     SEARCH_CHIP_ICONS: SEARCH_CHIP_ICONS,

@@ -1526,7 +1526,7 @@ window.YL_SEARCH_INDEX = {
       "date": "2026-11-06",
       "dateLabel": "November 6, 2026 · Friday, 6:30pm",
       "endDate": null,
-      "type": "Workshop",
+      "type": "Market",
       "location": "Landrum, SC",
       "zip": "29356",
       "note": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance.",

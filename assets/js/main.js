@@ -5490,8 +5490,26 @@
         .map(function (x) {
           return x.ev;
         });
-      if (sortedUpcoming.length) {
-        upcomingEl.innerHTML = sortedUpcoming.map(eventCardHTML).join("");
+      /* Workshops & classes get their own section (#upcomingWorkshops) when
+         the page has one; markets stay in this grid. A calendar holding only
+         workshops leaves this grid empty rather than saying no dates are
+         booked right above one. */
+      var workshopsEl = document.getElementById("upcomingWorkshops");
+      var workshopList = workshopsEl
+        ? sortedUpcoming.filter(function (ev) {
+            return ev && ev.kind === "workshop";
+          })
+        : [];
+      var marketList = workshopsEl
+        ? sortedUpcoming.filter(function (ev) {
+            return !(ev && ev.kind === "workshop");
+          })
+        : sortedUpcoming;
+      if (workshopsEl) renderWorkshops(workshopsEl, workshopList);
+      if (marketList.length) {
+        upcomingEl.innerHTML = marketList.map(eventCardHTML).join("");
+      } else if (workshopList.length) {
+        upcomingEl.innerHTML = "";
       } else {
         /* No `reveal` here: this block only exists once main.js has run,
            and it lands on screen, so a fade-in from opacity 0 read as blank
@@ -6634,6 +6652,130 @@
     };
   }
 
+  /* The image a ticket line shows in the cart when the workshop has none. */
+  var TICKET_IMAGE = "assets/img/logo.png";
+
+  function formatTicketPrice(price) {
+    return (
+      "$" + (Math.round(price * 100) % 100 === 0 ? String(Math.round(price)) : price.toFixed(2))
+    );
+  }
+
+  /* The ticket half of a workshop card -- a workshop from the CMS's
+     "Workshops & classes" list, folded into the upcoming calendar by the
+     build with kind "workshop" (scripts/build-site-data.js
+     mergeWorkshopsIntoUpcoming). Three cases:
+       - tickets sold here (`ticketId`): a cart button for that line, which
+         workers/checkout.js prices from the same CMS entry
+         (workers/state/tickets.js) -- the price on the button is display only;
+       - tickets sold elsewhere (`ticketUrl`, e.g. Square): a link out;
+       - no price yet: "Tickets coming soon".
+     `ev.liveSpots` is the live count from /api/inventory once it has
+     answered. The CMS number is where the count STARTED, so it is never shown
+     as what is left -- only a live count says "Only 3 spots left" or sells
+     out the button (a CMS count of 0 is the one static exception: nothing was
+     ever on sale). Returns `{ info, cta }`. */
+  function workshopTicketHTML(ev) {
+    var price = Number(ev.price);
+    var priceText = isFinite(price) && price > 0 ? formatTicketPrice(price) : "";
+    var info = priceText
+      ? '<p class="event-price"><strong>' + priceText + "</strong> per person</p>"
+      : "";
+    if (ev.ticketId && priceText) {
+      var cmsSpots = Number(ev.spots);
+      var left = typeof ev.liveSpots === "number" ? ev.liveSpots : cmsSpots === 0 ? 0 : null;
+      if (left === 0) {
+        return {
+          info: info + '<p class="event-spots sold-out">Sold out</p>',
+          cta: '<button type="button" class="btn btn-primary btn-sm btn-block" disabled>Sold Out</button>'
+        };
+      }
+      if (left !== null && left <= LOW_STOCK_THRESHOLD) {
+        info +=
+          '<p class="event-spots low-stock">Only ' +
+          left +
+          (left === 1 ? " spot" : " spots") +
+          " left</p>";
+      }
+      var maxQty = left !== null ? left : Number.isInteger(cmsSpots) ? cmsSpots : null;
+      return {
+        info: info,
+        cta:
+          '<button type="button" class="btn btn-primary btn-sm btn-block yl-add-item event-ticket-btn"' +
+          ' data-item-id="' +
+          attrEsc(ev.ticketId) +
+          '" data-item-name="' +
+          attrEsc("Ticket: " + ev.name) +
+          '" data-item-price="' +
+          attrEsc(String(price)) +
+          '" data-item-image="' +
+          attrEsc(ev.image || TICKET_IMAGE) +
+          '" data-item-categories="workshops"' +
+          (maxQty !== null ? ' data-item-max-quantity="' + maxQty + '"' : "") +
+          ">Buy Tickets — " +
+          priceText +
+          "</button>"
+      };
+    }
+    var outside = safeUrl(ev.ticketUrl);
+    if (outside) {
+      return {
+        info: info,
+        cta:
+          '<a class="btn btn-primary btn-sm btn-block" href="' +
+          attrEsc(outside) +
+          '" target="_blank" rel="noopener noreferrer">Get Tickets' +
+          (priceText ? " — " + priceText : "") +
+          '<span class="sr-only"> (opens in new tab)</span></a>'
+      };
+    }
+    return { info: info + '<p class="event-spots">Tickets coming soon</p>', cta: "" };
+  }
+
+  /* Fills the Workshops & Classes grid and shows its section only while
+     there is one to show, then asks /api/inventory how many spots are left
+     for the ones selling tickets here and redraws with the live counts. No
+     `reveal` on these cards: the section is un-hidden by script, and a fade
+     from opacity 0 there reads as blank space (scripts/reveal-check.js). */
+  function renderWorkshops(container, list) {
+    var section = document.getElementById("workshopsSection");
+    function draw() {
+      container.innerHTML = list
+        .map(function (ev) {
+          return eventCardHTML(ev, { noReveal: true });
+        })
+        .join("");
+    }
+    draw();
+    if (section) section.hidden = !list.length;
+    var selling = list.filter(function (ev) {
+      return ev && ev.ticketId;
+    });
+    if (!selling.length || !liveStockEnabled()) return;
+    fetch(LIVE_INVENTORY_URL, { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (res) {
+        return res && res.ok ? res.json() : null;
+      })
+      .then(function (payload) {
+        var live = payload && payload.products;
+        if (!live || typeof live !== "object") return;
+        var moved = false;
+        selling.forEach(function (ev) {
+          var row = live[ev.ticketId];
+          /* Only a number is a count -- the same rule applyLiveInventory
+             keeps for products: a broken answer never sells out a night. */
+          if (!row || row.tracked !== true || typeof row.available !== "number") return;
+          if (!isFinite(row.available) || row.available < 0) return;
+          ev.liveSpots = Math.floor(row.available);
+          moved = true;
+        });
+        if (moved) draw();
+      })
+      .catch(function () {
+        /* The cards stand as drawn. */
+      });
+  }
+
   function eventCardHTML(ev, opts) {
     var isPast = Boolean(opts && opts.past);
     var gCalUrl = generateGoogleCalendarUrl(ev);
@@ -6645,6 +6787,9 @@
 
     /* Search results deep-link to events.html#<id>, so the card carries it. */
     var idAttr = ev.id ? ' id="' + attrEsc(ev.id) + '"' : "";
+
+    var isWorkshop = ev.kind === "workshop";
+    var ticket = isWorkshop && !isPast ? workshopTicketHTML(ev) : { info: "", cta: "" };
 
     var details = resolveEventDetails(ev);
     var venue = details.venue;
@@ -6681,13 +6826,14 @@
       ? ""
       : '<div class="event-actions-row">' +
         '<div class="event-cta-main">' +
+        ticket.cta +
         (safeUrl(ev.url)
           ? '<a class="btn btn-primary btn-sm btn-block" href="' +
             attrEsc(safeUrl(ev.url)) +
             '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
           : "") +
         '<a class="btn ' +
-        (safeUrl(ev.url) ? "btn-outline" : "btn-primary") +
+        (safeUrl(ev.url) || ticket.cta ? "btn-outline" : "btn-primary") +
         ' btn-sm btn-block" href="shop.html?pickup_market=' +
         pickupParam +
         '#shop-catalog">' +
@@ -6717,12 +6863,14 @@
         "</div>";
 
     return (
-      '<article class="card event-card reveal"' +
+      '<article class="card event-card' +
+      (opts && opts.noReveal ? "" : " reveal") +
+      '"' +
       idAttr +
       ">" +
       '<div class="card-body">' +
       '<span class="card-cat">' +
-      attrEsc(ev.type || "Pop-Up Market") +
+      attrEsc(ev.type || (isWorkshop ? "Workshop" : "Pop-Up Market")) +
       "</span>" +
       "<h3>" +
       attrEsc(ev.name) +
@@ -6751,6 +6899,7 @@
           attrEsc(ev.name) +
           ' on Apple Maps">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></p>') +
       (note ? '<p class="event-desc">' + attrEsc(note) + "</p>" : "") +
+      ticket.info +
       actionsHtml +
       "</div>" +
       "</article>"

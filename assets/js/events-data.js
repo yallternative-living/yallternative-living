@@ -8,17 +8,18 @@ window.YL_EVENTS = {
   "upcoming": [
     {
       "id": "potions-pour-decisions-2026-11-06",
+      "name": "Potions & Pour Decisions",
       "date": "2026-11-06",
       "dateLabel": "November 6, 2026 · Friday, 6:30pm",
-      "name": "Potions & Pour Decisions",
-      "type": "Workshop",
       "location": "Landrum, SC",
       "zip": "29356",
       "venue": "Landrum Depot",
       "address": "211 N Trade Ave",
       "emoji": "🔮",
-      "url": "https://square.link/u/GZiFttbS",
-      "note": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance."
+      "price": 60,
+      "ticketUrl": "https://square.link/u/GZiFttbS",
+      "note": "A Y'allternative After Dark Apothecary Night: blend your own body oil & botanical bath soak over a fall wine potion or mocktail. $60, limited spots, tickets in advance.",
+      "kind": "workshop"
     }
   ],
   "past": [
