@@ -5471,8 +5471,38 @@ dialog.gift-modal[open]::backdrop {
   white-space: nowrap;
   pointer-events: none;
 }
-/* Body copy reads left to right: the header (label, title, date, place)
-   stays centred, the paragraphs and lists under it do not. */
+/* Event cards read from one left edge: label, title, date pill, place,
+   description, lists and price all start at the same x, with the buttons
+   full-width underneath. Centring the header over left-aligned paragraphs
+   put two alignment axes in one card. The label and title stop short of
+   the share icon in the corner. */
+.event-card,
+.event-card .card-body,
+.event-card .card-body h3 {
+  text-align: left;
+}
+.event-card .card-body {
+  align-items: stretch;
+}
+.event-card .card-cat,
+.event-card .event-date {
+  align-self: flex-start;
+  margin-left: 0;
+  margin-right: 0;
+}
+.event-card .card-cat,
+.event-card .card-body h3 {
+  padding-right: 44px;
+}
+.event-card .event-location,
+.event-card .event-venue-name,
+.event-card .event-venue-address,
+.event-card .event-directions-links {
+  justify-content: flex-start;
+  margin-left: 0;
+  margin-right: 0;
+  text-align: left;
+}
 .event-card .event-desc,
 .event-card .event-includes-label,
 .event-card .event-includes,
