@@ -847,7 +847,9 @@
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living nas redes sociais",
     "auto.freeFamilyFunLive.1f6fec": "Diversão gratuita para a família e entretenimento ao vivo, seguidos de salto Grand Prix.",
     "auto.thePerfectGiftFor.057d2a": "O presente perfeito para as black sheep & bold hearts. Escolha qualquer valor de $10 a $500. Sem data de validade, entregue direto na caixa de entrada.",
-    "auto.craftShow.a76ec3": "Feira de Artesanato"
+    "auto.craftShow.a76ec3": "Feira de Artesanato",
+    "auto.handsOnNightsWhere.b360f5": "Noites práticas onde você faz seus próprios produtinhos de autocuidado e leva para casa. Garanta seu ingresso bem aqui.",
+    "auto.workshopsClasses.446555": "Workshops e Aulas"
   }
 };
 

@@ -847,7 +847,9 @@
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living On Social",
     "auto.freeFamilyFunLive.1f6fec": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
     "auto.thePerfectGiftFor.057d2a": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
-    "auto.craftShow.a76ec3": "Craft Show"
+    "auto.craftShow.a76ec3": "Craft Show",
+    "auto.handsOnNightsWhere.b360f5": "Hands-on nights where you make your own self-care goodies and take them home. Grab your ticket right here.",
+    "auto.workshopsClasses.446555": "Workshops & Classes"
   }
 };
 

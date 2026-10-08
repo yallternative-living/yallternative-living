@@ -847,7 +847,9 @@
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living en redes sociales",
     "auto.freeFamilyFunLive.1f6fec": "Diversión familiar gratis y entretenimiento en vivo, seguidos de salto ecuestre Grand Prix.",
     "auto.thePerfectGiftFor.057d2a": "El regalo perfecto para Black Sheep & Bold Hearts. Elige cualquier monto de $10 a $500. Sin fecha de vencimiento, directo a su bandeja de entrada.",
-    "auto.craftShow.a76ec3": "Feria artesanal"
+    "auto.craftShow.a76ec3": "Feria artesanal",
+    "auto.handsOnNightsWhere.b360f5": "Noches prácticas donde preparas tus propios productos de autocuidado y te los llevas a casa. Consigue tu boleto justo aquí.",
+    "auto.workshopsClasses.446555": "Talleres y clases"
   }
 };
 

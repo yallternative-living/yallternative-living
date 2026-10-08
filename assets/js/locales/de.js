@@ -847,7 +847,9 @@
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living auf Social Media",
     "auto.freeFamilyFunLive.1f6fec": "Kostenloser Familienspaß & Live-Unterhaltung, gefolgt von Grand-Prix-Springreiten.",
     "auto.thePerfectGiftFor.057d2a": "Das perfekte Geschenk für Black Sheep & Bold Hearts. Wähle einen beliebigen Betrag von $10 bis $500. Kein Ablaufdatum, direkt ins Postfach geliefert.",
-    "auto.craftShow.a76ec3": "Kunsthandwerksmarkt"
+    "auto.craftShow.a76ec3": "Kunsthandwerksmarkt",
+    "auto.handsOnNightsWhere.b360f5": "Mitmach-Abende, an denen du deine eigenen Self-Care-Goodies herstellst und mit nach Hause nimmst. Schnapp dir dein Ticket direkt hier.",
+    "auto.workshopsClasses.446555": "Workshops & Kurse"
   }
 };
 
