@@ -242,6 +242,10 @@ const TAX_CODE_GIFT_CARD = "txcd_10502000"; // Gift Card (multi-purpose)
 const TAX_CODE_APPAREL = "txcd_30011000"; // Clothing & Footwear
 const TAX_CODE_GOODS = "txcd_99999999"; // General - Tangible Goods
 const TAX_CODE_SHIPPING = "txcd_92010001"; // Shipping
+// Workshop tickets are sold tax-free (the owner's call, 2026-10-08). The
+// code has to be sent explicitly: a line with NO tax code falls back to the
+// account's preset code in Stripe Tax, which is a taxable one.
+const TAX_CODE_NONTAXABLE = "txcd_00000000"; // Nontaxable
 
 const MAX_QTY_PER_ITEM = 99;
 const MAX_LINE_ITEMS = 50;
@@ -1572,9 +1576,11 @@ function buildLineItems(catalog, items, allocation, env, metadata) {
     // them too. Only apparel and gift cards need to differ.
     const taxCode = isGiftCard
       ? TAX_CODE_GIFT_CARD
-      : entry.category === "apparel"
-        ? TAX_CODE_APPAREL
-        : TAX_CODE_GOODS;
+      : isTicket
+        ? TAX_CODE_NONTAXABLE
+        : entry.category === "apparel"
+          ? TAX_CODE_APPAREL
+          : TAX_CODE_GOODS;
 
     // A ticket is not a product to ask "how are you liking it?" about, and
     // has no usage guide: it stays out of the retention signals.
@@ -1593,10 +1599,10 @@ function buildLineItems(catalog, items, allocation, env, metadata) {
       : isTicket
         ? "ticket"
         : isBundle
-        ? bundleChoices.length
-          ? "gift-set"
-          : "bundle"
-        : "product";
+          ? bundleChoices.length
+            ? "gift-set"
+            : "bundle"
+          : "product";
     return {
       name,
       image,

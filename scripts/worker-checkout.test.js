@@ -2689,6 +2689,30 @@ async function runWorkerCheckoutTests() {
       "...capped at the 12 spots there are"
     );
 
+    // Tickets are sold tax-free: with Stripe Tax on, the ticket line carries
+    // Stripe's explicit Nontaxable code (a line with no code would fall back
+    // to the account's taxable preset), while a product beside it is taxed.
+    const taxed = await executeCheckout(
+      {
+        items: [
+          { id: POTIONS_TICKET, qty: 1 },
+          { id: "lavender-soak", qty: 1 }
+        ]
+      },
+      { env: { STRIPE_TAX_ENABLED: "true" } }
+    );
+    eq(taxed.status, 200, "ticket, tax on: checks out");
+    eq(
+      taxed.sessionParams.get("line_items[0][price_data][product_data][tax_code]"),
+      "txcd_00000000",
+      "ticket, tax on: the ticket line is marked Nontaxable"
+    );
+    eq(
+      taxed.sessionParams.get("line_items[1][price_data][product_data][tax_code]"),
+      "txcd_99999999",
+      "ticket, tax on: the product beside it keeps its taxable goods code"
+    );
+
     // The ledger holds ticket spots like product units.
     const { DatabaseSync } = require("node:sqlite");
     const { makeD1 } = require("./lib/d1-emulator.js");
