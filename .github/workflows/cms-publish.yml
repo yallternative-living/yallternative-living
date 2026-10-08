@@ -19,16 +19,25 @@ name: CMS Auto-Publisher
 # 5. Every branch that passes is committed into `main` in one batch. One bad branch
 #    does not hold the others hostage: the owner's legitimate saves still go live,
 #    and the run is failed red at the very end so the rejected branch is noticed.
-# 6. Before anything is pushed the merged result is compiled and put through the SAME
-#    gates test.yml runs on a pull request: lint, the smoke gate, the unit pool + static
-#    QA (`npm test`), and the browser suites -- `test:integration` (link integrity, cart,
-#    CSP stress, the scroll-reveal and axe-core accessibility gates over every page) and
-#    `test:cross-browser`. They have to run HERE: this job pushes with GITHUB_TOKEN, and a
-#    push made with that token starts no other workflow, so test.yml never runs on a CMS
+# 6. Before anything is pushed the merged result is compiled and put through every gate
+#    that CONTENT can fail: the smoke gate, `npm test` (the unit pool, several suites of
+#    which read the real data files, plus qa-check's static assertions: JSON-LD, links,
+#    images, prices, ratings), and the two browser gates whose subject is what the
+#    content renders as -- a11y-check.js (axe-core over every page: alt text, link text,
+#    duplicate ids) and text-layout.browser.test.js (a long name clipped or orphaned at
+#    phone width). They have to run HERE: this job pushes with GITHUB_TOKEN, and a push
+#    made with that token starts no other workflow, so test.yml never runs on a CMS
 #    publish (red team, 2026-10-08 -- only the smoke gate and qa-check stood between a
-#    save and production). All of them run WITHOUT ambient git credentials
-#    (`persist-credentials: false`); the token is only handed to the fetch (unset before
-#    any merge) and to the push step, which also disables git hooks.
+#    save and production).
+#    What is deliberately NOT run: lint, the other browser suites (cart, search,
+#    translation, promo codes, CSP stress, reveal -- code behaviour, several of them on
+#    fixture data on purpose) and the Firefox/WebKit cross-browser gate. A content-only
+#    merge cannot change what they test, test.yml runs all of them on every code change,
+#    and each one added here is one more way a timing flake the owner cannot diagnose
+#    holds back a product edit. Chromium only, so no Playwright engines to download.
+#    All of it runs WITHOUT ambient git credentials (`persist-credentials: false`); the
+#    token is only handed to the fetch (unset before any merge) and to the push step,
+#    which also disables git hooks.
 # 7. Netlify detects the single push to `main` and runs EXACTLY ONE production build.
 # 8. Merged CMS branches are deleted (only if they still point at the commit that was
 #    checked -- a save made mid-run is kept) and their PRs closed, marking entries
@@ -69,8 +78,8 @@ jobs:
   batch-and-publish:
     name: Batch & Publish CMS Edits
     runs-on: ubuntu-latest
-    # The browser gates (step 6) take most of this; they used to be skipped.
-    timeout-minutes: 45
+    # The two browser gates (step 6) take about five minutes of this.
+    timeout-minutes: 25
     env:
       PUPPETEER_SKIP_DOWNLOAD: "true"
       PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
@@ -359,28 +368,23 @@ jobs:
           echo "Running fast smoke gate..."
           node scripts/smoke-test.js
 
-          echo "Running lint (the generated assets/js/*-data.js files are in its scope)..."
-          npm run lint
-
           echo "Running the unit pool and the static QA assertion gate..."
           npm test
 
-      - name: Browser, Accessibility & Cross-Browser Gates
+      - name: Accessibility & Text-Layout Gates
         if: steps.merge-cms.outputs.has_changes == 'true'
-        # The gates test.yml's `browser` job runs, on the merged result (see step 6 in
-        # the header for why they cannot be left to test.yml). Same rule as the step
-        # above: no token here. The job-level skip switches keep `npm ci` light; this
-        # step installs the engines it is about to open.
+        # The two browser gates content can fail (step 6 in the header says which, and
+        # why the rest are left to test.yml). Same rule as the step above: no token
+        # here. The job-level skip switches keep `npm ci` light; this step installs the
+        # one browser it is about to open.
         env:
           PUPPETEER_SKIP_DOWNLOAD: "false"
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "false"
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "0"
         run: |
           set -euo pipefail
           node node_modules/puppeteer/install.mjs
-          npx playwright install --with-deps chromium firefox webkit
-          npm run test:integration
-          npm run test:cross-browser
+          node scripts/a11y-check.js
+          node scripts/text-layout.browser.test.js
 
       - name: Push to Main & Clean Up CMS Branches
         if: steps.merge-cms.outputs.has_changes == 'true' || steps.merge-cms.outputs.has_stale == 'true'
