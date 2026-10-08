@@ -9,9 +9,6 @@
  * Run: node scripts/m2-adversarial-challenger.test.js
  */
 
-const fs = require("fs");
-const path = require("path");
-
 // Mock browser environment for Node.js test execution
 const storage = new Map();
 const mockLocalStorage = {
@@ -215,9 +212,47 @@ global.localStorage = mockLocalStorage;
 global.navigator = { userAgent: "node" };
 
 const main = require("../assets/js/main.js");
-const eventsData = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "../assets/data/events.json"), "utf8")
-);
+/* A fixture calendar, not assets/data/events.json. That file is live CMS
+   data whose upcoming list empties as market dates pass, and category 3
+   below needs upcoming markets to resolve -- reading the real file made
+   this suite fail whenever no future date was booked. parsePickupMarketParam
+   and handlePickupMarketDeepLink take the calendar they are given and do not
+   look at dates, so fixed dates are fine here. */
+const eventsData = {
+  upcoming: [
+    {
+      id: "fixture-night-market",
+      date: "2030-05-10",
+      dateLabel: "May 10, 2030 · Friday, 6:30pm",
+      name: "Fixture Night Market",
+      type: "Night Market",
+      location: "Landrum, SC",
+      zip: "29356",
+      venue: "Fixture Depot",
+      address: "211 N Trade Ave"
+    },
+    {
+      id: "fixture-two-day-fair",
+      date: "2030-06-01",
+      endDate: "2030-06-02",
+      dateLabel: "June 1–2, 2030 · Sat & Sun, 11am–7pm",
+      name: "Fixture Two-Day Fair & Market",
+      type: "Fair",
+      location: "Spartanburg, SC",
+      zip: "29303"
+    }
+  ],
+  past: [
+    {
+      id: "fixture-past-market",
+      date: "2025-08-16",
+      dateLabel: "August 16, 2025 · Saturday, 9am–12pm",
+      name: "Fixture Past Market",
+      location: "Landrum, SC",
+      zip: "29356"
+    }
+  ]
+};
 
 let passed = 0;
 let failed = 0;
