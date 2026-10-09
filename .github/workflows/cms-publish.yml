@@ -351,10 +351,17 @@ jobs:
         run: |
           set -euo pipefail
           # Writes a blank workshop id once (the slug already in use), so a later
-          # rename or new date keeps the ticket count and shared links. Committed
+          # rename or new date keeps the ticket count and shared links. Carries
+          # forward published ids and seeds fresh ones for reused past workshops
+          # using the events.json from before the merge (origin/main). Committed
           # below with the build output.
           echo "Stamping workshop ids..."
-          node scripts/stamp-workshop-ids.js
+          PREVIOUS_EVENTS=$(mktemp)
+          trap 'rm -f "$PREVIOUS_EVENTS"' EXIT
+          git show origin/main:assets/data/events.json > "$PREVIOUS_EVENTS"
+          node scripts/stamp-workshop-ids.js --previous "$PREVIOUS_EVENTS"
+          rm -f "$PREVIOUS_EVENTS"
+          trap - EXIT
 
           echo "Rebuilding site data and product pages..."
           node scripts/build-site-data.js

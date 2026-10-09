@@ -19,8 +19,8 @@
  * then on Sveltia keeps the stored value on every save, and a rename, or a new
  * date for a workshop that has not happened yet, keeps the id (a past night
  * given a new date is a new workshop -- see A PAST NIGHT REUSED below).
- * .github/workflows/cms-publish.yml runs it on every publish, before the
- * build, and commits the result with the build output.
+ * .github/workflows/cms-publish.yml runs it with --previous on every publish,
+ * before the build, and commits the result with the build output.
  *
  * Two more jobs (red team, 2026-10-09):
  *
