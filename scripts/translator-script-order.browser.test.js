@@ -34,10 +34,9 @@
  * Run: node scripts/translator-script-order.browser.test.js
  */
 
-const http = require("http");
-const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -53,56 +52,17 @@ const EARLY_SAMPLE_MS = 400;
 /* Ceiling for the post-arrival poll. */
 const SETTLE_TIMEOUT_MS = 12000;
 
-const MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".xml": "application/xml",
-  ".woff2": "font/woff2",
-  ".txt": "text/plain; charset=utf-8"
-};
-
 function createServer() {
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0].split("#")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(ROOT, reqPath);
-    if (!filePath.startsWith(ROOT)) filePath = path.join(ROOT, "404.html");
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(ROOT, "404.html");
-    }
-    /* A read that fails answers 500 with a body that names the cause. On
-       2026-09-09 a CI run of Scenario A saw a document with no <html lang>,
-       no nav and no script requests -- the shape of an error body, not the
-       site -- and "Server error" said nothing about why. One retry covers a
-       transient EMFILE/EAGAIN on a loaded runner; a second failure is
-       reported with its code so the log can be believed. */
-    const serve = (attempt) => {
-      fs.readFile(filePath, (err, data) => {
-        if (err) {
-          if (attempt < 2) return setTimeout(() => serve(attempt + 1), 50);
-          console.error(`  [server] ${req.url} -> ${err.code || err.message} (${filePath})`);
-          res.writeHead(500);
-          res.end(`Server error: ${err.code || err.message}`);
-          return;
-        }
-        res.writeHead(200, {
-          "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream"
-        });
-        res.end(data);
-      });
-    };
-    serve(1);
-  });
-  return new Promise((resolve) => server.listen(PORT, "127.0.0.1", () => resolve(server)));
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  /* A read that fails is retried once by serve.js (a transient
+     EMFILE/EAGAIN on a loaded runner) and a second failure answers 500
+     with a body that names the code. On 2026-09-09 a CI run of Scenario A
+     saw a document with no <html lang>, no nav and no script requests --
+     the shape of an error body, not the site -- and the old "Server
+     error" said nothing about why. */
+  return listenLoopback(createSiteServer(ROOT), PORT);
 }
 
 let passed = 0;

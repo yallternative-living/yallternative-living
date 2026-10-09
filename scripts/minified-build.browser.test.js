@@ -34,27 +34,11 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 const { MARKER } = require("./minify-assets.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const SETTLE_TIMEOUT_MS = 15000;
-
-const MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".xml": "application/xml",
-  ".woff2": "font/woff2",
-  ".txt": "text/plain; charset=utf-8"
-};
 
 let passed = 0;
 let failed = 0;
@@ -114,27 +98,12 @@ function fingerprint(root, rels) {
 /* ---------- static server over the minified copy ---------- */
 
 function createServer(root) {
-  const server = http.createServer((req, res) => {
-    let reqPath = decodeURIComponent(req.url.split("?")[0].split("#")[0]);
-    if (reqPath === "/") reqPath = "/index.html";
-    const filePath = path.join(root, reqPath);
-    /* A real 404, not 404.html-with-200: a minified page that asks for a
-       file that no longer exists must show up as a failed request below. */
-    if (
-      !filePath.startsWith(root) ||
-      !fs.existsSync(filePath) ||
-      fs.statSync(filePath).isDirectory()
-    ) {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("not found");
-      return;
-    }
-    res.writeHead(200, {
-      "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream"
-    });
-    res.end(fs.readFileSync(filePath));
-  });
-  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
+  /* serve.js's server over the scratch copy (red team, 2026-10-09: the
+     copy of path.join(root, req.url) that lived here had no symlink or
+     Host check). A missing file is a real 404, not 404.html-with-200: a
+     minified page that asks for a file that no longer exists must show
+     up as a failed request below. */
+  return listenLoopback(createSiteServer(root), 0);
 }
 
 function fetchText(url) {

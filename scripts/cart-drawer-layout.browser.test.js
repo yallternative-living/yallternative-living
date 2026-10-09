@@ -36,7 +36,7 @@
 
 const path = require("path");
 const puppeteer = require("puppeteer");
-const { createStaticServer } = require("./serve.js");
+const { createStaticServer, listenLoopback } = require("./serve.js");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -208,8 +208,9 @@ async function measure(page) {
 }
 
 async function run() {
-  const server = createStaticServer(ROOT);
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  // serve.listenLoopback binds 127.0.0.1 on an ephemeral port (serve.test.js
+  // asserts no harness calls listen() itself).
+  const server = await listenLoopback(createStaticServer(ROOT), 0);
   const base = `http://127.0.0.1:${server.address().port}`;
   let browser;
   try {

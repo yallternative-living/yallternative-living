@@ -8,8 +8,16 @@
  * must get a 404 and never the sentinel's content, while ordinary pages still
  * load. The same goes for hidden paths inside the root (`.git/`, `.env`), for
  * symlinks whose real target is outside the root or hidden, and for a request
- * whose Host header is not loopback (DNS rebinding). Nothing is written
- * anywhere near the repository; the fixture is removed in `finally`.
+ * whose Host header is not loopback (DNS rebinding) while the socket is bound
+ * to loopback -- judged from the address actually bound, so a HOST that is a
+ * NAME resolving to loopback keeps the check on (proved end to end by running
+ * the CLI with a dns.lookup preload). It unit-tests the segment normaliser
+ * that stands in for case-insensitive and Windows file systems, checks the
+ * no-Worker answer for /api/* and that nothing is sent `no-store`,
+ * drives the harness options (onRequest, headers, transform, mimeTypes,
+ * listenLoopback), and finally reads every script in scripts/ to fail on any
+ * that starts an HTTP server without going through serve.js. Nothing is
+ * written anywhere near the repository; the fixture is removed in `finally`.
  * Run: node scripts/serve.test.js
  */
 
@@ -18,6 +26,7 @@ const net = require("net");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { spawn } = require("child_process");
 const serve = require("./serve.js");
 
 let passed = 0;
@@ -75,14 +84,68 @@ function rawGet(port, rawPath, hostLine) {
   });
 }
 
-function listen(server) {
+function listen(server, host) {
   return new Promise((resolve) =>
-    server.listen(0, "127.0.0.1", () => resolve(server.address().port))
+    server.listen(0, host || "127.0.0.1", () => resolve(server.address().port))
   );
 }
 
 function close(server) {
   return new Promise((resolve) => server.close(resolve));
+}
+
+/**
+ * Runs `node -r <preload> serve.js` with extra env and resolves once it has
+ * printed both start-up lines (or after 8s), with the port it reported.
+ * @return {!Promise<{child: !ChildProcess, port: number, output: string}>}
+ */
+function startCli(preload, env) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ["-r", preload, path.join(__dirname, "serve.js")], {
+      env: Object.assign({}, process.env, env),
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let output = "";
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      const m = /running at http:\/\/[^\s]+:(\d+)/.exec(output);
+      resolve({ child, port: m ? Number(m[1]) : 0, output: output.trim() });
+    };
+    const timer = setTimeout(finish, 8000);
+    const onData = (chunk) => {
+      output += chunk;
+      if (/Host header check/.test(output)) finish();
+    };
+    child.stdout.on("data", onData);
+    child.stderr.on("data", onData);
+    child.on("exit", finish);
+  });
+}
+
+/**
+ * Every script under scripts/ (lib/ included) other than serve.js and this
+ * file, as [relative name, source].
+ */
+function scriptSources() {
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "node_modules" && entry.name !== "fixtures") walk(full);
+      } else if (entry.name.endsWith(".js")) {
+        const rel = path.relative(__dirname, full);
+        if (rel !== "serve.js" && rel !== "serve.test.js") {
+          out.push([rel, fs.readFileSync(full, "utf8")]);
+        }
+      }
+    }
+  };
+  walk(__dirname);
+  return out;
 }
 
 /**
@@ -222,6 +285,106 @@ function makeFixture() {
       assert(!serve.isLoopbackHostHeader(h), "Host " + JSON.stringify(h) + " is not loopback");
     }
 
+    // Whether the Host check runs is decided from server.address() -- the
+    // numeric address actually bound -- and fails closed when that is unknown.
+    // (A missing export fails its own assertion and skips only the cases that
+    // could not tell "off" from "absent"; nothing below crashes the run.)
+    assert(typeof serve.hostCheckRequired === "function", "serve.js exports hostCheckRequired");
+    if (typeof serve.hostCheckRequired === "function") {
+      for (const a of ["127.0.0.1", "127.0.1.1", "::1", "::ffff:127.0.0.1"]) {
+        assert(
+          serve.hostCheckRequired({ address: a, family: "IPv4", port: 1 }),
+          "bound to " + a + ": Host check on"
+        );
+      }
+      for (const a of ["0.0.0.0", "::", "192.0.2.2", "fe80::1"]) {
+        assert(
+          !serve.hostCheckRequired({ address: a, family: "IPv4", port: 1 }),
+          "bound to " + a + ": Host check off (the network is invited in)"
+        );
+      }
+      for (const a of [null, undefined, "/tmp/serve.sock", { address: "vm" }, { address: "" }]) {
+        assert(
+          serve.hostCheckRequired(a),
+          "address " + JSON.stringify(a) + ": Host check fails closed"
+        );
+      }
+    }
+
+    // Case-insensitive and Windows file systems open names the byte-exact
+    // rules never saw (red team, 2026-10-09): /NODE_MODULES/ on macOS,
+    // `npm-debug.log.` and `x.log::$DATA` on NTFS, `NODE_M~1` as an 8.3 alias.
+    // Linux opens none of them, so the normaliser is tested directly.
+    assert(typeof serve.normalizeSegment === "function", "serve.js exports normalizeSegment");
+    const n = (s) =>
+      typeof serve.normalizeSegment === "function" ? serve.normalizeSegment(s) : undefined;
+    for (const [input, want] of [
+      ["about.html", "about.html"],
+      ["Index.HTML", "index.html"],
+      ["NODE_MODULES", "node_modules"],
+      ["Node_Modules", "node_modules"],
+      ["node_modules.", "node_modules"],
+      ["node_modules ", "node_modules"],
+      ["node_modules. .", "node_modules"],
+      ["npm-debug.log.", "npm-debug.log"],
+      ["NPM-DEBUG.LOG", "npm-debug.log"],
+      [".ENV", ".env"],
+      [".env.", ".env"],
+      [".Well-Known", ".well-known"],
+      ["a~b.html", "a~b.html"]
+    ]) {
+      assert(n(input) === want, `normalizeSegment(${JSON.stringify(input)}) -> ${want}`);
+    }
+    for (const input of [
+      "x.log::$DATA",
+      "index.html::$DATA",
+      "file.txt:stream",
+      "c:",
+      "NODE_M~1",
+      "GIT~1",
+      "GITIGN~1",
+      "ENV~1",
+      "NPM-DE~1.LOG",
+      "...",
+      " ",
+      ""
+    ]) {
+      assert(n(input) === null, `normalizeSegment(${JSON.stringify(input)}) is refused`);
+    }
+    // ...and the resolver applies it to every segment before every rule.
+    for (const u of [
+      "/NODE_MODULES/x/package.json",
+      "/Node_Modules/x/package.json",
+      "/sub/NODE_MODULES/a.js",
+      "/node_modules./x/package.json",
+      "/node_modules%20/x/package.json",
+      "/NODE_M~1/x/package.json",
+      "/npm-debug.LOG",
+      "/npm-debug.log.",
+      "/npm-debug.log%20",
+      "/npm-debug.log::$DATA",
+      "/index.html::$DATA",
+      "/.ENV",
+      "/.env.",
+      "/.GIT/config",
+      "/.git./config",
+      "/GIT~1/config",
+      "/sub/.WELL-KNOWN/x.txt"
+    ]) {
+      assert(r(u) === null, "resolveRequestPath: " + u + " is refused");
+    }
+    assert(
+      r("/About.html") === path.join(site, "About.html") &&
+        r("/.WELL-KNOWN/security.txt") === path.join(site, ".WELL-KNOWN", "security.txt"),
+      "resolveRequestPath: a public name in another case is still public"
+    );
+    // A rewrite target is decoded once, never twice: %252e%252e is "%2e%2e", not "..".
+    assert(
+      typeof serve.decodeRequestPath === "function" &&
+        serve.decodeRequestPath("/%252e%252e/secret.txt") === "/%2e%2e/secret.txt",
+      "decodeRequestPath decodes exactly once"
+    );
+
     // Live server on the fixture root.
     server = serve.createStaticServer(site);
     const port = await listen(server);
@@ -229,7 +392,10 @@ function makeFixture() {
     let res = await get(port, "/index.html");
     assert(res.status === 200, "/index.html -> 200 (got " + res.status + ")");
     assert(res.body.indexOf(INDEX_MARK) !== -1, "/index.html serves the fixture page");
-    assert(res.headers["content-type"] === "text/html", "/index.html has text/html type");
+    assert(
+      res.headers["content-type"] === "text/html; charset=utf-8",
+      "/index.html has text/html; charset=utf-8 type (got " + res.headers["content-type"] + ")"
+    );
 
     res = await get(port, "/");
     assert(res.status === 200 && res.body.indexOf(INDEX_MARK) !== -1, "/ serves index.html");
@@ -248,6 +414,60 @@ function makeFixture() {
     assert(
       res.body.indexOf(NOT_FOUND_MARK) !== -1,
       "missing page is answered with the root's 404.html"
+    );
+    // no-cache, never no-store: Chromium never finishes loading a no-store
+    // 4xx whose body page script leaves unread, so networkidle0 never came.
+    for (const [p, want] of [
+      ["/index.html", 200],
+      ["/no-such.json", 404]
+    ]) {
+      res = await get(port, p, { Accept: "application/json" });
+      const cc = String(res.headers["cache-control"] || "");
+      assert(
+        res.status === want && /\bno-cache\b/.test(cc) && !/no-store/.test(cc),
+        p + " -> " + want + " with Cache-Control no-cache and no no-store (got " + cc + ")"
+      );
+    }
+
+    // /api/* is the checkout Worker's: no Worker here, so it answers the way a
+    // misrouted proxy would -- a short HTML page the site reads as
+    // "unavailable" -- never a 404 (read as "no such order") and never a file.
+    for (const [method, p] of [
+      ["GET", "/api/inventory"],
+      ["POST", "/api/order-status"],
+      ["GET", "/api"]
+    ]) {
+      res = await new Promise((resolve, reject) => {
+        const rq = http.request(
+          { host: "127.0.0.1", port, path: p, method, headers: { Accept: "application/json" } },
+          (rs) => {
+            let body = "";
+            rs.setEncoding("utf8");
+            rs.on("data", (c) => (body += c));
+            rs.on("end", () => resolve({ status: rs.statusCode, body, headers: rs.headers }));
+          }
+        );
+        rq.on("error", reject);
+        rq.end(method === "POST" ? '{"sessionId":"cs_test_1","email":"a@b.c"}' : undefined);
+      });
+      let parsed = true;
+      try {
+        JSON.parse(res.body);
+      } catch (e) {
+        parsed = false;
+      }
+      assert(
+        res.status === 200 &&
+          res.headers["x-static-server"] === "no-worker" &&
+          /not part of this static server/.test(res.body) &&
+          !parsed,
+        method + " " + p + " -> the no-Worker page, which is not JSON (got " + res.status + ")"
+      );
+    }
+    res = await get(port, "/apiary.html");
+    assert(
+      res.status === 404,
+      "/apiary.html is a file path, not the Worker's (got " + res.status + ")"
     );
 
     // Traversal to the sentinel, request path sent verbatim by http.request.
@@ -330,10 +550,44 @@ function makeFixture() {
     await close(server);
     server = null;
 
-    // HOST=0.0.0.0 invites the LAN in on purpose: any Host is accepted, but
-    // hidden files stay hidden.
+    // The Host check follows the socket, not the string (red team, 2026-10-09).
+    // HOST=vm -- a NAME that resolves to loopback, as $(hostname) does on
+    // Debian -- used to switch the check off on a loopback socket.
+    server = serve.createStaticServer(site, { host: "yl-dev-box" });
+    const namedPort = await listen(server, "127.0.0.1");
+    for (const h of ["rebind.attacker.example:" + namedPort, "yl-dev-box.attacker.example"]) {
+      res = await get(namedPort, "/index.html", { Host: h });
+      assert(
+        res.status === 403 && res.body.indexOf(INDEX_MARK) === -1,
+        "HOST named yl-dev-box, bound to 127.0.0.1: Host " + h + " -> 403 (got " + res.status + ")"
+      );
+    }
+    for (const h of ["yl-dev-box:" + namedPort, "YL-DEV-BOX", "localhost:" + namedPort]) {
+      res = await get(namedPort, "/index.html", { Host: h });
+      assert(
+        res.status === 200 && res.body.indexOf(INDEX_MARK) !== -1,
+        "HOST named yl-dev-box: its own name and loopback still load (Host " + h + ")"
+      );
+    }
+    await close(server);
+    server = null;
+
+    // Told 0.0.0.0, bound to 127.0.0.1: the socket is loopback, so the check is on.
     server = serve.createStaticServer(site, { host: "0.0.0.0" });
-    const lanPort = await listen(server);
+    const saidLanPort = await listen(server, "127.0.0.1");
+    res = await get(saidLanPort, "/index.html", { Host: "rebind.attacker.example:" + saidLanPort });
+    assert(
+      res.status === 403,
+      "host option 0.0.0.0 but bound to 127.0.0.1 -> Host check on (got " + res.status + ")"
+    );
+    await close(server);
+    server = null;
+
+    // Really bound to 0.0.0.0, the LAN is invited in on purpose: any Host is
+    // accepted, but hidden files stay hidden.
+    server = serve.createStaticServer(site);
+    const lanPort = await listen(server, "0.0.0.0");
+    assert(server.address().address === "0.0.0.0", "the LAN case really is bound to 0.0.0.0");
     res = await get(lanPort, "/index.html", { Host: "192.168.1.20:" + lanPort });
     assert(res.status === 200, "a LAN bind accepts a non-loopback Host (got " + res.status + ")");
     res = await get(lanPort, "/.env", { Host: "192.168.1.20:" + lanPort });
@@ -343,6 +597,167 @@ function makeFixture() {
     );
     await close(server);
     server = null;
+
+    // The same thing end to end through the CLI: HOST=yl-rebind-test.invalid,
+    // which a preloaded dns.lookup resolves to 127.0.0.1 -- exactly what
+    // HOST=$(hostname) does on a stock Debian box. PORT=0 takes a free port.
+    const preload = path.join(tmp, "resolve-to-loopback.js");
+    fs.writeFileSync(
+      preload,
+      [
+        'const dns = require("dns");',
+        "const original = dns.lookup;",
+        "dns.lookup = function (hostname, options, callback) {",
+        '  if (String(hostname).toLowerCase() !== "yl-rebind-test.invalid") {',
+        "    return original.apply(this, arguments);",
+        "  }",
+        '  if (typeof options === "function") callback = options;',
+        "  if (options && options.all) {",
+        '    return process.nextTick(callback, null, [{ address: "127.0.0.1", family: 4 }]);',
+        "  }",
+        '  return process.nextTick(callback, null, "127.0.0.1", 4);',
+        "};",
+        ""
+      ].join("\n")
+    );
+    const cli = await startCli(preload, { HOST: "yl-rebind-test.invalid", PORT: "0" });
+    try {
+      assert(cli.port > 0, "CLI with HOST=yl-rebind-test.invalid printed its URL: " + cli.output);
+      assert(
+        /Bound to 127\.0\.0\.1 \(loopback\): Host header check ON/.test(cli.output),
+        "CLI reports the loopback socket and the Host check as on"
+      );
+      if (cli.port > 0) {
+        res = await get(cli.port, "/index.html", { Host: "attacker.example:" + cli.port });
+        assert(
+          res.status === 403,
+          "CLI HOST=<name resolving to loopback>: rebinding Host -> 403 (got " + res.status + ")"
+        );
+        res = await get(cli.port, "/index.html", { Host: "yl-rebind-test.invalid:" + cli.port });
+        assert(
+          res.status === 200 && /<html/i.test(res.body),
+          "CLI HOST=<name>: the printed URL's own Host still loads (got " + res.status + ")"
+        );
+      }
+    } finally {
+      cli.child.kill();
+    }
+
+    // Harness options: a stubbed route, a rewrite, headers, a body transform
+    // and extra types -- all behind the Host check and the path rules.
+    const seen = [];
+    server = serve.createStaticServer(site, {
+      onRequest(req, response, ctx) {
+        seen.push(ctx.pathname);
+        if (ctx.pathname === "/api/stub") {
+          response.writeHead(200, { "Content-Type": "application/json" });
+          response.end('{"stub":true}');
+          return true;
+        }
+        if (ctx.pathname === "/start") {
+          ctx.serve("/sub/index.html");
+          return true;
+        }
+        if (ctx.pathname === "/start-outside") {
+          ctx.serve("/../secret.txt");
+          return true;
+        }
+        if (ctx.pathname === "/throws") throw new Error("hook failed");
+        return false;
+      },
+      headers: (info) => ({ "X-Served": info.status + " " + info.pathname }),
+      // Would rewrite the 404 page as well, if a transform ever reached it.
+      transform: (body) =>
+        body
+          .toString("utf8")
+          .replace(INDEX_MARK, "rewritten")
+          .replace(NOT_FOUND_MARK, "rewritten-404"),
+      mimeTypes: { ".html": "text/html; charset=x-test" }
+    });
+    const hookPort = await listen(server, "127.0.0.1");
+    res = await get(hookPort, "/api/stub");
+    assert(res.status === 200 && res.body === '{"stub":true}', "onRequest answers a stubbed route");
+    res = await get(hookPort, "/api/stub", { Host: "rebind.attacker.example" });
+    assert(res.status === 403, "a stubbed route is still behind the Host check");
+    res = await get(hookPort, "/start");
+    assert(
+      res.status === 200 && res.body.indexOf(SUB_MARK) !== -1,
+      "ctx.serve() rewrites to another static path"
+    );
+    res = await get(hookPort, "/start-outside");
+    assert(
+      res.status === 404 && res.body.indexOf(SENTINEL) === -1,
+      "ctx.serve() keeps the containment rule (no sentinel)"
+    );
+    res = await get(hookPort, "/throws");
+    assert(
+      res.status === 500,
+      "a throwing onRequest is a 500, not a crash (got " + res.status + ")"
+    );
+    res = await get(hookPort, "/index.html");
+    assert(
+      res.status === 200 &&
+        res.body.indexOf("rewritten") !== -1 &&
+        res.body.indexOf(INDEX_MARK) === -1 &&
+        res.headers["x-served"] === "200 /index.html" &&
+        res.headers["content-type"] === "text/html; charset=x-test",
+      "transform, headers and mimeTypes apply to a 200"
+    );
+    res = await get(hookPort, "/no-such.html");
+    assert(
+      res.status === 404 &&
+        res.body.indexOf(NOT_FOUND_MARK) !== -1 &&
+        res.body.indexOf("rewritten-404") === -1 &&
+        res.headers["x-served"] === "404 /no-such.html",
+      "headers apply to the 404 page too; transform does not"
+    );
+    res = await get(hookPort, "/%252e%252e/secret.txt");
+    assert(
+      res.status === 404 && res.body.indexOf(SENTINEL) === -1,
+      "double-encoded .. is not decoded twice"
+    );
+    assert(seen.indexOf("/%2e%2e/secret.txt") !== -1, "onRequest saw the once-decoded path");
+    if (symlinks) {
+      res = await get(hookPort, "/escape-file.txt");
+      assert(
+        res.status === 404 && res.body.indexOf(SENTINEL) === -1,
+        "with options set, a symlink out of the root is still refused"
+      );
+    }
+    await close(server);
+    server = null;
+
+    // listenLoopback: 127.0.0.1 always; a taken port is an error, or an
+    // ephemeral port with fallbackToEphemeral -- never somebody else's server.
+    assert(typeof serve.listenLoopback === "function", "serve.js exports listenLoopback");
+    const squatter = net.createServer();
+    await new Promise((resolve) => squatter.listen(0, "127.0.0.1", resolve));
+    const takenPort = squatter.address().port;
+    if (typeof serve.listenLoopback === "function") {
+      let refused = null;
+      try {
+        await serve.listenLoopback(serve.createStaticServer(site), takenPort);
+      } catch (e) {
+        refused = e;
+      }
+      assert(
+        refused && refused.code === "EADDRINUSE",
+        "listenLoopback on a taken port rejects with EADDRINUSE"
+      );
+      server = await serve.listenLoopback(serve.createStaticServer(site), takenPort, {
+        fallbackToEphemeral: true
+      });
+      const a = server.address();
+      assert(
+        a.address === "127.0.0.1" && a.port > 0 && a.port !== takenPort,
+        "fallbackToEphemeral binds a fresh loopback port (" + JSON.stringify(a) + ")"
+      );
+      res = await get(a.port, "/index.html");
+      assert(res.status === 200 && res.body.indexOf(INDEX_MARK) !== -1, "...and serves from it");
+      await close(server);
+      server = null;
+    }
+    squatter.close();
 
     // The default root (the repository) still serves its real pages.
     server = serve.createStaticServer(REPO_ROOT);
@@ -362,6 +777,52 @@ function makeFixture() {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
   assert(!fs.existsSync(tmp), "fixture temp dir was removed");
+
+  // Every HTTP server a script in scripts/ starts is serve.js's. Thirty-odd
+  // harnesses carried their own `path.join(ROOT, req.url)` -- the original
+  // traversal bug, with no dot-file, node_modules, symlink or Host rule --
+  // and run_audit.js listened on every interface (red team, 2026-10-09). A
+  // harness written that way again fails here, by name.
+  const sources = scriptSources();
+  assert(sources.length > 50, "found the scripts to inspect (" + sources.length + ")");
+  const RAW_SERVER_RE =
+    /\b(?:https?|http2|net)\s*\.\s*create(?:Secure)?Server\s*\(|\{[^}]*\bcreate(?:Secure)?Server\b[^}]*\}\s*=\s*require\(\s*["'](?:node:)?(?:https?|http2|net)["']\s*\)/;
+  const rawServers = sources.filter(([, src]) => RAW_SERVER_RE.test(src)).map(([rel]) => rel);
+  assert(
+    rawServers.length === 0,
+    "no script starts an HTTP server of its own -- use serve.createStaticServer: " +
+      rawServers.join(", ")
+  );
+  const rawListens = sources.filter(([, src]) => /\.listen\s*\(/.test(src)).map(([rel]) => rel);
+  assert(
+    rawListens.length === 0,
+    "no script calls listen() itself -- serve.listenLoopback binds 127.0.0.1: " +
+      rawListens.join(", ")
+  );
+  const viaServe = sources
+    .filter(
+      ([, src]) =>
+        /require\(\s*["']\.\/serve(?:\.js)?["']\s*\)/.test(src) &&
+        /\bcreateStaticServer\b/.test(src) &&
+        /\blistenLoopback\b/.test(src)
+    )
+    .map(([rel]) => rel);
+  for (const name of [
+    "puppeteer_tests.js",
+    "cms-preview.browser.test.js",
+    "run_audit.js",
+    "a11y-check.js",
+    "security_stress_test.js",
+    "minified-build.browser.test.js"
+  ]) {
+    assert(viaServe.indexOf(name) !== -1, name + " builds and binds its server with serve.js");
+  }
+  assert(
+    viaServe.length >= 30,
+    "at least 30 harnesses build and bind their server with serve.js (found " +
+      viaServe.length +
+      ")"
+  );
 
   console.log(`\nserve.test.js: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

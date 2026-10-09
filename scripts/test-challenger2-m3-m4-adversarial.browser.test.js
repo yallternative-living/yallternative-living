@@ -24,10 +24,10 @@
 
 const fs = require("fs");
 const path = require("path");
-const http = require("http");
 
 const { spawnSync } = require("child_process");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const SMOKE_TEST_SCRIPT = path.join(__dirname, "smoke-test.js");
@@ -496,38 +496,11 @@ console.log("===================================================================
 
   // --- 1.6 In-Browser Puppeteer Empirical Hover Validation ---
   console.log("\n--- 1.6 In-Browser Headless Chrome Empirical Hover Verification ---");
-  const MIME = {
-    ".html": "text/html",
-    ".js": "text/javascript",
-    ".css": "text/css",
-    ".json": "application/json",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".svg": "image/svg+xml"
-  };
-
-  const server = http.createServer((req, res) => {
-    let reqPath = decodeURIComponent(req.url.split("?")[0]);
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(ROOT, reqPath);
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(ROOT, "404.html");
-    }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "text/plain",
-        "Cache-Control": "no-store"
-      });
-      res.end(data);
-    });
-  });
-
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(ROOT);
+  await listenLoopback(server, 0);
   const PORT = server.address().port;
 
   const browser = await puppeteer.launch({

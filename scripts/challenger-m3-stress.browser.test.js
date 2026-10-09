@@ -16,8 +16,8 @@ const path = require("path");
 const PRODUCT_COUNT = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "assets", "data", "products.json"), "utf8")
 ).products.length;
-const http = require("http");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 const buildScript = require("./build-site-data.js");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -143,45 +143,20 @@ async function blockThirdPartyRequests(page, origin) {
 
 // Static server for Puppeteer tests
 function createServer(port = 0) {
-  const MIME_TYPES = {
-    ".html": "text/html",
-    ".css": "text/css",
-    ".js": "application/javascript",
-    ".json": "application/json",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".svg": "image/svg+xml",
-    ".ico": "image/x-icon"
-  };
-
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0].split("#")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    const filePath = path.join(ROOT, reqPath);
-
-    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-      const ext = path.extname(filePath).toLowerCase();
-      res.writeHead(200, { "Content-Type": MIME_TYPES[ext] || "text/plain" });
-      let content = fs.readFileSync(filePath);
-      if (reqPath.startsWith("/products/") && reqPath.endsWith(".html")) {
-        let str = content.toString("utf8");
-        str = str.replace(
-          /window\.location\.replace\(.*?\);/g,
-          "/* redirect disabled for test */;"
-        );
-        content = Buffer.from(str, "utf8");
-      }
-      res.end(content);
-    } else {
-      res.writeHead(404, { "Content-Type": "text/plain" });
-      res.end("Not Found");
-    }
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(ROOT, {
+    // A PDP redirects to the shop grid on load; neutralise it so the PDP
+    // DOM and its interactions can be driven directly.
+    transform: (body, info) =>
+      info.pathname.startsWith("/products/") && info.pathname.endsWith(".html")
+        ? body
+            .toString("utf8")
+            .replace(/window\.location\.replace\(.*?\);/g, "/* redirect disabled for test */;")
+        : body
   });
-
-  return new Promise((resolve) => {
-    server.listen(port, "127.0.0.1", () => resolve(server));
-  });
+  return listenLoopback(server, port);
 }
 
 async function runAdversarialStressTests() {

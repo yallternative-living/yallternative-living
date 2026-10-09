@@ -44,63 +44,21 @@
 
 /* global document, window, NodeFilter, Node */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const PORT = 8087;
 const ROOT = path.resolve(__dirname, "..");
 const LOCALE_CODES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
 
-const MIME = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".webmanifest": "application/manifest+json"
-};
-
 function createStaticServer(port) {
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(ROOT, reqPath);
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(ROOT, "404.html");
-    }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream",
-        "Cache-Control": "no-store"
-      });
-      res.end(data);
-    });
-  });
-  return new Promise((resolve, reject) => {
-    server.listen(port, "127.0.0.1", () => resolve(server));
-    server.on("error", (err) => {
-      if (err.code === "EADDRINUSE" && port !== 0) {
-        server.listen(0, "127.0.0.1", () => resolve(server));
-      } else {
-        reject(err);
-      }
-    });
-  });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  return listenLoopback(createSiteServer(ROOT), port, { fallbackToEphemeral: true });
 }
 
 /* The four pages whose BODY copy stays in English. MoCRA adverse-event

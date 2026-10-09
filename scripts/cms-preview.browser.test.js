@@ -11,10 +11,9 @@
  */
 
 const puppeteer = require("puppeteer");
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { resolveRequestPath } = require("./serve.js");
+const { createStaticServer, listenLoopback } = require("./serve.js");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const PORT = 8105;
@@ -22,52 +21,23 @@ const PORT = 8105;
 let server;
 let browser;
 
-const mimeTypes = {
-  ".html": "text/html",
-  ".js": "application/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".svg": "image/svg+xml",
-  ".yml": "text/yaml"
-};
-
+/* serve.js's server, not a copy: the one that lived here resolved the path
+   but served a symlink's target wherever it pointed, and had no Host check
+   (red team, 2026-10-09). /admin/* carries the exact CSP _headers gives it;
+   a _headers with no such policy fails the suite instead of quietly
+   testing the CMS with no CSP at all. */
 function startServer() {
-  return new Promise((resolve) => {
-    server = http.createServer((req, res) => {
-      let reqPath = req.url.split("?")[0];
-      if (reqPath === "/") reqPath = "/index.html";
-      // serve.js's resolver, not path.join: a raw join let
-      // /../../../etc/passwd (and /.git/, /.env) out of the repository while
-      // this suite ran (red team, 2026-10-08).
-      let filePath = resolveRequestPath(ROOT_DIR, reqPath);
-      if (filePath && fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-        filePath = path.join(filePath, "index.html");
-      }
-      if (!filePath || !fs.existsSync(filePath)) {
-        res.writeHead(404);
-        res.end("Not Found");
-        return;
-      }
-
-      // Serve /admin/* with the exact same CSP as _headers
-      if (reqPath.startsWith("/admin")) {
-        const headersFile = fs.readFileSync(path.join(ROOT_DIR, "_headers"), "utf8");
-        const match = headersFile.match(/\/admin\/\*\s*\n\s*Content-Security-Policy:\s*(.+)/);
-        if (match) {
-          res.setHeader("Content-Security-Policy", match[1].trim());
-        }
-      }
-
-      const ext = path.extname(filePath).toLowerCase();
-      res.writeHead(200, { "Content-Type": mimeTypes[ext] || "text/plain" });
-      res.end(fs.readFileSync(filePath));
-    });
-
-    // Loopback only: with no host, listen() takes every interface.
-    server.listen(PORT, "127.0.0.1", resolve);
+  const headersFile = fs.readFileSync(path.join(ROOT_DIR, "_headers"), "utf8");
+  const match = headersFile.match(/\/admin\/\*\s*\n\s*Content-Security-Policy:\s*(.+)/);
+  if (!match || !match[1].trim()) {
+    return Promise.reject(new Error("_headers has no Content-Security-Policy for /admin/*"));
+  }
+  const adminCsp = match[1].trim();
+  server = createStaticServer(ROOT_DIR, {
+    headers: (info) =>
+      info.pathname.startsWith("/admin") ? { "Content-Security-Policy": adminCsp } : {}
   });
+  return listenLoopback(server, PORT);
 }
 
 async function run() {

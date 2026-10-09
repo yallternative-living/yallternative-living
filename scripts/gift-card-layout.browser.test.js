@@ -37,56 +37,18 @@
  * Run: node scripts/gift-card-layout.browser.test.js
  */
 
-const http = require("http");
-const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const ROOT = path.resolve(__dirname, "..");
 
-const MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".webmanifest": "application/manifest+json",
-  ".xml": "application/xml"
-};
-
 function createServer() {
-  const server = http.createServer((req, res) => {
-    let reqPath = decodeURIComponent(req.url.split("?")[0].split("#")[0]);
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(ROOT, reqPath);
-    if (
-      !filePath.startsWith(ROOT) ||
-      !fs.existsSync(filePath) ||
-      fs.statSync(filePath).isDirectory()
-    ) {
-      filePath = path.join(ROOT, "404.html");
-    }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream"
-      });
-      res.end(data);
-    });
-  });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
   // Ephemeral port: several suites run in parallel in the integration pool.
-  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
+  return listenLoopback(createSiteServer(ROOT), 0);
 }
 
 let passed = 0;
