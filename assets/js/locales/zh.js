@@ -853,7 +853,8 @@
     "auto.thePerfectGiftFor.057d2a": "送给特立独行与勇敢之人的完美礼物。从$10到$500自选金额。无有效期限制，直接发送至对方收件箱。",
     "auto.craftShow.a76ec3": "手工艺市集",
     "auto.handsOnNightsWhere.b360f5": "亲手动手的体验之夜，亲手做属于自己的自我呵护好物带回家。门票就在这里买。",
-    "auto.workshopsClasses.446555": "工坊与课程"
+    "auto.workshopsClasses.446555": "工坊与课程",
+    "auto.includeFeralButFresh.d240b2": "包含 Feral but FRESH Cream Deodorant"
   }
 };
 

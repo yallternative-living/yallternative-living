@@ -853,7 +853,8 @@
     "auto.thePerfectGiftFor.057d2a": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
     "auto.craftShow.a76ec3": "Craft Show",
     "auto.handsOnNightsWhere.b360f5": "Hands-on nights where you make your own self-care goodies and take them home. Grab your ticket right here.",
-    "auto.workshopsClasses.446555": "Workshops & Classes"
+    "auto.workshopsClasses.446555": "Workshops & Classes",
+    "auto.includeFeralButFresh.d240b2": "Include Feral but FRESH Cream Deodorant"
   }
 };
 

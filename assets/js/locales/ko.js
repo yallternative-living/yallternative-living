@@ -853,7 +853,8 @@
     "auto.thePerfectGiftFor.057d2a": "Black Sheep & Bold Hearts를 위한 완벽한 선물이에요. $10부터 $500까지 원하는 금액을 선택해 보세요. 유효기간 없이 받은편지함으로 바로 전송돼요.",
     "auto.craftShow.a76ec3": "크래프트 쇼",
     "auto.handsOnNightsWhere.b360f5": "나만의 셀프케어 아이템을 직접 만들어 챙겨가는 체험의 밤이에요. 티켓은 바로 여기서 예매하세요.",
-    "auto.workshopsClasses.446555": "워크숍 & 클래스"
+    "auto.workshopsClasses.446555": "워크숍 & 클래스",
+    "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant 포함"
   }
 };
 
