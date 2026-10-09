@@ -9,51 +9,25 @@
  */
 /* global window, document, getComputedStyle */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 const axeCore = require("axe-core");
 
 const PORT = 8085;
 const ROOT = path.resolve(__dirname, "..");
-const URL_BASE = `http://127.0.0.1:${PORT}`;
+let URL_BASE = `http://127.0.0.1:${PORT}`;
 
 let server;
 let browser;
 
 function createServer() {
-  return new Promise((resolve, reject) => {
-    const srv = http.createServer((req, res) => {
-      let reqPath = req.url.split("?")[0];
-      if (reqPath === "/") reqPath = "/index.html";
-      let filePath = path.join(ROOT, reqPath);
-
-      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-        filePath = path.join(ROOT, "404.html");
-      }
-
-      const ext = path.extname(filePath).toLowerCase();
-      const mimeTypes = {
-        ".html": "text/html",
-        ".js": "text/javascript",
-        ".css": "text/css",
-        ".json": "application/json",
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".avif": "image/avif",
-        ".webp": "image/webp",
-        ".svg": "image/svg+xml"
-      };
-
-      res.writeHead(200, { "Content-Type": mimeTypes[ext] || "application/octet-stream" });
-      fs.createReadStream(filePath).pipe(res);
-    });
-
-    srv.on("error", reject);
-    srv.listen(PORT, "127.0.0.1", () => resolve(srv));
-  });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  // A taken port moves to a free one: never test whatever already holds it.
+  return listenLoopback(createSiteServer(ROOT), PORT, { fallbackToEphemeral: true });
 }
 
 let passed = 0;
@@ -87,16 +61,9 @@ async function runTests() {
   console.log("MILESTONE 2 EMPIRICAL TEST SUITE: UGC / SOCIAL FEED");
   console.log("==================================================\n");
 
-  try {
-    server = await createServer();
-    console.log(`Local test server running on ${URL_BASE}`);
-  } catch (e) {
-    if (e.code === "EADDRINUSE") {
-      console.log(`Using existing server running on ${URL_BASE}`);
-    } else {
-      throw e;
-    }
-  }
+  server = await createServer();
+  URL_BASE = `http://127.0.0.1:${server.address().port}`;
+  console.log(`Local test server running on ${URL_BASE}`);
 
   browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
   const page = await browser.newPage();

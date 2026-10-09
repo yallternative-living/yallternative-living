@@ -11,10 +11,9 @@
  */
 
 const assert = require("assert");
-const fs = require("fs");
 const path = require("path");
-const http = require("http");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const cart = require("../assets/js/cart.js");
 
@@ -49,54 +48,20 @@ async function runAsyncTest(name, fn) {
 
 // Local HTTP Server helper
 function createStaticServer(port = 8089) {
-  const root = path.resolve(__dirname, "..");
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0].split("#")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(root, reqPath);
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(root, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html",
-      ".js": "text/javascript",
-      ".css": "text/css",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".avif": "image/avif",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml"
-    };
-
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-      } else {
-        res.writeHead(200, { "Content-Type": contentType });
-        if (reqPath.startsWith("/products/") && reqPath.endsWith(".html")) {
-          let str = data.toString("utf8");
-          str = str.replace(
-            /window\.location\.replace\(.*?\);/g,
-            "/* redirect disabled for test */;"
-          );
-          res.end(Buffer.from(str, "utf8"));
-        } else {
-          res.end(data);
-        }
-      }
-    });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(path.resolve(__dirname, ".."), {
+    // A PDP redirects to the shop grid on load; neutralise it so the PDP
+    // DOM and its interactions can be driven directly.
+    transform: (body, info) =>
+      info.pathname.startsWith("/products/") && info.pathname.endsWith(".html")
+        ? body
+            .toString("utf8")
+            .replace(/window\.location\.replace\(.*?\);/g, "/* redirect disabled for test */;")
+        : body
   });
-
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    server.listen(port, "127.0.0.1", () => resolve(server));
-  });
+  return listenLoopback(server, port);
 }
 
 (async () => {

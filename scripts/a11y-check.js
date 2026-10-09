@@ -45,10 +45,10 @@
 
 /* global document, window */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const PORT = 8084;
 const ROOT = path.resolve(__dirname, "..");
@@ -60,53 +60,12 @@ const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-
    axe resolves the real computed colours for each. */
 const THEMES = ["dark", "light"];
 
-const MIME = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".webmanifest": "application/manifest+json"
-};
-
+/* serve.js's server on 127.0.0.1 (a taken port moves to a free one). The
+   copy that lived here joined req.url straight onto the repository, so
+   /../../../etc/passwd, /.git and node_modules were readable while the gate
+   ran, and it had no Host check (red team, 2026-10-09). */
 function createStaticServer(port) {
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(ROOT, reqPath);
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(ROOT, "404.html");
-    }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream",
-        "Cache-Control": "no-store"
-      });
-      res.end(data);
-    });
-  });
-  return new Promise((resolve, reject) => {
-    server.listen(port, "127.0.0.1", () => resolve(server));
-    server.on("error", (err) => {
-      if (err.code === "EADDRINUSE" && port !== 0) {
-        server.listen(0, "127.0.0.1", () => resolve(server));
-      } else {
-        reject(err);
-      }
-    });
-  });
+  return listenLoopback(createSiteServer(ROOT), port, { fallbackToEphemeral: true });
 }
 
 /* The budget for one "<page> [<theme>]" label: its own entry, else the

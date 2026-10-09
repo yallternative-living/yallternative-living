@@ -2,7 +2,7 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
-const http = require("http");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const PORT = 8080;
 const URL_BASE = `http://127.0.0.1:${PORT}`;
@@ -37,54 +37,14 @@ fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 const axeCorePath = require.resolve("axe-core/axe.min.js");
 const axeCoreSource = fs.readFileSync(axeCorePath, "utf8");
 
+/* serve.js's server on 127.0.0.1. The copy that lived here joined req.url
+   onto the repository and listened on EVERY interface, so anyone on the LAN
+   could read /../../../etc/passwd, /.git and node_modules while an audit ran
+   (red team, 2026-10-09). URL_BASE above is 127.0.0.1, so a fixed port is
+   kept: a taken one fails the run rather than auditing somebody else's
+   server. */
 function createStaticServer(port = 8080) {
-  const root = path.resolve(__dirname, "..");
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(root, reqPath);
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(root, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html",
-      ".js": "text/javascript",
-      ".css": "text/css",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".svg": "image/svg+xml",
-      ".webp": "image/webp",
-      ".avif": "image/avif",
-      ".ico": "image/x-icon"
-    };
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Error loading file");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": contentType,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-        Expires: "0"
-      });
-      res.end(data);
-    });
-  });
-
-  return new Promise((resolve, reject) => {
-    server.listen(port, () => {
-      resolve(server);
-    });
-    server.on("error", reject);
-  });
+  return listenLoopback(createSiteServer(path.resolve(__dirname, "..")), port);
 }
 
 (async () => {

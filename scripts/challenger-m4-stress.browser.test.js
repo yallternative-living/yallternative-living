@@ -13,8 +13,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const http = require("http");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 const buildScript = require("./build-site-data.js");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -689,38 +689,18 @@ async function runAllTests() {
   // ============================================================================
   console.log("\n--- 4. Headless Browser Integration Tests (journal.html) ---");
 
-  const mimeTypes = {
-    ".html": "text/html",
-    ".js": "application/javascript",
-    ".css": "text/css",
-    ".json": "application/json",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".svg": "image/svg+xml",
-    ".xml": "application/xml"
-  };
-
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0].split("#")[0];
-    if (reqPath === "/") reqPath = "/journal.html";
-    const filePath = path.join(ROOT, reqPath);
-
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(404, { "Content-Type": "text/plain" });
-        res.end("404 Not Found");
-        return;
-      }
-      const ext = path.extname(filePath).toLowerCase();
-      res.writeHead(200, { "Content-Type": mimeTypes[ext] || "text/plain" });
-      res.end(data);
-    });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  // "/" opens the journal, the page under test.
+  const server = createSiteServer(ROOT, {
+    onRequest(req, res, ctx) {
+      if (ctx.pathname !== "/") return false;
+      ctx.serve("/journal.html");
+      return true;
+    }
   });
-
-  await new Promise((resolve) => {
-    server.listen(0, "127.0.0.1", resolve);
-  });
+  await listenLoopback(server, 0);
 
   const PORT = server.address().port;
   console.log(`  Local test HTTP server running on http://127.0.0.1:${PORT}`);

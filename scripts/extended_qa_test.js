@@ -10,53 +10,17 @@
 
 /* global document, window, localStorage */
 
-const http = require("http");
-const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 function createStaticServer(port = 8083) {
-  const root = path.resolve(__dirname, "..");
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(root, reqPath);
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(root, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html",
-      ".js": "text/javascript",
-      ".css": "text/css",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".avif": "image/avif",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml",
-      ".ico": "image/x-icon",
-      ".webmanifest": "application/manifest+json"
-    };
-
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-      } else {
-        res.writeHead(200, { "Content-Type": contentType });
-        res.end(data);
-      }
-    });
-  });
-
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    server.listen(port, "127.0.0.1", () => resolve(server));
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  // A taken port moves to a free one: never test whatever already holds it.
+  return listenLoopback(createSiteServer(path.resolve(__dirname, "..")), port, {
+    fallbackToEphemeral: true
   });
 }
 
@@ -65,8 +29,7 @@ function createStaticServer(port = 8083) {
   let exitCode = 0;
   let browser;
   let localServer;
-  const port = 8083;
-  const url = `http://127.0.0.1:${port}`;
+  let url;
 
   const metrics = {
     pagesChecked: 0,
@@ -81,16 +44,9 @@ function createStaticServer(port = 8083) {
   };
 
   try {
-    try {
-      localServer = await createStaticServer(port);
-      console.log(`Started local static server on ${url}`);
-    } catch (e) {
-      if (e.code === "EADDRINUSE") {
-        console.log(`Using existing server running on ${url}`);
-      } else {
-        throw e;
-      }
-    }
+    localServer = await createStaticServer(8083);
+    url = `http://127.0.0.1:${localServer.address().port}`;
+    console.log(`Started local static server on ${url}`);
 
     browser = await puppeteer.launch({
       headless: "new",

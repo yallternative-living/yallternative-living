@@ -14,9 +14,10 @@
  * the CLI with a dns.lookup preload). It unit-tests the segment normaliser
  * that stands in for case-insensitive and Windows file systems, checks the
  * no-Worker answer for /api/* and that nothing is sent `no-store`,
- * and drives the harness options (onRequest, headers, transform, mimeTypes,
- * listenLoopback). Nothing is written anywhere near the repository; the
- * fixture is removed in `finally`.
+ * drives the harness options (onRequest, headers, transform, mimeTypes,
+ * listenLoopback), and finally reads every script in scripts/ to fail on any
+ * that starts an HTTP server without going through serve.js. Nothing is
+ * written anywhere near the repository; the fixture is removed in `finally`.
  * Run: node scripts/serve.test.js
  */
 
@@ -122,6 +123,29 @@ function startCli(preload, env) {
     child.stderr.on("data", onData);
     child.on("exit", finish);
   });
+}
+
+/**
+ * Every script under scripts/ (lib/ included) other than serve.js and this
+ * file, as [relative name, source].
+ */
+function scriptSources() {
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "node_modules" && entry.name !== "fixtures") walk(full);
+      } else if (entry.name.endsWith(".js")) {
+        const rel = path.relative(__dirname, full);
+        if (rel !== "serve.js" && rel !== "serve.test.js") {
+          out.push([rel, fs.readFileSync(full, "utf8")]);
+        }
+      }
+    }
+  };
+  walk(__dirname);
+  return out;
 }
 
 /**
@@ -753,6 +777,52 @@ function makeFixture() {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
   assert(!fs.existsSync(tmp), "fixture temp dir was removed");
+
+  // Every HTTP server a script in scripts/ starts is serve.js's. Thirty-odd
+  // harnesses carried their own `path.join(ROOT, req.url)` -- the original
+  // traversal bug, with no dot-file, node_modules, symlink or Host rule --
+  // and run_audit.js listened on every interface (red team, 2026-10-09). A
+  // harness written that way again fails here, by name.
+  const sources = scriptSources();
+  assert(sources.length > 50, "found the scripts to inspect (" + sources.length + ")");
+  const RAW_SERVER_RE =
+    /\b(?:https?|http2|net)\s*\.\s*create(?:Secure)?Server\s*\(|\{[^}]*\bcreate(?:Secure)?Server\b[^}]*\}\s*=\s*require\(\s*["'](?:node:)?(?:https?|http2|net)["']\s*\)/;
+  const rawServers = sources.filter(([, src]) => RAW_SERVER_RE.test(src)).map(([rel]) => rel);
+  assert(
+    rawServers.length === 0,
+    "no script starts an HTTP server of its own -- use serve.createStaticServer: " +
+      rawServers.join(", ")
+  );
+  const rawListens = sources.filter(([, src]) => /\.listen\s*\(/.test(src)).map(([rel]) => rel);
+  assert(
+    rawListens.length === 0,
+    "no script calls listen() itself -- serve.listenLoopback binds 127.0.0.1: " +
+      rawListens.join(", ")
+  );
+  const viaServe = sources
+    .filter(
+      ([, src]) =>
+        /require\(\s*["']\.\/serve(?:\.js)?["']\s*\)/.test(src) &&
+        /\bcreateStaticServer\b/.test(src) &&
+        /\blistenLoopback\b/.test(src)
+    )
+    .map(([rel]) => rel);
+  for (const name of [
+    "puppeteer_tests.js",
+    "cms-preview.browser.test.js",
+    "run_audit.js",
+    "a11y-check.js",
+    "security_stress_test.js",
+    "minified-build.browser.test.js"
+  ]) {
+    assert(viaServe.indexOf(name) !== -1, name + " builds and binds its server with serve.js");
+  }
+  assert(
+    viaServe.length >= 30,
+    "at least 30 harnesses build and bind their server with serve.js (found " +
+      viaServe.length +
+      ")"
+  );
 
   console.log(`\nserve.test.js: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

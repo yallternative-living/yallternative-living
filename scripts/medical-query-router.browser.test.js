@@ -44,10 +44,10 @@
  * Run: node scripts/medical-query-router.browser.test.js
  */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -78,46 +78,13 @@ const RENDERED_WORD_ALLOWLIST = {
 };
 
 function createTestServer() {
-  const mimeTypes = {
-    ".html": "text/html",
-    ".js": "text/javascript",
-    ".css": "text/css",
-    ".json": "application/json",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".avif": "image/avif",
-    ".webp": "image/webp",
-    ".svg": "image/svg+xml",
-    ".ico": "image/x-icon",
-    ".webmanifest": "application/manifest+json"
-  };
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(ROOT, reqPath);
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(ROOT, "404.html");
-    }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type":
-          mimeTypes[path.extname(filePath).toLowerCase()] || "application/octet-stream"
-      });
-      res.end(data);
-    });
-  });
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    /* Port 0: the OS picks a free one, so this suite can run beside every other
-       browser suite in the pool without a port collision. */
-    server.listen(0, "127.0.0.1", () => resolve({ server, port: server.address().port }));
-  });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(ROOT);
+  /* Port 0: the OS picks a free one, so this suite can run beside every other
+     browser suite in the pool without a port collision. */
+  return listenLoopback(server, 0).then(() => ({ server, port: server.address().port }));
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

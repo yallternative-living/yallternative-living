@@ -9,62 +9,25 @@
  * hosted page, which this local static-server test harness can't exercise).
  */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
-const { resolveRequestPath } = require("./serve.js");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 /**
- * Creates and starts a lightweight local static HTTP server for test execution.
+ * Starts serve.js's static server on 127.0.0.1 for test execution -- the
+ * same containment, dot-file/node_modules/symlink rules and Host check as
+ * `node scripts/serve.js`. The copy that lived here resolved the path but
+ * never checked where a symlink really pointed, and answered a missing link
+ * with 404.html and a 200, so the broken-link crawl below could not see one
+ * (red team, 2026-10-09). A taken port moves to a free one: the suite never
+ * tests whatever server already holds 8082.
  * @param {number} [port=8082] Port number to listen on.
  * @return {Promise<http.Server>} Resolves with the running HTTP server instance.
  */
 function createStaticServer(port = 8082) {
-  const root = path.resolve(__dirname, "..");
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    // serve.js's resolver, not path.join: a raw join served anything the
-    // process could read (/../../etc/passwd, /.git/, /.env) while the suite
-    // ran (red team, 2026-10-08). Outside or hidden reads as missing.
-    let filePath = resolveRequestPath(root, reqPath);
-
-    if (!filePath || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(root, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html",
-      ".js": "text/javascript",
-      ".css": "text/css",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".avif": "image/avif",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml",
-      ".ico": "image/x-icon",
-      ".webmanifest": "application/manifest+json"
-    };
-
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-      } else {
-        res.writeHead(200, { "Content-Type": contentType });
-        res.end(data);
-      }
-    });
-  });
-
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    server.listen(port, "127.0.0.1", () => resolve(server));
+  return listenLoopback(createSiteServer(path.resolve(__dirname, "..")), port, {
+    fallbackToEphemeral: true
   });
 }
 
@@ -73,20 +36,12 @@ function createStaticServer(port = 8082) {
   let exitCode = 0;
   let browser;
   let localServer;
-  const port = 8082;
-  const url = `http://127.0.0.1:${port}`;
+  let url;
 
   try {
-    try {
-      localServer = await createStaticServer(port);
-      console.log(`Started local static server on ${url}`);
-    } catch (e) {
-      if (e.code === "EADDRINUSE") {
-        console.log(`Using existing server running on ${url}`);
-      } else {
-        throw e;
-      }
-    }
+    localServer = await createStaticServer(8082);
+    url = `http://127.0.0.1:${localServer.address().port}`;
+    console.log(`Started local static server on ${url}`);
 
     browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
     const page = await browser.newPage();
