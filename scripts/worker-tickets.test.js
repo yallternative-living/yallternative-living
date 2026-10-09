@@ -380,6 +380,58 @@ async function run() {
     "a copied workshop's shared id fails the build naming the Workshop ID field and the fix"
   );
 
+  /* ---- An event that ends before it starts is a build error (red team, 2026-10-09) ----
+     It built fine, then shipped a zero-length .ics (DTSTART = DTEND) and was
+     archived on its own opening day (the archive judges by endDate). */
+  for (const [events, label, re] of [
+    [
+      {
+        upcoming: [
+          { name: "Holiday Market", date: "2026-12-12", endDate: "2026-12-11", location: "X" }
+        ],
+        workshops: []
+      },
+      "a market",
+      /The event "Holiday Market" .*ends before it starts.*\(2026-12-11\).*\(2026-12-12\)/
+    ],
+    [
+      {
+        upcoming: [],
+        workshops: [{ name: "Late Class", date: "2099-05-02", endDate: "2099-05-01", price: 5 }]
+      },
+      "a workshop",
+      /The workshop "Late Class" .*ends before it starts/
+    ]
+  ]) {
+    let err = null;
+    try {
+      build.mergeWorkshopsIntoUpcoming(events);
+    } catch (e) {
+      err = e;
+    }
+    assert(
+      err && re.test(err.message),
+      `the build refuses ${label} whose End date is before its Date`
+    );
+  }
+  for (const [evt, label] of [
+    [
+      { name: "One Day", date: "2026-12-12", endDate: "2026-12-12" },
+      "an End date equal to the Date"
+    ],
+    [{ name: "Weekend", date: "2026-12-12", endDate: "2026-12-13" }, "a later End date"],
+    [{ name: "No End", date: "2026-12-12" }, "no End date"],
+    [{ name: "Blank End", date: "2026-12-12", endDate: "" }, "a blank End date"],
+    [{ name: "Standing", dateLabel: "Saturdays" }, "no dates at all"]
+  ]) {
+    let err = null;
+    try {
+      build.mergeWorkshopsIntoUpcoming({ upcoming: [evt], workshops: [] });
+    } catch (e) {
+      err = e;
+    }
+    assert(err === null, `a market with ${label} builds`);
+  }
   console.log(`\nworker-tickets.test.js: ${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
 }

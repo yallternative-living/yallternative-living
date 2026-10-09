@@ -1517,8 +1517,46 @@ function workshopSellsOnSite(w) {
    same one, so it has to be the bare slug -- never a "-2" suffix) and, when
    tickets sell on the site, the cart line id `ticketId`. Mutates and returns
    `events`; `workshops` is removed so nothing reads them twice. */
+/* An upcoming market or a workshop that ends before it starts is refused,
+   naming the event. Built anyway, a market dated 2026-12-12 with an end date
+   of 2026-12-11 shipped a zero-length calendar (.ics) entry -- DTSTART =
+   DTEND -- and was archived to "Where We've Been" on its own opening day,
+   because the archive judges by endDate (red team, 2026-10-09). Compared
+   only when both are written YYYY-MM-DD; a workshop's dates are held to
+   that format below, and a market's free-form dates are not this check's
+   business. Past entries are a record and are left alone. */
+function assertEventDateRanges(events) {
+  const check = function (evt, kind) {
+    if (!evt || typeof evt !== "object") return;
+    const start = String(evt.date || "");
+    const end = String(evt.endDate || "");
+    if (!ISO_DAY_RE.test(start) || !ISO_DAY_RE.test(end) || end >= start) return;
+    throw new Error(
+      "The " +
+        kind +
+        ' "' +
+        (evt.name || evt.id || "(no name)") +
+        '" in assets/data/events.json ends before it starts: its End date (' +
+        end +
+        ") is earlier than its Date (" +
+        start +
+        "). Fix the End date in the CMS (Markets & Pop-Ups) -- the same day as the Date " +
+        "for a one-day " +
+        kind +
+        ", or a later one -- or clear it."
+    );
+  };
+  (Array.isArray(events.upcoming) ? events.upcoming : []).forEach(function (evt) {
+    check(evt, evt && evt.kind === "workshop" ? "workshop" : "event");
+  });
+  (Array.isArray(events.workshops) ? events.workshops : []).forEach(function (w) {
+    check(w, "workshop");
+  });
+}
+
 function mergeWorkshopsIntoUpcoming(events) {
   if (!events || typeof events !== "object") return events;
+  assertEventDateRanges(events);
   const workshops = Array.isArray(events.workshops) ? events.workshops : [];
   if (!Array.isArray(events.upcoming)) events.upcoming = [];
   const seen = new Map(); // id -> the name of the workshop holding it
