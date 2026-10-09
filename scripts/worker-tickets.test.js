@@ -40,6 +40,64 @@ function assert(condition, label) {
   }
 }
 
+/**
+ * assets/js/main.js under just enough of a DOM to load: its card renderers
+ * are pure string functions, the rest only has to not throw at load. Each
+ * suite runs in its own process (scripts/run-unit-tests.js), so these
+ * globals do not leak.
+ */
+function loadMainJs() {
+  const el = () => ({
+    addEventListener() {},
+    setAttribute() {},
+    getAttribute: () => null,
+    removeAttribute() {},
+    hasAttribute: () => false,
+    classList: { add() {}, remove() {}, contains: () => false, toggle() {} },
+    style: {},
+    dataset: {},
+    appendChild: (c) => c,
+    insertBefore: (c) => c,
+    querySelector: () => el(),
+    querySelectorAll: () => []
+  });
+  const doc = {
+    readyState: "loading",
+    addEventListener() {},
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    getElementById: () => el(),
+    createElement: el,
+    documentElement: el(),
+    body: el(),
+    head: el()
+  };
+  const storage = { getItem: () => null, setItem() {}, removeItem() {} };
+  global.document = doc;
+  global.localStorage = storage;
+  global.window = {
+    document: doc,
+    localStorage: storage,
+    addEventListener() {},
+    matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+    location: {
+      href: "https://yallternativeliving.com/",
+      search: "",
+      hash: "",
+      pathname: "/",
+      hostname: "yallternativeliving.com",
+      origin: "https://yallternativeliving.com"
+    }
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    return require("../assets/js/main.js");
+  } finally {
+    console.warn = warn;
+  }
+}
+
 async function run() {
   const tickets = await import("../workers/state/tickets.js");
 
@@ -75,6 +133,12 @@ async function run() {
     { price: 60, spots: 12, ticketUrl: "https://square.link/u/x" },
     { price: 60, spots: 12, ticketUrl: "   " },
     { price: -5, spots: 3 },
+    // A blank "Tickets available" saves as null or "" -- not 0 spots.
+    { price: 60, spots: null },
+    { price: 60, spots: "" },
+    { price: 60, spots: "   " },
+    { price: 60, spots: true },
+    { price: 60, spots: "0" },
     null
   ];
   for (const c of cases) {
@@ -83,6 +147,56 @@ async function run() {
       build.workshopSellsOnSite(c),
       `the page and the Worker agree whether ${JSON.stringify(c)} sells on the site`
     );
+  }
+
+  /* ---- A blank spots field is "coming soon", everywhere (red team, 2026-10-09) ----
+     Number(null) and Number("") are 0, so a workshop whose "Tickets
+     available" was left blank used to show Sold Out on the card and be
+     refused as sold out by the Worker, while the build warned "Tickets
+     coming soon". Parity alone could not catch it: both sides agreed on the
+     wrong answer. */
+  for (const blank of [null, "", "  ", undefined]) {
+    const w = { name: "Blank Spots", date: "2099-12-05", price: 40, spots: blank };
+    const label = `spots ${JSON.stringify(blank === undefined ? "(absent)" : blank)}`;
+    eq(tickets.sellsTicketsOnSite(w), false, `${label}: the Worker does not sell it`);
+    eq(build.workshopSellsOnSite(w), false, `${label}: the build does not sell it`);
+    eq(tickets.ticketEntriesOf({ workshops: [w] }, "2000-01-01"), [], `${label}: no ticket entry`);
+    const merged = build.mergeWorkshopsIntoUpcoming({ upcoming: [], workshops: [{ ...w }] });
+    assert(!("ticketId" in merged.upcoming[0]), `${label}: the card gets no ticket id`);
+  }
+  eq(
+    tickets
+      .ticketEntriesOf(
+        { workshops: [{ name: "Zero", date: "2099-12-05", price: 40, spots: 0 }] },
+        "2000-01-01"
+      )
+      .map((t) => t.stock),
+    [0],
+    "an explicit 0 is still a real count (sold out)"
+  );
+  {
+    // The card itself (assets/js/main.js workshopTicketHTML), from what the
+    // build hands it -- and from an entry that carries a ticketId anyway.
+    const main = loadMainJs();
+    const card = (w) => main.eventCardHTML(Object.assign({ id: "blank", kind: "workshop" }, w));
+    const blankBuilt = build.mergeWorkshopsIntoUpcoming({
+      upcoming: [],
+      workshops: [{ name: "Blank", date: "2099-12-05", price: 40, spots: null }]
+    }).upcoming[0];
+    const built = card(blankBuilt);
+    assert(
+      built.includes("Tickets coming soon") && !/Sold Out|Buy Tickets/.test(built),
+      "card, blank spots from the build: 'Tickets coming soon', not Sold Out"
+    );
+    const forced = card({ ...blankBuilt, ticketId: "ticket-blank-2099-12-05" });
+    assert(
+      forced.includes("Tickets coming soon") && !/Sold Out|Buy Tickets/.test(forced),
+      "card, blank spots with a ticketId anyway: still 'Tickets coming soon'"
+    );
+    const zero = card({ ...blankBuilt, spots: 0, ticketId: "ticket-blank-2099-12-05" });
+    assert(/Sold Out/.test(zero), "card, an explicit 0 spots: Sold Out");
+    const twelve = card({ ...blankBuilt, spots: 12, ticketId: "ticket-blank-2099-12-05" });
+    assert(twelve.includes("Buy Tickets"), "card, 12 spots: Buy Tickets");
   }
 
   /* ---- Ids: what the build puts on the card is what the Worker prices ---- */

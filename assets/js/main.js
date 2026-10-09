@@ -6830,7 +6830,16 @@
     var info = priceText
       ? '<p class="event-price"><strong>' + priceText + "</strong> per person</p>"
       : "";
-    if (ev.ticketId && priceText) {
+    /* A blank "Tickets available" (null or "") is not 0 spots -- it is not
+       on sale yet. The build gives such a workshop no ticketId
+       (workshopSpotsGiven) and the Worker will not sell it
+       (workers/state/tickets.js spotsGiven); this keeps an entry that
+       carries a ticketId anyway from reading Number(null) as "Sold out". */
+    var spotsBlank =
+      ev.spots === null ||
+      ev.spots === undefined ||
+      (typeof ev.spots === "string" && ev.spots.trim() === "");
+    if (ev.ticketId && priceText && !spotsBlank) {
       var cmsSpots = Number(ev.spots);
       var left = typeof ev.liveSpots === "number" ? ev.liveSpots : cmsSpots === 0 ? 0 : null;
       if (left === 0) {

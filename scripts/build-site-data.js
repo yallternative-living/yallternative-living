@@ -1475,9 +1475,21 @@ function assignEventIds(events) {
    ticket link. */
 const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/* "Tickets available" was actually filled in: a number, or a string with
+   something in it. A blank CMS number field saves as null or "", and
+   Number(null) / Number("") are 0 -- so a workshop whose spots were not
+   typed yet sold out on the card and in checkout while the warning below
+   said "Tickets coming soon" (red team, 2026-10-09). Mirror of
+   workers/state/tickets.js spotsGiven(). */
+function workshopSpotsGiven(value) {
+  if (typeof value === "number") return true;
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function workshopSellsOnSite(w) {
   if (!w || typeof w !== "object") return false;
   if (typeof w.ticketUrl === "string" && w.ticketUrl.trim()) return false;
+  if (!workshopSpotsGiven(w.spots)) return false;
   const price = Number(w.price);
   const spots = Number(w.spots);
   return Number.isFinite(price) && price > 0 && Number.isInteger(spots) && spots >= 0;
@@ -1547,7 +1559,7 @@ function mergeWorkshopsIntoUpcoming(events) {
        but say so, so it isn't a mystery why there is no Buy button. */
     const hasOutside = typeof w.ticketUrl === "string" && w.ticketUrl.trim();
     const hasPrice = Number(w.price) > 0;
-    const hasSpots = Number.isInteger(Number(w.spots)) && w.spots !== "" && w.spots != null;
+    const hasSpots = workshopSpotsGiven(w.spots) && Number.isInteger(Number(w.spots));
     if (!hasOutside && hasPrice !== hasSpots) {
       console.warn(
         '[workshops] "' +

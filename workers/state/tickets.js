@@ -65,13 +65,28 @@ export function easternToday(now = Date.now()) {
 }
 
 /**
+ * True when "Tickets available" was actually filled in: a number, or a
+ * string with a digit in it. Mirror of scripts/build-site-data.js
+ * workshopSpotsGiven(). A blank CMS number field is saved as null or "",
+ * and Number(null) and Number("") are both 0 -- so a workshop whose spots
+ * were simply not typed yet used to sell out on the card and in checkout
+ * while the build said "Tickets coming soon" (red team, 2026-10-09).
+ */
+export function spotsGiven(value) {
+  if (typeof value === "number") return true;
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/**
  * True when this workshop sells its tickets on the site: a positive price,
- * a whole number of spots, and no outside ticket link (a workshop sold on
- * Square or Eventbrite links out instead and is not sold here).
+ * a whole number of spots that was actually given (spotsGiven), and no
+ * outside ticket link (a workshop sold on Square or Eventbrite links out
+ * instead and is not sold here).
  */
 export function sellsTicketsOnSite(workshop) {
   if (!workshop || typeof workshop !== "object") return false;
   if (typeof workshop.ticketUrl === "string" && workshop.ticketUrl.trim()) return false;
+  if (!spotsGiven(workshop.spots)) return false;
   const price = Number(workshop.price);
   const spots = Number(workshop.spots);
   return Number.isFinite(price) && price > 0 && Number.isInteger(spots) && spots >= 0;
