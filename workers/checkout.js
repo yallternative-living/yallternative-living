@@ -557,14 +557,34 @@ function pickupLabelFor(evt) {
 // gate on whether an order is treated as a pickup at all -- it runs on every
 // checkout, tax on or off (an unvalidated label used to waive shipping on any
 // order that merely sent the field). Returns the calendar event, or null.
-function findPickupEvent(events, pickupMarket) {
+function findPickupEvent(events, pickupMarket, todayStr = easternToday()) {
   if (!events || !pickupMarket || typeof pickupMarket !== "string") return null;
   // Workshops are on the calendar too (the events page and cart.js list them
   // with the markets), and an order can be picked up at one.
   const upcoming = (Array.isArray(events.upcoming) ? events.upcoming : []).concat(
     Array.isArray(events.workshops) ? events.workshops : []
   );
-  return upcoming.find((e) => pickupLabelFor(e) === pickupMarket) || null;
+  return (
+    upcoming.find(
+      (e) => e && isStillOnCalendar(e, todayStr) && pickupLabelFor(e) === pickupMarket
+    ) || null
+  );
+}
+
+/**
+ * Is this entry still one a shopper could collect at? Exactly the rule the
+ * build archives by (scripts/build-site-data.js: an entry moves to "Where
+ * We've Been" once `endDate || date` sorts before today), judged on today in
+ * Eastern time rather than on the day of the last build. events.json's
+ * `upcoming` keeps a market until someone moves it, and `workshops` keeps
+ * every class ever listed, so without this a pickup label for "Old Class --
+ * Jan 1, 2020" waived shipping (red team, 2026-10-09). An entry with no date
+ * at all -- a standing market like "Saturdays 9am-12pm" -- stays, as the
+ * build keeps it.
+ */
+function isStillOnCalendar(evt, todayStr) {
+  const lastDay = evt.endDate || evt.date;
+  return !lastDay || !(String(lastDay) < todayStr);
 }
 
 function resolvePickupAddress(events, pickupMarket) {

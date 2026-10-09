@@ -2754,6 +2754,77 @@ async function runWorkerCheckoutTests() {
       "ticket, ledger bound: the session holds 3 spots"
     );
 
+    /* A pickup is only ever at something still on the calendar (red team,
+       2026-10-09): `workshops` keeps every class ever listed and `upcoming`
+       keeps a market until someone moves it, so a label for a date long
+       gone used to waive shipping on a shipped order. */
+    {
+      const { findPickupEvent, pickupLabelFor } = require("../workers/checkout.js");
+      const oldLabel = pickupLabelFor(mockEvents.workshops.find((w) => w.name === "Old Class"));
+      const potionsLabel = pickupLabelFor(mockEvents.workshops[0]);
+      const pastPickup = await executeCheckout(
+        { items: [{ id: "lavender-soak", qty: 1 }], pickup_market: oldLabel },
+        await withLedger()
+      );
+      eq(pastPickup.status, 200, "pickup at a 2020 workshop: the order still goes through...");
+      eq(
+        pastPickup.sessionParams.get("metadata[pickup_market]"),
+        null,
+        "...but is NOT recorded as a pickup"
+      );
+      eq(
+        pastPickup.sessionParams.get("metadata[pickup_market_rejected]"),
+        "true",
+        "...the stale label is flagged as rejected"
+      );
+      eq(
+        pastPickup.sessionParams.get("shipping_address_collection[allowed_countries][0]"),
+        "US",
+        "...and the order ships: the address form is back"
+      );
+      const livePickup = await executeCheckout(
+        { items: [{ id: "lavender-soak", qty: 1 }], pickup_market: potionsLabel },
+        await withLedger()
+      );
+      eq(
+        livePickup.sessionParams.get("metadata[pickup_market]"),
+        potionsLabel,
+        "pickup at an upcoming workshop is still accepted"
+      );
+
+      const calendar = {
+        upcoming: [
+          { name: "Gone Market", date: "2026-10-01", dateLabel: "Oct 1", location: "Landrum, SC" },
+          {
+            name: "Weekend Fair",
+            date: "2026-10-08",
+            endDate: "2026-10-10",
+            dateLabel: "Oct 8-10",
+            location: "Landrum, SC"
+          },
+          { name: "Today Market", date: "2026-10-09", dateLabel: "Oct 9", location: "Landrum, SC" },
+          { name: "Standing Market", dateLabel: "Saturdays", location: "Landrum, SC" }
+        ],
+        workshops: [
+          {
+            name: "Yesterday Class",
+            date: "2026-10-08",
+            dateLabel: "Oct 8",
+            location: "Landrum, SC"
+          }
+        ]
+      };
+      const today = "2026-10-09";
+      const found = (evt) =>
+        findPickupEvent(calendar, pickupLabelFor(evt), today) ? evt.name : null;
+      eq(
+        [...calendar.upcoming, ...calendar.workshops].map(found),
+        [null, "Weekend Fair", "Today Market", "Standing Market", null],
+        "findPickupEvent: a past market or workshop is refused; a multi-day one through its " +
+          "last day, today's, and a dateless standing market are accepted"
+      );
+    }
+
     /* FAIL CLOSED for a ticket (red team, 2026-10-09). A product falls back
        to its static `stock` when the ledger cannot answer; a ticket must
        not -- with every seat held, a D1 error sold the workshop again. */
