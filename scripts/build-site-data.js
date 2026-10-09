@@ -1887,6 +1887,34 @@ function renderSocialRowHtml(social) {
   return '<div class="social-row">\n' + links.join("\n") + "\n        </div>";
 }
 
+/* Writes the CMS's social URLs into the LocalBusiness block's "sameAs" array
+   on every page that has one. The URLs only have to pass safeUrl()'s scheme
+   check, so they are untrusted text going into a <script> block. Two ways
+   that went wrong (red team, 2026-10-09):
+     - raw JSON.stringify output: a URL holding `</SCRIPT><meta
+       http-equiv=refresh ...>` closed the block and redirected the page.
+       escapeJsonForScript() writes every <, > and & as a \u escape -- the
+       same JSON, never markup;
+     - a plain-string replacement: String.replace() expands `$'`, `` $` ``
+       and `$&` in a replacement STRING, so a URL carrying one pasted the rest
+       of the page into the block (39.5KB -> 80.5KB, and the damage outlived
+       restoring the URL). A function's return value is inserted literally;
+       .eslintrc.json now refuses any other kind of replacement in this file.
+   SAME_AS_RE matches the array by its JSON strings, so a `]` inside a URL
+   cannot end the match early on the next build. */
+const SAME_AS_RE = /"sameAs":\s*\[(?:\s*"(?:[^"\\]|\\.)*"\s*,?)*\s*\]/;
+function injectSameAs(html, urls) {
+  const sameAsJson = escapeJsonForScript(
+    JSON.stringify(Array.isArray(urls) ? urls : [], null, 2)
+      .split("\n")
+      .map((line, idx) => (idx === 0 ? line : "  " + line))
+      .join("\n")
+  );
+  return String(html).replace(SAME_AS_RE, function () {
+    return '"sameAs": ' + sameAsJson;
+  });
+}
+
 function getActiveSocialUrls(social) {
   const soc = social || {};
   const urls = [];
@@ -4011,10 +4039,9 @@ function buildSiteData() {
       .join("|");
     const optionsPlaceholderRe = /data-item-custom1-options="Preset \$10\[\+0\.00\][^"]*"/;
     if (optionsPlaceholderRe.test(shopHtml)) {
-      shopHtml = shopHtml.replace(
-        optionsPlaceholderRe,
-        'data-item-custom1-options="' + giftCardOptionsStr + '"'
-      );
+      shopHtml = shopHtml.replace(optionsPlaceholderRe, function () {
+        return 'data-item-custom1-options="' + giftCardOptionsStr + '"';
+      });
     }
   }
 
@@ -4046,23 +4073,25 @@ function buildSiteData() {
   }).length;
   const productCountWord = NUMBER_WORDS[productCount] || String(productCount);
 
-  shopHtml = shopHtml.replace(
-    /Shop \d+ handmade goods/,
-    "Shop " + productCount + " handmade goods"
-  );
-  shopHtml = shopHtml.replace(
-    /\b\d+ handmade goods across/g,
-    productCount + " handmade goods across"
-  );
+  shopHtml = shopHtml.replace(/Shop \d+ handmade goods/, function () {
+    return "Shop " + productCount + " handmade goods";
+  });
+  shopHtml = shopHtml.replace(/\b\d+ handmade goods across/g, function () {
+    return productCount + " handmade goods across";
+  });
 
   const countMarkerRe = /(<!--YL:productCount-->)\d+(<!--\/YL:productCount-->)/;
   if (countMarkerRe.test(shopHtml)) {
-    shopHtml = shopHtml.replace(countMarkerRe, "$1" + productCount + "$2");
+    shopHtml = shopHtml.replace(countMarkerRe, function (m, open, close) {
+      return open + productCount + close;
+    });
   }
 
   const wordMarkerRe = /(<!--YL:productCountWord-->)[A-Za-z]+(<!--\/YL:productCountWord-->)/;
   if (wordMarkerRe.test(shopHtml)) {
-    shopHtml = shopHtml.replace(wordMarkerRe, "$1" + productCountWord + "$2");
+    shopHtml = shopHtml.replace(wordMarkerRe, function (m, open, close) {
+      return open + productCountWord + close;
+    });
   }
 
   const shopBlockRe =
@@ -4794,10 +4823,11 @@ function buildSiteData() {
 
     const re = /<!--YL:home\.testimonials-->[\s\S]*?<!--\/YL:home\.testimonials-->/;
     if (re.test(html)) {
-      html = html.replace(
-        re,
-        "<!--YL:home.testimonials-->\n      " + cardsHtml + "\n      <!--/YL:home.testimonials-->"
-      );
+      html = html.replace(re, function () {
+        return (
+          "<!--YL:home.testimonials-->\n      " + cardsHtml + "\n      <!--/YL:home.testimonials-->"
+        );
+      });
       writeFile("index.html", html);
     }
   }
@@ -5075,16 +5105,12 @@ function buildSiteData() {
       return match;
     });
 
-    // Dynamic Schema.org sameAs injection
-    const activeSocialList = getActiveSocialUrls(CONTENT.site && CONTENT.site.social);
-    const sameAsJson = JSON.stringify(activeSocialList, null, 2)
-      .split("\n")
-      .map((line, idx) => (idx === 0 ? line : "  " + line))
-      .join("\n");
+    // Dynamic Schema.org sameAs injection (see injectSameAs).
+    html = injectSameAs(html, getActiveSocialUrls(CONTENT.site && CONTENT.site.social));
 
-    html = html.replace(/"sameAs":\s*\[[\s\S]*?\]/, '"sameAs": ' + sameAsJson);
-
-    const updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
+    const updated = html.replace(FOOTER_RE, function () {
+      return FOOTER_BLOCK;
+    });
     if (updated !== html) writeFile(page, updated);
   });
 
@@ -5843,9 +5869,13 @@ function buildSiteData() {
       // (editable in /admin); the markers wrap the static chips in every page.
       updated = updated.replace(
         /<!--YL:search\.chipsTitle-->[\s\S]*?<!--\/YL:search\.chipsTitle-->/g,
-        "<!--YL:search.chipsTitle-->" +
-          escapeHtml(SEARCH_CONFIG.chipsTitle) +
-          "<!--/YL:search.chipsTitle-->"
+        function () {
+          return (
+            "<!--YL:search.chipsTitle-->" +
+            escapeHtml(SEARCH_CONFIG.chipsTitle) +
+            "<!--/YL:search.chipsTitle-->"
+          );
+        }
       );
       updated = updated.replace(
         /<!--YL:search\.chips-->[\s\S]*?<!--\/YL:search\.chips-->/g,
@@ -6185,7 +6215,9 @@ function buildSiteData() {
     const versionString = hash.digest("hex").slice(0, 12);
     swContent = swContent.replace(
       /const CACHE_NAME\s*=\s*['"]yallternative-cache-v[^'"]*['"];/,
-      'const CACHE_NAME = "yallternative-cache-v' + versionString + '";'
+      function () {
+        return 'const CACHE_NAME = "yallternative-cache-v' + versionString + '";';
+      }
     );
     fs.writeFileSync(swPath, swContent, "utf8");
     console.log(
@@ -9255,6 +9287,7 @@ if (typeof module !== "undefined" && module.exports) {
     buildQuizFlowHtml: buildQuizFlowHtml,
     renderSocialRowHtml: renderSocialRowHtml,
     getActiveSocialUrls: getActiveSocialUrls,
+    injectSameAs: injectSameAs,
     renderRitualSectionHtml: renderRitualSectionHtml,
     renderStickyBarHtml: renderStickyBarHtml,
     renderProductPdpHtml: renderProductPdpHtml,
