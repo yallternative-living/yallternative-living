@@ -421,32 +421,36 @@
 /* ---- Footer (upsell + shipping meter + checkout) ---- */
 .yl-cart-foot {
   flex: 0 0 auto;
-  /* The footer grew well past a phone viewport (upsells + milestone meter +
-     gift note + pick-up + gift card + totals), which pushed the Checkout
-     button below the fold with no way to reach it. Cap it and let it scroll
-     on its own so the button is always reachable. */
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   max-height: min(62dvh, 560px);
-  /* The bottom padding lives on the sticky ::after strip below, not here:
-     the sticky Checkout button pins to the scrollport's content edge, and a
-     real padding-bottom left a strip under it where the totals text scrolled
-     past half-covered. */
   --yl-cart-foot-pad-b: calc(16px + env(safe-area-inset-bottom, 0px));
-  padding: 16px 20px 0;
+  padding: 0;
   border-top: 1px solid var(--hide);
   background: var(--ink-2);
 }
-/* Last flow child, so it is plain bottom padding when the footer fits, and
-   an opaque floor under the pinned Checkout button when the footer scrolls
-   (the button sits --yl-cart-foot-pad-b above the scrollport edge, this
-   fills the gap so nothing shows through). */
-.yl-cart-foot::after {
-  content: "";
-  display: block;
+.yl-cart-foot-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 16px 20px 8px;
+}
+.yl-cart-foot-scroll:empty {
+  display: none;
+}
+.yl-cart-foot-dock {
+  flex: 0 0 auto;
   position: sticky;
   bottom: 0;
-  height: var(--yl-cart-foot-pad-b);
+  z-index: 6;
   background: var(--ink-2);
+  padding: 8px 20px var(--yl-cart-foot-pad-b);
+  border-top: 1px solid color-mix(in srgb, var(--hide) 60%, transparent);
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.35);
+}
+.yl-cart-foot::after {
+  display: none;
 }
 
 /* Landscape phones and short windows: claw back the footer's own padding
@@ -455,7 +459,13 @@
   .yl-cart-foot {
     max-height: min(70dvh, 560px);
     --yl-cart-foot-pad-b: calc(8px + env(safe-area-inset-bottom, 0px));
-    padding: 8px 16px 0;
+    padding: 0;
+  }
+  .yl-cart-foot-scroll {
+    padding: 8px 16px 4px;
+  }
+  .yl-cart-foot-dock {
+    padding: 6px 16px var(--yl-cart-foot-pad-b);
   }
 }
 .yl-cart-upsell {
@@ -1180,11 +1190,9 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin: 12px 0 10px;
+  margin: 4px 0 8px;
   font-size: 1rem;
   color: var(--paper-dim);
-  padding-top: 8px;
-  border-top: 1px solid var(--hide);
 }
 .yl-cart-subtotal strong {
   font-size: 1.35rem;
@@ -1193,13 +1201,12 @@
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
-/* Full-width, ≥52px tap target -- impossible to miss on mobile. Sticky at the
-   bottom of the footer scroll container so mobile shoppers always see the
+/* Full-width, ≥52px tap target -- impossible to miss on mobile. Docked at the
+   bottom of the footer so mobile shoppers always see the
    checkout CTA without hunting below upsells. */
 .yl-cart-checkout {
-  position: sticky;
-  bottom: var(--yl-cart-foot-pad-b, 0px);
-  z-index: 5;
+  position: relative;
+  width: 100%;
   min-height: 52px;
   font-size: 1rem;
   font-weight: 700;

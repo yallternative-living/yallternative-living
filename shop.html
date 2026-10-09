@@ -969,7 +969,7 @@
       <form id="shopSearchForm" class="shop-search" toolname="search-products" tooldescription="Search the shop catalog for products, apparel, or salves" toolautosubmit>
         <label for="shopSearch" class="sr-only">Search products</label>
         <svg class="shop-search-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input type="search" id="shopSearch" placeholder="Search salves, soaks, apparel..." autocomplete="off">
+        <input type="search" id="shopSearch" name="q" placeholder="Search salves, soaks, apparel..." autocomplete="off">
       </form>
       <div class="shop-mobile-bar" id="shopMobileBar">
         <button type="button" class="shop-mobile-btn" id="shopFilterOpenBtn" aria-haspopup="dialog" aria-controls="shopFilterSheet" aria-expanded="false">
@@ -995,7 +995,7 @@
                from competing visually with the primary category filter. -->
           <span id="scentFieldWrap" hidden>
             <label for="scentSelect">Scent</label>
-            <select id="scentSelect">
+            <select id="scentSelect" name="scent">
               <option value="all">Any</option>
             </select>
           </span>
@@ -1006,7 +1006,7 @@
                to the Scent control it then appeared to belong to. -->
           <span class="sort-field-wrap">
             <label for="sortSelect">Sort</label>
-            <select id="sortSelect">
+            <select id="sortSelect" name="sort">
               <option value="featured">Featured</option>
               <option value="price-asc">Price: Low to High</option>
               <option value="price-desc">Price: High to Low</option>
@@ -1115,23 +1115,23 @@
             <div id="quiz-step-1" class="quiz-step">
               <h3 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--whiskey);">Step 1 of 3: Choose Your Current Vibe / Mood</h3>
               <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-vibe" value="gothic-calm" checked style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-vibe-gothic-calm" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-vibe-gothic-calm" name="quiz-vibe" value="gothic-calm" checked style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Southern Gothic Calm</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Quiet dusk, lavender, sleep &amp; dark cedar</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-vibe" value="ritual-rest" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-vibe-ritual-rest" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-vibe-ritual-rest" name="quiz-vibe" value="ritual-rest" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Ritual Rest</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Heavy shea moisture, bath tea &amp; deep unwind</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-vibe" value="hexing-energy" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-vibe-hexing-energy" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-vibe-hexing-energy" name="quiz-vibe" value="hexing-energy" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Hexing Energy</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Spellwork accessories, shimmer oil &amp; bold vibes</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-vibe" value="daily-soothe" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-vibe-daily-soothe" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-vibe-daily-soothe" name="quiz-vibe" value="daily-soothe" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Everyday Softness</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Everyday miracle balms, scrubs &amp; skin armor</p>
                 </label>
@@ -1142,23 +1142,23 @@
             <div id="quiz-step-2" class="quiz-step" style="display: none;">
               <h3 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--whiskey);">Step 2 of 3: Primary Skin or Self-Care Need</h3>
               <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-need" value="hydration" checked style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-need-hydration" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-need-hydration" name="quiz-need" value="hydration" checked style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Hydration &amp; Moisture</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Shea butter, body butter &amp; balms</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-need" value="muscle-soak" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-need-muscle-soak" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-need-muscle-soak" name="quiz-need" value="muscle-soak" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Long-Day Soaks</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Epsom salts, sleep salve &amp; tub unwinding</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-need" value="herbal-salve" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-need-herbal-salve" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-need-herbal-salve" name="quiz-need" value="herbal-salve" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Herbal Salve &amp; Armor</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Frankincense, beard salve &amp; outdoor protection</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-need" value="apparel-lifestyle" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-need-apparel-lifestyle" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-need-apparel-lifestyle" name="quiz-need" value="apparel-lifestyle" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Apparel &amp; Accessories</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Soft t-shirts, keychains &amp; witchy sprays</p>
                 </label>
@@ -1172,18 +1172,18 @@
             <div id="quiz-step-3" class="quiz-step" style="display: none;">
               <h3 style="font-size: 1.05rem; margin-bottom: 1rem; color: var(--whiskey);">Step 3 of 3: What is Your Purpose Today?</h3>
               <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-intent" value="treat-myself" checked style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-intent-treat-myself" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-intent-treat-myself" name="quiz-intent" value="treat-myself" checked style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Treat Myself</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Indulgent personal self-care ritual</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-intent" value="gift-bestie" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-intent-gift-bestie" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-intent-gift-bestie" name="quiz-intent" value="gift-bestie" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Gift for a Bestie</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Thoughtful small-batch gift set or bundle</p>
                 </label>
-                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
-                  <input type="radio" name="quiz-intent" value="ritual-bath" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
+                <label class="quiz-option-card" for="quiz-intent-ritual-bath" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">
+                  <input type="radio" id="quiz-intent-ritual-bath" name="quiz-intent" value="ritual-bath" style="margin-right: 0.5rem; accent-color: var(--whiskey);">
                   <strong>Ritual Bath &amp; Unwind</strong>
                   <p style="font-size: 0.8rem; color: var(--paper-muted); margin: 0.25rem 0 0;">Clearing mists, bath salts &amp; soaks</p>
                 </label>
@@ -1299,7 +1299,7 @@
 
         <div class="field">
           <label for="giftMessage">Personal Message <span class="optional-tag">(Optional)</span></label>
-          <textarea id="giftMessage" rows="3" placeholder="Write a warm note for the recipient..."></textarea>
+          <textarea id="giftMessage" name="gift_message" rows="3" placeholder="Write a warm note for the recipient..."></textarea>
         </div>
 
         <div class="gift-card-actions">
@@ -1335,7 +1335,7 @@
       <h3 style="margin: 0 0 8px; font-size: 1.15rem; color: var(--paper); font-family: var(--font-display);">Check Gift Card Balance</h3>
       <p class="muted" style="font-size: 0.86rem; margin-bottom: 18px;">Enter the code from your gift email (<code>YALL-XXXX-XXXX-XXXX</code>, dashes optional) to check your remaining balance.</p>
       <form id="giftCardBalanceForm" style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <input type="text" id="giftCardBalanceInput" placeholder="YALL-XXXX-XXXX-XXXX" required style="flex: 1 1 240px; padding: 11px 14px; background: var(--ink-3); border: 1px solid var(--hide); border-radius: var(--radius); color: var(--paper); font-size: 0.95rem; text-transform: uppercase;">
+        <input type="text" id="giftCardBalanceInput" name="gift_card_code" placeholder="YALL-XXXX-XXXX-XXXX" required style="flex: 1 1 240px; padding: 11px 14px; background: var(--ink-3); border: 1px solid var(--hide); border-radius: var(--radius); color: var(--paper); font-size: 0.95rem; text-transform: uppercase;">
         <button type="submit" id="checkBalanceSubmitBtn" class="btn btn-primary" style="flex: 0 0 auto;">Check Balance</button>
       </form>
       <div id="giftCardBalanceResult" aria-live="polite" style="margin-top: 16px;" hidden></div>
@@ -1707,7 +1707,7 @@
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
         </button>

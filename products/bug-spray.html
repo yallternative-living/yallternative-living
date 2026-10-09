@@ -321,7 +321,7 @@
         <div class="pdp-actions">
           <div class="pdp-qty" role="group" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>
-            <input type="number" class="pdp-qty-input" id="pdpQty" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
+            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>
           </div>
           <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart" data-item-id="bug-spray" data-item-name="Bug Off B*tch Natural Bug Spray" data-item-price="10.00" data-item-image="/assets/img/bug-spray.jpg" data-item-categories="Body &amp; Skin" data-item-quantity="1">Add to Cart</button>
@@ -427,8 +427,8 @@
       </div>
       <div class="pdp-ritual-card">
         <div class="pdp-ritual-items-grid">
-        <label class="pdp-ritual-item is-checked" data-product-id="bug-spray">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked disabled aria-label="Include Bug Off B*tch Natural Bug Spray (Current product)" data-price="10.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-bug-spray" data-product-id="bug-spray">
+          <input type="checkbox" id="ritual-item-bug-spray" name="ritual_item_bug-spray" class="pdp-ritual-checkbox" checked disabled aria-label="Include Bug Off B*tch Natural Bug Spray (Current product)" data-price="10.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/bug-spray-480.avif 480w, /assets/img/bug-spray-800.avif 800w, /assets/img/bug-spray.avif 1050w" sizes="54px"><source type="image/webp" srcset="/assets/img/bug-spray-480.webp 480w, /assets/img/bug-spray-800.webp 800w, /assets/img/bug-spray.webp 1050w" sizes="54px"><img src="/assets/img/bug-spray.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -439,8 +439,8 @@
           </div>
         </label>
         <span class="pdp-ritual-plus" aria-hidden="true">+</span>
-        <label class="pdp-ritual-item is-checked" data-product-id="protection-keychain">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include Protection Potion Keychain" data-price="8.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-protection-keychain" data-product-id="protection-keychain">
+          <input type="checkbox" id="ritual-item-protection-keychain" name="ritual_item_protection-keychain" class="pdp-ritual-checkbox" checked aria-label="Include Protection Potion Keychain" data-price="8.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/protection-keychain-480.avif 480w, /assets/img/protection-keychain-800.avif 800w, /assets/img/protection-keychain.avif 933w" sizes="54px"><source type="image/webp" srcset="/assets/img/protection-keychain-480.webp 480w, /assets/img/protection-keychain-800.webp 800w, /assets/img/protection-keychain.webp 933w" sizes="54px"><img src="/assets/img/protection-keychain.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -451,8 +451,8 @@
           </div>
         </label>
         <span class="pdp-ritual-plus" aria-hidden="true">+</span>
-        <label class="pdp-ritual-item is-checked" data-product-id="backroad-soak">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include Backroad Recovery Epsom Salt Soak" data-price="10.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-backroad-soak" data-product-id="backroad-soak">
+          <input type="checkbox" id="ritual-item-backroad-soak" name="ritual_item_backroad-soak" class="pdp-ritual-checkbox" checked aria-label="Include Backroad Recovery Epsom Salt Soak" data-price="10.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/backroad-soak-480.avif 480w, /assets/img/backroad-soak-800.avif 800w, /assets/img/backroad-soak.avif 1053w" sizes="54px"><source type="image/webp" srcset="/assets/img/backroad-soak-480.webp 480w, /assets/img/backroad-soak-800.webp 800w, /assets/img/backroad-soak.webp 1053w" sizes="54px"><img src="/assets/img/backroad-soak.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -612,7 +612,7 @@
         <div class="global-search-input-wrapper">
           <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>

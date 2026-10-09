@@ -1891,11 +1891,16 @@ function buildQuizFlowHtml(quiz) {
       '              <div class="grid grid-2 gap-sm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">\n';
     (q.options || []).forEach(function (opt, optIdx) {
       const val = opt.value || slugify(opt.label) || "opt-" + optIdx;
+      const optId = escapeHtml(paramName + "-" + val);
       const checked = optIdx === 0 ? " checked" : "";
       out +=
-        '                <label class="quiz-option-card" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">\n';
+        '                <label class="quiz-option-card" for="' +
+        optId +
+        '" style="display: block; padding: 0.85rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer; background: var(--ink-3); color: var(--paper); transition: border-color 0.2s;">\n';
       out +=
-        '                  <input type="radio" name="' +
+        '                  <input type="radio" id="' +
+        optId +
+        '" name="' +
         escapeHtml(paramName) +
         '" value="' +
         escapeHtml(val) +
@@ -6557,10 +6562,16 @@ function renderRitualSectionHtml(
 
   // Main product (checked by default, disabled checkbox)
   itemsHtml +=
-    '        <label class="pdp-ritual-item is-checked" data-product-id="' +
+    '        <label class="pdp-ritual-item is-checked" for="ritual-item-' +
+    escapeHtml(product.id) +
+    '" data-product-id="' +
     escapeHtml(product.id) +
     '">\n' +
-    '          <input type="checkbox" class="pdp-ritual-checkbox" checked disabled aria-label="Include ' +
+    '          <input type="checkbox" id="ritual-item-' +
+    escapeHtml(product.id) +
+    '" name="ritual_item_' +
+    escapeHtml(product.id) +
+    '" class="pdp-ritual-checkbox" checked disabled aria-label="Include ' +
     escapeHtml(product.name) +
     ' (Current product)" data-price="' +
     (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
@@ -6596,10 +6607,16 @@ function renderRitualSectionHtml(
     const pairedCatLabel = catMap[paired.category] || paired.category || "Pairing";
     itemsHtml +=
       '        <span class="pdp-ritual-plus" aria-hidden="true">+</span>\n' +
-      '        <label class="pdp-ritual-item is-checked" data-product-id="' +
+      '        <label class="pdp-ritual-item is-checked" for="ritual-item-' +
+      escapeHtml(paired.id) +
+      '" data-product-id="' +
       escapeHtml(paired.id) +
       '">\n' +
-      '          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include ' +
+      '          <input type="checkbox" id="ritual-item-' +
+      escapeHtml(paired.id) +
+      '" name="ritual_item_' +
+      escapeHtml(paired.id) +
+      '" class="pdp-ritual-checkbox" checked aria-label="Include ' +
       escapeHtml(paired.name) +
       '" data-price="' +
       (typeof paired.price === "number" ? paired.price.toFixed(2) : "0.00") +
@@ -6771,7 +6788,7 @@ function renderStickyBarHtml(product, categoryLabel, imageManifest) {
 
     variantWrapHtml =
       '        <div class="pdp-sticky-variant-wrap">\n' +
-      '          <select class="pdp-sticky-variant-select variant-select" data-base-price="' +
+      '          <select class="pdp-sticky-variant-select variant-select" id="pdpStickyVariantSelect" name="pdp_sticky_variant" data-base-price="' +
       price +
       '" aria-label="Select variant">\n' +
       optionsHtml +
@@ -7267,7 +7284,7 @@ function renderPdpPurchaseHtml(p, categoryLabel) {
     '        <div class="pdp-actions">\n' +
     '          <div class="pdp-qty" role="group" aria-label="Quantity">\n' +
     '            <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>\n' +
-    '            <input type="number" class="pdp-qty-input" id="pdpQty" inputmode="numeric" min="1" max="' +
+    '            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="' +
     (typeof p.stock === "number" && p.stock > 0 ? Math.min(p.stock, 10) : 10) +
     '" value="1" aria-label="Quantity">\n' +
     '            <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>\n' +
@@ -7966,7 +7983,7 @@ function renderGlobalSearchModalHtml(searchConfig) {
        carries a link and, for products, an "+ Add" button, and the APG's
        listbox pattern explicitly cannot host interactive content -- see the
        setResultsGridRole() comment in assets/js/main.js (audit C, H5). */
-    '          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
+    '          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
     '          <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>\n' +
     '            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>\n' +
     "          </button>\n" +

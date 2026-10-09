@@ -2672,7 +2672,7 @@
         (state.isPickup ? " is-active" : "") +
         '">' +
         '  <label class="yl-cart-pickup-label" for="yl-cart-pickup-checkbox">' +
-        '    <input type="checkbox" id="yl-cart-pickup-checkbox"' +
+        '    <input type="checkbox" name="pickup" id="yl-cart-pickup-checkbox"' +
         (state.isPickup ? " checked" : "") +
         "    >" +
         '    <span class="yl-cart-pickup-custom-check" aria-hidden="true"></span>' +
@@ -2686,7 +2686,7 @@
         "  >" +
         '    <label for="yl-cart-pickup-select" class="yl-cart-pickup-select-label">Choose Upcoming Market Location:</label>' +
         '    <div class="yl-cart-select-wrap">' +
-        '      <select id="yl-cart-pickup-select" class="yl-cart-pickup-select">' +
+        '      <select id="yl-cart-pickup-select" name="pickup_location" class="yl-cart-pickup-select">' +
         optionsHTML +
         "      </select>" +
         "    </div>" +
@@ -2785,7 +2785,7 @@
       giftOrderHTML =
         '<div class="yl-cart-giftorder-wrap">' +
         '  <label class="yl-cart-giftorder-label" for="yl-cart-giftorder-checkbox">' +
-        '    <input type="checkbox" id="yl-cart-giftorder-checkbox"' +
+        '    <input type="checkbox" id="yl-cart-giftorder-checkbox" name="gift_order"' +
         (state.isGiftOrder ? " checked" : "") +
         "    >" +
         '    <span class="yl-cart-giftorder-custom-check" aria-hidden="true"></span>' +
@@ -2794,7 +2794,7 @@
         '  <div class="yl-cart-giftmessage-container"' +
         (state.isGiftOrder ? ' style="display: block;"' : ' style="display: none;"') +
         "  >" +
-        '    <textarea id="yl-cart-giftmessage-input" class="yl-cart-giftmessage-input" placeholder="Add a free gift note for the packing slip (Max 500 characters)..." maxlength="500" rows="2" aria-label="Gift note message">' +
+        '    <textarea id="yl-cart-giftmessage-input" name="gift_message" class="yl-cart-giftmessage-input" placeholder="Add a free gift note for the packing slip (Max 500 characters)..." maxlength="500" rows="2" aria-label="Gift note message">' +
         escapeHtml(state.giftMessage || "") +
         "</textarea>" +
         "  </div>" +
@@ -2864,7 +2864,7 @@
           '  <div class="yl-cart-giftcard-input-row">' +
           /* maxlength allows for a pasted code carrying its own spacing --
              normalizeGiftCardCode strips it before the lookup. */
-          '    <input type="text" class="yl-cart-giftcard-input" placeholder="YALL-XXXX-XXXX-XXXX" maxlength="24" aria-label="Gift card code">' +
+          '    <input type="text" id="yl-cart-giftcard-input" name="gift_card_code" class="yl-cart-giftcard-input" placeholder="YALL-XXXX-XXXX-XXXX" maxlength="24" aria-label="Gift card code">' +
           '    <button type="button" class="yl-cart-giftcard-btn"' +
           (state.giftCardLoading ? " disabled" : "") +
           ">" +
@@ -2933,6 +2933,7 @@
         : "";
 
     footEl.innerHTML =
+      '<div class="yl-cart-foot-scroll">' +
       upsellHTML() +
       volumeNudgesHTML +
       loyaltyHTML +
@@ -2940,6 +2941,8 @@
       (hasPhysical ? pickupHTML : "") +
       shipHTML +
       codesHTML +
+      "</div>" +
+      '<div class="yl-cart-foot-dock">' +
       totalsHTML +
       '<button type="button" class="btn btn-primary btn-block yl-cart-checkout"' +
       (checkoutInFlight ? " disabled" : "") +
@@ -2948,7 +2951,8 @@
       "</button>" +
       shareCartHTML +
       storageNoticeHTML +
-      '<p class="yl-cart-note">Promo codes, gift cards &amp; taxes applied at checkout.</p>';
+      '<p class="yl-cart-note">Promo codes, gift cards &amp; taxes applied at checkout.</p>' +
+      "</div>";
 
     var checkoutBtn = footEl.querySelector(".yl-cart-checkout");
     if (checkoutBtn) {
@@ -3699,7 +3703,7 @@
       existing.className = "yl-cart-error";
       existing.setAttribute("role", "alert");
       var note = footEl.querySelector(".yl-cart-note");
-      if (note) footEl.insertBefore(existing, note);
+      if (note && note.parentNode) note.parentNode.insertBefore(existing, note);
       else footEl.appendChild(existing);
     }
     existing.textContent = msg;
@@ -3960,7 +3964,7 @@
         (state.promoOpen ? ' style="display: flex;"' : ' style="display: none;"') +
         ">" +
         '  <div class="yl-cart-giftcard-input-row">' +
-        '    <input type="text" class="yl-cart-giftcard-input yl-cart-promo-input" placeholder="' +
+        '    <input type="text" id="yl-cart-promo-input" name="promo_code" class="yl-cart-giftcard-input yl-cart-promo-input" placeholder="' +
         escapeHtml(tr("cart.promoPlaceholder", null, "Promo code")) +
         '" maxlength="48" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="' +
         escapeHtml(tr("cart.promoPlaceholder", null, "Promo code")) +

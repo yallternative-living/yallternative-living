@@ -213,6 +213,18 @@ if (drawer) {
 
   const footEl = drawer.querySelector("#yl-cart-foot");
   assert(footEl.innerHTML.includes("Subtotal"), "render() populates subtotal footer");
+  assert(
+    footEl.querySelector(".yl-cart-foot-scroll"),
+    "render() populates .yl-cart-foot-scroll container"
+  );
+  assert(
+    footEl.querySelector(".yl-cart-foot-dock"),
+    "render() populates .yl-cart-foot-dock container"
+  );
+  assert(
+    footEl.querySelector(".yl-cart-foot-dock .yl-cart-checkout"),
+    "checkout CTA button is docked in .yl-cart-foot-dock"
+  );
 
   // Test drawer state
   YLCart.open();

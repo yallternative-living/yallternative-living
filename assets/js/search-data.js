@@ -1520,21 +1520,6 @@ window.YL_SEARCH_INDEX = {
   ],
   "events": [
     {
-      "id": "fall-family-festival-market-2026-09-26",
-      "name": "Fall Family Festival & Market",
-      "title": "Fall Family Festival & Market",
-      "date": "2026-09-26",
-      "dateLabel": "September 26, 2026 · Saturday, 3pm–8pm",
-      "endDate": null,
-      "type": "Craft Show",
-      "location": "Moore, SC",
-      "zip": "29369",
-      "note": "First-ever fall festival with 40+ craft vendors.",
-      "description": "First-ever fall festival with 40+ craft vendors.",
-      "isUpcoming": true,
-      "url": "events.html#fall-family-festival-market-2026-09-26"
-    },
-    {
       "id": "autumn-apothecary-faire",
       "name": "Autumn Apothecary Faire",
       "title": "Autumn Apothecary Faire",
@@ -1548,6 +1533,21 @@ window.YL_SEARCH_INDEX = {
       "description": "Pop-up market table with handmade salves, soaks & soaps.",
       "isUpcoming": true,
       "url": "events.html#autumn-apothecary-faire"
+    },
+    {
+      "id": "fall-family-festival-market-2026-09-26",
+      "name": "Fall Family Festival & Market",
+      "title": "Fall Family Festival & Market",
+      "date": "2026-09-26",
+      "dateLabel": "September 26, 2026 · Saturday, 3pm–8pm",
+      "endDate": null,
+      "type": "Craft Show",
+      "location": "Moore, SC",
+      "zip": "29369",
+      "note": "First-ever fall festival with 40+ craft vendors.",
+      "description": "First-ever fall festival with 40+ craft vendors.",
+      "isUpcoming": false,
+      "url": "events.html#fall-family-festival-market-2026-09-26"
     },
     {
       "id": "saturday-night-lights-2026-09-19",

@@ -243,25 +243,25 @@
             <legend>What happened next</legend>
             <p class="safety-hint" id="safety-outcomes-hint">Tick everything that applies. The first eight are what the FDA calls a serious adverse event; if you tick one, we have to report it to them, and we will.</p>
             <div class="safety-checks">
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="death"> <span>Someone died</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="life-threatening"> <span>It was life-threatening</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="hospitalization"> <span>Admitted to hospital overnight or longer</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="disability"> <span>Lasting or significant disability</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="congenital-anomaly"> <span>A congenital anomaly or birth defect</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="infection"> <span>An infection</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="disfigurement"> <span>Significant disfigurement &mdash; scarring, hair loss, permanent discoloration</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="intervention"> <span>A medical or surgical procedure was needed to prevent one of the above</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="doctor-visit"> <span>Saw a doctor or went to urgent care</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="otc-product"> <span>Used an over-the-counter product from the drugstore</span></label>
-              <label class="safety-check"><input type="checkbox" name="outcomes" value="cleared-up"> <span>Nothing &mdash; it cleared up on its own</span></label>
+              <label class="safety-check" for="safety-outcome-death"><input type="checkbox" id="safety-outcome-death" name="outcomes" value="death"> <span>Someone died</span></label>
+              <label class="safety-check" for="safety-outcome-life-threatening"><input type="checkbox" id="safety-outcome-life-threatening" name="outcomes" value="life-threatening"> <span>It was life-threatening</span></label>
+              <label class="safety-check" for="safety-outcome-hospitalization"><input type="checkbox" id="safety-outcome-hospitalization" name="outcomes" value="hospitalization"> <span>Admitted to hospital overnight or longer</span></label>
+              <label class="safety-check" for="safety-outcome-disability"><input type="checkbox" id="safety-outcome-disability" name="outcomes" value="disability"> <span>Lasting or significant disability</span></label>
+              <label class="safety-check" for="safety-outcome-congenital-anomaly"><input type="checkbox" id="safety-outcome-congenital-anomaly" name="outcomes" value="congenital-anomaly"> <span>A congenital anomaly or birth defect</span></label>
+              <label class="safety-check" for="safety-outcome-infection"><input type="checkbox" id="safety-outcome-infection" name="outcomes" value="infection"> <span>An infection</span></label>
+              <label class="safety-check" for="safety-outcome-disfigurement"><input type="checkbox" id="safety-outcome-disfigurement" name="outcomes" value="disfigurement"> <span>Significant disfigurement &mdash; scarring, hair loss, permanent discoloration</span></label>
+              <label class="safety-check" for="safety-outcome-intervention"><input type="checkbox" id="safety-outcome-intervention" name="outcomes" value="intervention"> <span>A medical or surgical procedure was needed to prevent one of the above</span></label>
+              <label class="safety-check" for="safety-outcome-doctor-visit"><input type="checkbox" id="safety-outcome-doctor-visit" name="outcomes" value="doctor-visit"> <span>Saw a doctor or went to urgent care</span></label>
+              <label class="safety-check" for="safety-outcome-otc-product"><input type="checkbox" id="safety-outcome-otc-product" name="outcomes" value="otc-product"> <span>Used an over-the-counter product from the drugstore</span></label>
+              <label class="safety-check" for="safety-outcome-cleared-up"><input type="checkbox" id="safety-outcome-cleared-up" name="outcomes" value="cleared-up"> <span>Nothing &mdash; it cleared up on its own</span></label>
             </div>
           </fieldset>
 
           <fieldset class="safety-checkgroup">
             <legend>Did you stop using the product?</legend>
             <div class="safety-checks safety-checks-inline">
-              <label class="safety-check"><input type="radio" name="stopped_use" value="yes"> <span>Yes</span></label>
-              <label class="safety-check"><input type="radio" name="stopped_use" value="no"> <span>No</span></label>
+              <label class="safety-check" for="safety-stopped-use-yes"><input type="radio" id="safety-stopped-use-yes" name="stopped_use" value="yes"> <span>Yes</span></label>
+              <label class="safety-check" for="safety-stopped-use-no"><input type="radio" id="safety-stopped-use-no" name="stopped_use" value="no"> <span>No</span></label>
             </div>
           </fieldset>
         </fieldset>
@@ -460,7 +460,7 @@
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
         </svg>
         <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-        <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/></svg>
         </button>

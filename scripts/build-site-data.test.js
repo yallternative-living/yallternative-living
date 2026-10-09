@@ -1317,6 +1317,10 @@ eq(buildScript.quizParamName({}, 3), "quiz-step4", "then quiz-step<N>");
     flow.indexOf('name="quiz-mood"') !== -1 && flow.indexOf('name="quiz-step2"') !== -1,
     "buildQuizFlowHtml names a CMS-added question's radios quiz-step<N>"
   );
+  assert(
+    flow.indexOf('for="quiz-mood-calm"') !== -1 && flow.indexOf('id="quiz-mood-calm"') !== -1,
+    "buildQuizFlowHtml generates accessible id and for attributes on quiz options"
+  );
 }
 
 /* ---------- Social Link Rendering & Sanitization ---------- */

@@ -341,6 +341,12 @@
     cachedTheme = theme;
     root.setAttribute("data-theme", theme);
     if (toggle) toggle.setAttribute("aria-checked", theme === "light" ? "true" : "false");
+    var allToggles = document.querySelectorAll(".theme-toggle");
+    if (allToggles && allToggles.length) {
+      allToggles.forEach(function (btn) {
+        btn.setAttribute("aria-checked", theme === "light" ? "true" : "false");
+      });
+    }
   }
 
   applyTheme(currentTheme());
@@ -479,6 +485,107 @@
         li.appendChild(a);
         navLinks.appendChild(li);
       });
+
+      var prefHeading = document.createElement("li");
+      prefHeading.className = "nav-secondary nav-secondary-heading";
+      prefHeading.setAttribute("aria-hidden", "true");
+      prefHeading.textContent = "Preferences";
+      navLinks.appendChild(prefHeading);
+
+      var prefsLi = document.createElement("li");
+      prefsLi.className = "nav-secondary nav-mobile-prefs";
+
+      var themeRow = document.createElement("div");
+      themeRow.className = "nav-mobile-pref-row";
+      var themeLabel = document.createElement("span");
+      themeLabel.className = "nav-mobile-pref-label";
+      themeLabel.textContent = "Appearance";
+      var mobileThemeBtn = document.createElement("button");
+      mobileThemeBtn.type = "button";
+      mobileThemeBtn.className = "theme-toggle nav-mobile-theme-toggle";
+      mobileThemeBtn.id = "mobileThemeToggle";
+      mobileThemeBtn.setAttribute("role", "switch");
+      mobileThemeBtn.setAttribute("aria-checked", currentTheme() === "light" ? "true" : "false");
+      mobileThemeBtn.setAttribute("aria-label", "Toggle dark and light mode");
+      mobileThemeBtn.innerHTML =
+        '<span class="knob" aria-hidden="true">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>' +
+        "</span>";
+      mobileThemeBtn.addEventListener("click", function () {
+        var next = currentTheme() === "light" ? "dark" : "light";
+        try {
+          localStorage.setItem("yl-theme", next);
+        } catch {
+          /* ignore */
+        }
+        applyTheme(next);
+      });
+      themeRow.appendChild(themeLabel);
+      themeRow.appendChild(mobileThemeBtn);
+      prefsLi.appendChild(themeRow);
+
+      var langRow = document.createElement("div");
+      langRow.className = "nav-mobile-pref-row";
+      var langLabel = document.createElement("label");
+      langLabel.className = "nav-mobile-pref-label";
+      langLabel.setAttribute("for", "mobileLangSelect");
+      langLabel.textContent = "Language";
+      var langSelect = document.createElement("select");
+      langSelect.id = "mobileLangSelect";
+      langSelect.name = "mobile_language";
+      langSelect.className = "nav-mobile-lang-select";
+      langSelect.setAttribute("aria-label", "Select language");
+
+      var langs = (window.YL_TRANSLATOR && window.YL_TRANSLATOR.LANGUAGES) || [
+        { code: "en", name: "English" },
+        { code: "es", name: "Español" },
+        { code: "de", name: "Deutsch" },
+        { code: "fr", name: "Français" },
+        { code: "ja", name: "日本語" },
+        { code: "zh", name: "中文" },
+        { code: "vi", name: "Tiếng Việt" },
+        { code: "ko", name: "한국어" },
+        { code: "pt", name: "Português" }
+      ];
+      var activeLang =
+        (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.getCurrentLanguage === "function"
+          ? window.YL_TRANSLATOR.getCurrentLanguage()
+          : (function () {
+              try {
+                return localStorage.getItem("yl-lang") || "en";
+              } catch {
+                return "en";
+              }
+            })()) || "en";
+      langs.forEach(function (l) {
+        var opt = document.createElement("option");
+        opt.value = l.code;
+        opt.textContent = l.name;
+        if (l.code === activeLang) opt.selected = true;
+        langSelect.appendChild(opt);
+      });
+      langSelect.addEventListener("change", function () {
+        if (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.setLanguage === "function") {
+          window.YL_TRANSLATOR.setLanguage(this.value);
+        } else {
+          try {
+            localStorage.setItem("yl-lang", this.value);
+          } catch {
+            /* ignore */
+          }
+        }
+      });
+      document.addEventListener("yl-language-changed", function (e) {
+        if (e.detail && e.detail.lang) {
+          langSelect.value = e.detail.lang;
+        }
+      });
+      langRow.appendChild(langLabel);
+      langRow.appendChild(langSelect);
+      prefsLi.appendChild(langRow);
+
+      navLinks.appendChild(prefsLi);
     })();
 
     navLinks.querySelectorAll("a").forEach(function (a) {
@@ -494,7 +601,7 @@
       if (e.key !== "Tab") return;
       if (!navLinks.classList.contains("open")) return;
       var stops = [].slice
-        .call(navLinks.querySelectorAll("a"))
+        .call(navLinks.querySelectorAll("a, button, select"))
         .filter(function (el) {
           return !el.hasAttribute("hidden") && el.getAttribute("aria-hidden") !== "true";
         })
@@ -2151,8 +2258,11 @@
         );
       })
       .join("");
+    var selectId = "variant-select-" + attrEsc(p.id);
     return (
-      '<label class="variant-select-wrap">' +
+      '<label class="variant-select-wrap" for="' +
+      selectId +
+      '">' +
       /* Visible, not sr-only -- a bare unlabeled <select> made it easy
          for a sighted shopper to add to cart without ever noticing a
          Size/Scent/Blend choice existed at all. aria-label stays on the
@@ -2166,7 +2276,9 @@
          tpl.variantFor fills it in, and re-translates {variant} for free
          since "Size"/"Scent"/"Blend"/"Amount" are themselves ordinary
          dictionary phrases (see renderTemplate() in translator.js). */
-      '<select class="variant-select" data-base-price="' +
+      '<select class="variant-select" id="' +
+      selectId +
+      '" name="variant" data-base-price="' +
       p.price +
       '" data-i18n-tpl-aria-label="tpl.variantFor" data-i18n-vars="' +
       i18nVarsAttr({ variant: p.variants.name, product: p.name }) +
@@ -2911,10 +3023,13 @@
             var atLimit = !isOn && count >= maxItems;
             var imgUrl = p.image || (p.images && p.images[0]) || "";
             var catLabel = p.category ? p.category.toUpperCase() : "";
+            var boxItemId = "custom-box-item-" + attrEsc(p.id);
             return (
               '<li><label class="custom-box-option' +
               (isOn ? " is-chosen" : "") +
               (atLimit ? " is-disabled" : "") +
+              '" for="' +
+              boxItemId +
               '">' +
               '<div class="custom-box-option-img-wrap">' +
               /* These render at 46-48 CSS px. A bare <img src="*.jpg">
@@ -2945,8 +3060,12 @@
               formatMoney(p.price) +
               "</span>" +
               '<div class="custom-box-checkbox-wrap">' +
-              '<input type="checkbox" value="' +
+              '<input type="checkbox" id="' +
+              boxItemId +
+              '" name="custom_box_items" value="' +
               attrEsc(p.id) +
+              '" aria-label="Include ' +
+              attrEsc(p.name) +
               '"' +
               (isOn ? " checked" : "") +
               (atLimit ? " disabled" : "") +
@@ -12361,10 +12480,16 @@
       .join(",");
 
     var itemsHtml =
-      '<label class="pdp-ritual-item is-checked" data-product-id="' +
+      '<label class="pdp-ritual-item is-checked" for="ritual-item-' +
+      attrEsc(product.id) +
+      '" data-product-id="' +
       attrEsc(product.id) +
       '">' +
-      '<input type="checkbox" class="pdp-ritual-checkbox" checked disabled aria-label="Include ' +
+      '<input type="checkbox" id="ritual-item-' +
+      attrEsc(product.id) +
+      '" name="ritual_item_' +
+      attrEsc(product.id) +
+      '" class="pdp-ritual-checkbox" checked disabled aria-label="Include ' +
       attrEsc(product.name) +
       ' (Current product)" data-price="' +
       (typeof product.price === "number" ? product.price.toFixed(2) : "0.00") +
@@ -12396,10 +12521,16 @@
     pairedItems.forEach(function (p, idx) {
       itemsHtml +=
         '<span class="pdp-ritual-plus" aria-hidden="true">+</span>' +
-        '<label class="pdp-ritual-item is-checked" data-product-id="' +
+        '<label class="pdp-ritual-item is-checked" for="ritual-item-' +
+        attrEsc(p.id) +
+        '" data-product-id="' +
         attrEsc(p.id) +
         '">' +
-        '<input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include ' +
+        '<input type="checkbox" id="ritual-item-' +
+        attrEsc(p.id) +
+        '" name="ritual_item_' +
+        attrEsc(p.id) +
+        '" class="pdp-ritual-checkbox" checked aria-label="Include ' +
         attrEsc(p.name) +
         '" data-price="' +
         (typeof p.price === "number" ? p.price.toFixed(2) : "0.00") +

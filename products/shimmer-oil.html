@@ -266,7 +266,7 @@
         <div class="pdp-actions">
           <div class="pdp-qty" role="group" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>
-            <input type="number" class="pdp-qty-input" id="pdpQty" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
+            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>
           </div>
           <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart" data-item-id="shimmer-oil" data-item-name="Shimmer Body Oil" data-item-price="19.00" data-item-image="/assets/img/shimmer-oil.jpg" data-item-categories="Body &amp; Skin" data-item-custom1-name="Scent" data-item-custom1-options="Seduction[+0.00]|Y&#39;all Means All[+0.00]|Coconut Barefoot &amp; Dangerous[+0.00]" data-item-custom1-value="Seduction" data-item-quantity="1">Add to Cart</button>
@@ -455,7 +455,7 @@
           <p class="pdp-sticky-price">$19</p>
         </div>
         <div class="pdp-sticky-variant-wrap">
-          <select class="pdp-sticky-variant-select variant-select" data-base-price="19.00" aria-label="Select variant">
+          <select class="pdp-sticky-variant-select variant-select" id="pdpStickyVariantSelect" name="pdp_sticky_variant" data-base-price="19.00" aria-label="Select variant">
             <option value="Seduction" data-delta="0" selected>Seduction</option>
             <option value="Y&#39;all Means All" data-delta="0">Y&#39;all Means All</option>
             <option value="Coconut Barefoot &amp; Dangerous" data-delta="0">Coconut Barefoot &amp; Dangerous</option>
@@ -471,7 +471,7 @@
         <div class="global-search-input-wrapper">
           <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>

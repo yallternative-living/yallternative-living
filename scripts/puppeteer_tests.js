@@ -1422,6 +1422,7 @@ function createStaticServer(port = 8082) {
 
     // 10. Language Switcher UI & In-Place Translation Flow (M4)
     console.log("--- Testing Language Switcher & Localization Flow (M4) ---");
+    await page.setViewport({ width: 1200, height: 800 });
     await page.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
 
     let googleTranslateNetworkCalls = 0;
@@ -1572,6 +1573,99 @@ function createStaticServer(port = 8082) {
     } else {
       console.log("❌ English restoration state mismatch:", enState);
       exitCode = 1;
+    }
+
+    // 11. Mobile Header & Drawer Preferences (< 480px)
+    console.log("--- Testing Mobile Header & Drawer Preferences (< 480px) ---");
+    await page.setViewport({ width: 375, height: 667 });
+    await page.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+
+    // 11.1 Verify header controls hidden on < 480px
+    const headerHidden = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const langWrap = document.querySelector(".nav-cta .lang-selector-wrap");
+      const themeBtn = document.querySelector(".nav-cta .theme-toggle");
+      const langDisplay = langWrap ? window.getComputedStyle(langWrap).display : null;
+      const themeDisplay = themeBtn ? window.getComputedStyle(themeBtn).display : null;
+      return langDisplay === "none" && themeDisplay === "none";
+      /* eslint-enable no-undef */
+    });
+    if (headerHidden) {
+      console.log("✅ Language & Theme controls hidden from .nav-cta on 375px mobile viewport.");
+    } else {
+      console.log("❌ Language & Theme controls still visible in header on mobile.");
+      exitCode = 1;
+    }
+
+    // 11.2 Open mobile drawer and check preferences controls
+    await page.click(".nav-toggle");
+    await page.waitForSelector(".nav-links.open", { timeout: 3000 });
+    const prefsExist = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      const drawerTheme = document.getElementById("mobileThemeToggle");
+      const drawerLang = document.getElementById("mobileLangSelect");
+      return !!(drawerTheme && drawerLang);
+      /* eslint-enable no-undef */
+    });
+    if (prefsExist) {
+      console.log("✅ Mobile preferences (Appearance switch and Language select) found in drawer.");
+    } else {
+      console.log("❌ Mobile preferences missing from mobile drawer.");
+      exitCode = 1;
+    }
+
+    // 11.3 Test theme toggling in mobile drawer
+    const initialTheme = await page.evaluate(
+      /* eslint-disable-next-line no-undef */
+      () => document.documentElement.getAttribute("data-theme") || "dark"
+    );
+    await page.click("#mobileThemeToggle");
+    const toggledTheme = await page.evaluate(
+      /* eslint-disable-next-line no-undef */
+      () => document.documentElement.getAttribute("data-theme")
+    );
+    if (toggledTheme !== initialTheme) {
+      console.log(
+        `✅ Mobile theme switch successfully changed theme from ${initialTheme} to ${toggledTheme}.`
+      );
+    } else {
+      console.log("❌ Mobile theme switch failed to toggle theme.");
+      exitCode = 1;
+    }
+
+    // 11.4 Test language selection in mobile drawer
+    await page.select("#mobileLangSelect", "es");
+    await page.waitForFunction(
+      /* eslint-disable-next-line no-undef */
+      () => document.querySelector('[lang="es"]') !== null,
+      { timeout: 3000 }
+    );
+    const mobileEsCheck = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      return {
+        savedLang: localStorage.getItem("yl-lang"),
+        markedCount: document.querySelectorAll('[lang="es"]').length
+      };
+      /* eslint-enable no-undef */
+    });
+    if (mobileEsCheck.savedLang === "es" && mobileEsCheck.markedCount > 0) {
+      console.log(
+        `✅ Mobile drawer language select translated page to Spanish (${mobileEsCheck.markedCount} elements).`
+      );
+    } else {
+      console.log("❌ Mobile drawer language select failed:", mobileEsCheck);
+      exitCode = 1;
+    }
+
+    // Restore to English & original theme
+    await page.select("#mobileLangSelect", "en");
+    await page.waitForFunction(
+      /* eslint-disable-next-line no-undef */
+      () => document.querySelector('[lang="es"]') === null,
+      { timeout: 3000 }
+    );
+    if (toggledTheme !== initialTheme) {
+      await page.click("#mobileThemeToggle");
     }
   } catch (e) {
     console.error("❌ Unexpected error in Puppeteer tests:", e);

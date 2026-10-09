@@ -274,7 +274,7 @@
         <div class="pdp-actions">
           <div class="pdp-qty" role="group" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>
-            <input type="number" class="pdp-qty-input" id="pdpQty" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
+            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>
           </div>
           <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart" data-item-id="tank-top" data-item-name="Y&#39;allternative Living Tank Top" data-item-price="30.00" data-item-image="/assets/img/tank-top.jpg" data-item-categories="Apparel" data-item-custom1-name="Size" data-item-custom1-options="M[+0.00]|L[+0.00]|1X[+0.00]" data-item-custom1-value="M" data-item-max-quantity="10" data-item-quantity="1">Add to Cart</button>
@@ -407,7 +407,7 @@
           <p class="pdp-sticky-price">$30</p>
         </div>
         <div class="pdp-sticky-variant-wrap">
-          <select class="pdp-sticky-variant-select variant-select" data-base-price="30.00" aria-label="Select variant">
+          <select class="pdp-sticky-variant-select variant-select" id="pdpStickyVariantSelect" name="pdp_sticky_variant" data-base-price="30.00" aria-label="Select variant">
             <option value="S" data-delta="0" disabled aria-disabled="true">S — sold out</option>
             <option value="M" data-delta="0" selected>M</option>
             <option value="L" data-delta="0">L</option>
@@ -424,7 +424,7 @@
         <div class="global-search-input-wrapper">
           <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>

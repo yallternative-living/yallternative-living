@@ -247,7 +247,7 @@
         <div class="pdp-actions">
           <div class="pdp-qty" role="group" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>
-            <input type="number" class="pdp-qty-input" id="pdpQty" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
+            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>
           </div>
           <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart" data-item-id="beard-salve" data-item-name="Bourbon Beard Salve" data-item-price="14.00" data-item-image="/assets/img/beard-salve.jpg" data-item-categories="Body &amp; Skin" data-item-quantity="1">Add to Cart</button>
@@ -355,8 +355,8 @@
       </div>
       <div class="pdp-ritual-card">
         <div class="pdp-ritual-items-grid">
-        <label class="pdp-ritual-item is-checked" data-product-id="beard-salve">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked disabled aria-label="Include Bourbon Beard Salve (Current product)" data-price="14.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-beard-salve" data-product-id="beard-salve">
+          <input type="checkbox" id="ritual-item-beard-salve" name="ritual_item_beard-salve" class="pdp-ritual-checkbox" checked disabled aria-label="Include Bourbon Beard Salve (Current product)" data-price="14.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/beard-salve-480.avif 480w, /assets/img/beard-salve-800.avif 800w, /assets/img/beard-salve.avif 1400w" sizes="54px"><source type="image/webp" srcset="/assets/img/beard-salve-480.webp 480w, /assets/img/beard-salve-800.webp 800w, /assets/img/beard-salve.webp 1400w" sizes="54px"><img src="/assets/img/beard-salve.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -367,8 +367,8 @@
           </div>
         </label>
         <span class="pdp-ritual-plus" aria-hidden="true">+</span>
-        <label class="pdp-ritual-item is-checked" data-product-id="hand-scrub">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include Bourbon Vanilla Hand Scrub" data-price="10.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-hand-scrub" data-product-id="hand-scrub">
+          <input type="checkbox" id="ritual-item-hand-scrub" name="ritual_item_hand-scrub" class="pdp-ritual-checkbox" checked aria-label="Include Bourbon Vanilla Hand Scrub" data-price="10.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/hand-scrub-480.avif 480w, /assets/img/hand-scrub-800.avif 800w, /assets/img/hand-scrub.avif 1007w" sizes="54px"><source type="image/webp" srcset="/assets/img/hand-scrub-480.webp 480w, /assets/img/hand-scrub-800.webp 800w, /assets/img/hand-scrub.webp 1007w" sizes="54px"><img src="/assets/img/hand-scrub.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -379,8 +379,8 @@
           </div>
         </label>
         <span class="pdp-ritual-plus" aria-hidden="true">+</span>
-        <label class="pdp-ritual-item is-checked" data-product-id="frankincense-salve">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include Y&#39;all Heal Now Miracle Frankincense Salve" data-price="20.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-frankincense-salve" data-product-id="frankincense-salve">
+          <input type="checkbox" id="ritual-item-frankincense-salve" name="ritual_item_frankincense-salve" class="pdp-ritual-checkbox" checked aria-label="Include Y&#39;all Heal Now Miracle Frankincense Salve" data-price="20.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/frankincense-salve-480.avif 480w, /assets/img/frankincense-salve-800.avif 800w, /assets/img/frankincense-salve.avif 1400w" sizes="54px"><source type="image/webp" srcset="/assets/img/frankincense-salve-480.webp 480w, /assets/img/frankincense-salve-800.webp 800w, /assets/img/frankincense-salve.webp 1400w" sizes="54px"><img src="/assets/img/frankincense-salve.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -501,7 +501,7 @@
         <div class="global-search-input-wrapper">
           <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>

@@ -242,7 +242,7 @@
         <div class="pdp-actions">
           <div class="pdp-qty" role="group" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>
-            <input type="number" class="pdp-qty-input" id="pdpQty" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
+            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>
           </div>
           <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart" data-item-id="miracle-balm" data-item-name="Y&#39;allternative Miracle Balm" data-item-price="8.00" data-item-image="/assets/img/miracle-balm.jpg" data-item-categories="Salves &amp; Balms" data-item-quantity="1">Add to Cart</button>
@@ -338,8 +338,8 @@
       </div>
       <div class="pdp-ritual-card">
         <div class="pdp-ritual-items-grid">
-        <label class="pdp-ritual-item is-checked" data-product-id="miracle-balm">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked disabled aria-label="Include Y&#39;allternative Miracle Balm (Current product)" data-price="8.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-miracle-balm" data-product-id="miracle-balm">
+          <input type="checkbox" id="ritual-item-miracle-balm" name="ritual_item_miracle-balm" class="pdp-ritual-checkbox" checked disabled aria-label="Include Y&#39;allternative Miracle Balm (Current product)" data-price="8.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/miracle-balm-480.avif 480w, /assets/img/miracle-balm-800.avif 800w, /assets/img/miracle-balm.avif 1400w" sizes="54px"><source type="image/webp" srcset="/assets/img/miracle-balm-480.webp 480w, /assets/img/miracle-balm-800.webp 800w, /assets/img/miracle-balm.webp 1400w" sizes="54px"><img src="/assets/img/miracle-balm.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -350,8 +350,8 @@
           </div>
         </label>
         <span class="pdp-ritual-plus" aria-hidden="true">+</span>
-        <label class="pdp-ritual-item is-checked" data-product-id="shea-butter">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include Lavender Shea Body Butter" data-price="18.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-shea-butter" data-product-id="shea-butter">
+          <input type="checkbox" id="ritual-item-shea-butter" name="ritual_item_shea-butter" class="pdp-ritual-checkbox" checked aria-label="Include Lavender Shea Body Butter" data-price="18.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/shea-butter-480.avif 480w, /assets/img/shea-butter-800.avif 800w, /assets/img/shea-butter.avif 1400w" sizes="54px"><source type="image/webp" srcset="/assets/img/shea-butter-480.webp 480w, /assets/img/shea-butter-800.webp 800w, /assets/img/shea-butter.webp 1400w" sizes="54px"><img src="/assets/img/shea-butter.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -362,8 +362,8 @@
           </div>
         </label>
         <span class="pdp-ritual-plus" aria-hidden="true">+</span>
-        <label class="pdp-ritual-item is-checked" data-product-id="lavender-soak">
-          <input type="checkbox" class="pdp-ritual-checkbox" checked aria-label="Include Lavender Epsom Salt Soak" data-price="10.00">
+        <label class="pdp-ritual-item is-checked" for="ritual-item-lavender-soak" data-product-id="lavender-soak">
+          <input type="checkbox" id="ritual-item-lavender-soak" name="ritual_item_lavender-soak" class="pdp-ritual-checkbox" checked aria-label="Include Lavender Epsom Salt Soak" data-price="10.00">
           <div class="pdp-ritual-item-thumb">
             <picture><source type="image/avif" srcset="/assets/img/lavender-soak-480.avif 480w, /assets/img/lavender-soak-800.avif 800w, /assets/img/lavender-soak.avif 953w" sizes="54px"><source type="image/webp" srcset="/assets/img/lavender-soak-480.webp 480w, /assets/img/lavender-soak-800.webp 800w, /assets/img/lavender-soak.webp 953w" sizes="54px"><img src="/assets/img/lavender-soak.jpg" alt="" width="54" height="54" loading="lazy" decoding="async" sizes="54px"></picture>
           </div>
@@ -484,7 +484,7 @@
         <div class="global-search-input-wrapper">
           <svg class="global-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <label for="globalSearchInput" id="globalSearchModalTitle" class="sr-only">Search catalog, articles &amp; FAQ</label>
-          <input type="search" id="globalSearchInput" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>

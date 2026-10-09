@@ -6022,6 +6022,45 @@ section("Cart drawer: the closed state is invisible and silent");
   }
 })();
 
+section("Form hygiene: all interactive form controls carry name attributes");
+(function () {
+  try {
+    function walkHtml(dir, list) {
+      fs.readdirSync(dir, { withFileTypes: true }).forEach(function (ent) {
+        var full = path.join(dir, ent.name);
+        if (ent.isDirectory()) {
+          if (ent.name !== "node_modules" && ent.name !== ".git") walkHtml(full, list);
+        } else if (ent.name.endsWith(".html")) {
+          list.push(full);
+        }
+      });
+      return list;
+    }
+    var htmlFiles = walkHtml(ROOT, []);
+    var missingNameCount = 0;
+    htmlFiles.forEach(function (f) {
+      var rel = path.relative(ROOT, f);
+      var content = fs.readFileSync(f, "utf8");
+      var tags = content.match(/<(input|select|textarea)\b[^>]*>/gi) || [];
+      tags.forEach(function (tag) {
+        if (!/\bname\s*=\s*["'][^"']+["']/i.test(tag)) {
+          fail(rel, "form control missing name attribute: " + tag.slice(0, 80));
+          missingNameCount++;
+        }
+      });
+    });
+    if (missingNameCount === 0) {
+      ok(
+        "all interactive form controls across " +
+          htmlFiles.length +
+          " HTML pages carry name attributes"
+      );
+    }
+  } catch (e) {
+    fail("form hygiene check", e.message);
+  }
+})();
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
