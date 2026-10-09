@@ -6340,9 +6340,34 @@
           priceCurrency: "USD",
           url: ticketHref
         };
+        var availability = workshopOfferAvailability(ev);
+        if (availability) ld.offers.availability = availability;
       }
     }
     return ld;
+  }
+
+  /* schema.org availability for a workshop's ticket Offer, read the way the
+     ticket card reads it (workshopTicketHTML): a live count from
+     /api/inventory when there is one, otherwise the CMS's "Tickets
+     available", where 0 means sold out. A blank count makes no claim --
+     tickets not on sale yet, or sold somewhere this site cannot see. Twin of
+     workshopOfferAvailability() in scripts/build-site-data.js, which writes
+     the static block; there is no on-sale date in the CMS, so no validFrom
+     (red team, 2026-10-09). */
+  function workshopOfferAvailability(ev) {
+    if (!ev) return null;
+    var SOLD_OUT = "https://schema.org/SoldOut";
+    var IN_STOCK = "https://schema.org/InStock";
+    if (typeof ev.liveSpots === "number" && isFinite(ev.liveSpots)) {
+      return ev.liveSpots <= 0 ? SOLD_OUT : IN_STOCK;
+    }
+    var raw = ev.spots;
+    if (raw === undefined || raw === null) return null;
+    if (typeof raw === "string" && !raw.trim()) return null;
+    var spots = Number(raw);
+    if (!Number.isInteger(spots) || spots < 0) return null;
+    return spots === 0 ? SOLD_OUT : IN_STOCK;
   }
 
   /* All upcoming events, JSON-LD-ready. Filters out anything buildEventJsonLd
@@ -13686,6 +13711,7 @@
       buildEventDateTimeISO: buildEventDateTimeISO,
       buildEventJsonLdLocation: buildEventJsonLdLocation,
       buildEventJsonLd: buildEventJsonLd,
+      workshopOfferAvailability: workshopOfferAvailability,
       buildEventsJsonLd: buildEventsJsonLd,
       injectEventJsonLd: injectEventJsonLd,
       eventInviteOrganizerHTML: eventInviteOrganizerHTML,

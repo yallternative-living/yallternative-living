@@ -1074,6 +1074,78 @@ eq(
   Date.parse("2026-11-06T09:00:00-05:00"),
   "countdown: an empty label keeps the 9am default"
 );
+
+/* Workshop Event JSON-LD: the ticket Offer says whether tickets are left
+   (red team, 2026-10-09 -- a sold-out workshop still advertised an open
+   Offer). 0 is sold out, a positive count is in stock, a blank count makes
+   no claim; a live count wins over the CMS's starting count, as on the card. */
+{
+  const ws = (extra) =>
+    Object.assign(
+      {
+        id: "potions-night-2099-11-06",
+        kind: "workshop",
+        ticketId: "ticket-potions-night-2099-11-06",
+        name: "Potions Night",
+        date: "2099-11-06",
+        location: "Landrum, SC",
+        price: 60
+      },
+      extra
+    );
+  const offerOf = (ev) => {
+    const ld = main.buildEventJsonLd(ev);
+    return ld && ld.offers ? ld.offers : null;
+  };
+  [
+    [{ spots: 0 }, "https://schema.org/SoldOut", "a sold-out workshop (0 spots)"],
+    [{ spots: "0" }, "https://schema.org/SoldOut", "a CMS count of '0'"],
+    [{ spots: 12 }, "https://schema.org/InStock", "a workshop with 12 spots"],
+    [{ spots: 12, liveSpots: 0 }, "https://schema.org/SoldOut", "a live count of 0 over 12"],
+    [{ spots: 0, liveSpots: 3 }, "https://schema.org/InStock", "a live count of 3"],
+    [
+      { ticketId: undefined, ticketUrl: "https://square.link/u/x", spots: 0 },
+      "https://schema.org/SoldOut",
+      "an outside-link workshop marked 0 spots"
+    ]
+  ].forEach(function (c) {
+    const offer = offerOf(ws(c[0]));
+    assert(offer !== null, "workshop Offer exists for " + c[2]);
+    eq(offer && offer.availability, c[1], "workshop Offer availability: " + c[2]);
+  });
+  [
+    [{ spots: "" }, "a blank count"],
+    [{ spots: undefined }, "no count at all"],
+    [{ spots: null }, "a null count"],
+    [{ spots: -2 }, "a negative count"],
+    [{ ticketId: undefined, ticketUrl: "https://square.link/u/x" }, "an outside link, no count"]
+  ].forEach(function (c) {
+    const offer = offerOf(ws(c[0]));
+    assert(offer !== null, "workshop Offer exists for " + c[1]);
+    assert(
+      offer && !("availability" in offer),
+      "workshop Offer makes no availability claim for " + c[1]
+    );
+  });
+  assert(
+    !("validFrom" in (offerOf(ws({ spots: 5 })) || { validFrom: "missing offer" })),
+    "workshop Offer carries no validFrom -- the CMS has no on-sale date to give it"
+  );
+  /* The static block on events.html comes from the build's twin; the two
+     must agree on every CMS value (no live count exists at build time). */
+  const buildData = require("./build-site-data.js");
+  assert(
+    typeof buildData.workshopOfferAvailability === "function",
+    "build-site-data.js exports workshopOfferAvailability"
+  );
+  [0, "0", 1, 12, "12", "", "  ", undefined, null, -1, 2.5, "abc"].forEach(function (spots) {
+    eq(
+      buildData.workshopOfferAvailability({ spots: spots }),
+      main.workshopOfferAvailability({ spots: spots }),
+      "build and client agree on availability for spots=" + JSON.stringify(spots)
+    );
+  });
+}
 eq(
   startOf({ date: "2026-10-17", dateLabel: "October 17, 2026", name: "No Hours" }),
   Date.parse("2026-10-17T09:00:00-04:00"),

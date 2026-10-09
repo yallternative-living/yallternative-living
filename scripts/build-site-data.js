@@ -1887,6 +1887,22 @@ function renderSocialRowHtml(social) {
   return '<div class="social-row">\n' + links.join("\n") + "\n        </div>";
 }
 
+/* schema.org availability for a workshop's ticket Offer, from the CMS's
+   "Tickets available" count -- the same number the ticket card reads (a
+   count of 0 is sold out; see workshopTicketHTML in main.js). A blank count
+   makes no claim at all: tickets are not on sale yet, or are sold somewhere
+   whose stock this site cannot see. Without this a sold-out workshop went on
+   advertising an open Offer to search engines (red team, 2026-10-09). There
+   is no on-sale date in the CMS, so the Offer carries no validFrom either. */
+function workshopOfferAvailability(ev) {
+  const raw = ev ? ev.spots : undefined;
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === "string" && !raw.trim()) return null;
+  const spots = Number(raw);
+  if (!Number.isInteger(spots) || spots < 0) return null;
+  return spots === 0 ? "https://schema.org/SoldOut" : "https://schema.org/InStock";
+}
+
 /* Writes the CMS's social URLs into the LocalBusiness block's "sameAs" array
    on every page that has one. The URLs only have to pass safeUrl()'s scheme
    check, so they are untrusted text going into a <script> block. Two ways
@@ -4353,6 +4369,8 @@ function buildSiteData() {
           priceCurrency: "USD",
           url: ticketHref
         };
+        const availability = workshopOfferAvailability(ev);
+        if (availability) ld.offers.availability = availability;
       }
     }
     return ld;
@@ -9288,6 +9306,7 @@ if (typeof module !== "undefined" && module.exports) {
     renderSocialRowHtml: renderSocialRowHtml,
     getActiveSocialUrls: getActiveSocialUrls,
     injectSameAs: injectSameAs,
+    workshopOfferAvailability: workshopOfferAvailability,
     renderRitualSectionHtml: renderRitualSectionHtml,
     renderStickyBarHtml: renderStickyBarHtml,
     renderProductPdpHtml: renderProductPdpHtml,
