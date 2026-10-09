@@ -1359,6 +1359,60 @@ eq(
   "getActiveSocialUrls returns sorted valid URLs and excludes empty ones"
 );
 
+/* ---------- sameAs injection (red team, 2026-10-09) ----------
+   A social URL only has to pass safeUrl()'s scheme check, and it is written
+   into a <script type="application/ld+json"> block on eight pages. */
+{
+  const page =
+    '<head><script type="application/ld+json">\n{\n  "@type": "LocalBusiness",\n' +
+    '  "sameAs": [\n    "https://old.example/a"\n  ]\n}\n</script></head><body>TAIL</body>';
+  const breakout =
+    'https://x.example/</SCRIPT><meta http-equiv="refresh" content="0;url=https://evil.example">';
+  const urls = buildScript.getActiveSocialUrls({
+    instagram: breakout,
+    tiktok: "https://t.example/$'$`$&"
+  });
+  eq(
+    urls.length,
+    2,
+    "both hostile social URLs pass safeUrl (the scheme is https) -- the subject exists"
+  );
+  const out = buildScript.injectSameAs(page, urls);
+  const block = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/i.exec(out);
+  assert(block !== null, "injectSameAs leaves a JSON-LD block that still closes where it should");
+  assert(
+    block && block[1].indexOf("<") === -1,
+    "injectSameAs: no raw '<' inside the JSON-LD body, so </SCRIPT> cannot close the block"
+  );
+  assert(
+    !/<meta http-equiv/i.test(out),
+    "injectSameAs: the injected <meta http-equiv=refresh> never becomes markup"
+  );
+  eq(
+    block ? JSON.parse(block[1]).sameAs : null,
+    urls,
+    "injectSameAs: the escaped JSON still parses back to the exact URLs"
+  );
+  assert(
+    out.split("TAIL").length === 2 && out.split('"@type": "LocalBusiness"').length === 2,
+    "injectSameAs: `$'`, `` $` `` and `$&` in a URL are inserted literally, not as replacement patterns"
+  );
+  const again = buildScript.injectSameAs(out, ["https://new.example/]x"]);
+  const again2 = buildScript.injectSameAs(again, ["https://www.instagram.com/yallternativeliving"]);
+  eq(
+    JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/i.exec(again2)[1]).sameAs,
+    ["https://www.instagram.com/yallternativeliving"],
+    "injectSameAs: a `]` inside a URL does not end the match early on the next build"
+  );
+  eq(
+    again2.length,
+    page.length -
+      "https://old.example/a".length +
+      "https://www.instagram.com/yallternativeliving".length,
+    "injectSameAs: restoring a clean URL restores the page byte-for-byte in size"
+  );
+}
+
 /* ---------- Ritual Fallback Defaults ---------- */
 const mockProductNoTitle = {
   id: "lavender-soak",

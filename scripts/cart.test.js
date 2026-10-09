@@ -156,6 +156,46 @@ function assert(condition, label) {
   }
 }
 
+/* The top-level elements of an HTML fragment, as {tag, className, html}
+   (html is the element's outer HTML). A depth-counting tag scanner -- the
+   fragments here are cart.js's own well-formed template output -- so that a
+   structural assertion reads the markup render() wrote rather than the mock
+   DOM's querySelector(), which answers every selector with an element. */
+const VOID_TAGS = new Set(["input", "br", "img", "hr", "meta", "link", "source", "wbr"]);
+function topLevelElements(html) {
+  const out = [];
+  const tagRe = /<(\/)?([a-zA-Z][\w-]*)\b([^>]*)>/g;
+  let depth = 0;
+  let current = null;
+  let m;
+  while ((m = tagRe.exec(html))) {
+    const closing = !!m[1];
+    const tag = m[2].toLowerCase();
+    const selfClosing = VOID_TAGS.has(tag) || /\/\s*$/.test(m[3]);
+    if (closing) {
+      depth--;
+      if (depth === 0 && current) {
+        current.html = html.slice(current.start, tagRe.lastIndex);
+        out.push(current);
+        current = null;
+      }
+      continue;
+    }
+    if (depth === 0) {
+      const cls = /\bclass="([^"]*)"/.exec(m[3]);
+      current = { tag, className: cls ? cls[1] : "", start: m.index };
+      if (selfClosing) {
+        current.html = m[0];
+        out.push(current);
+        current = null;
+        continue;
+      }
+    }
+    if (!selfClosing) depth++;
+  }
+  return out;
+}
+
 console.log("Running cart.js browser-side unit tests...\n");
 
 /* Test load/save persistence */
@@ -213,18 +253,55 @@ if (drawer) {
 
   const footEl = drawer.querySelector("#yl-cart-foot");
   assert(footEl.innerHTML.includes("Subtotal"), "render() populates subtotal footer");
-  assert(
-    footEl.querySelector(".yl-cart-foot-scroll"),
-    "render() populates .yl-cart-foot-scroll container"
+
+  /* The footer's two regions, read out of the markup render() actually
+     wrote. This mock's querySelector() hands back an element for ANY
+     selector, so asserting `footEl.querySelector(".yl-cart-foot-dock
+     .yl-cart-checkout")` proved nothing: deleting both wrapper divs from
+     cart.js left the suite green (red team, 2026-10-09). The structure is
+     parsed from innerHTML instead. */
+  const footHtml = footEl.innerHTML;
+  const topLevel = topLevelElements(footHtml);
+  eq(
+    topLevel.map((e) => e.className),
+    ["yl-cart-foot-scroll", "yl-cart-foot-dock"],
+    "footer is exactly two top-level regions: the scroll area, then the dock"
   );
-  assert(
-    footEl.querySelector(".yl-cart-foot-dock"),
-    "render() populates .yl-cart-foot-dock container"
-  );
-  assert(
-    footEl.querySelector(".yl-cart-foot-dock .yl-cart-checkout"),
-    "checkout CTA button is docked in .yl-cart-foot-dock"
-  );
+  const scrollRegion = (topLevel[0] && topLevel[0].html) || "";
+  const dockRegion = (topLevel[1] && topLevel[1].html) || "";
+  const footerParts = {
+    checkout: 'class="btn btn-primary btn-block yl-cart-checkout"',
+    "estimated total": "yl-cart-total-due",
+    "pick-up checkbox": 'id="yl-cart-pickup-checkbox"',
+    "gift order checkbox": 'id="yl-cart-giftorder-checkbox"',
+    "gift card prompt": 'class="yl-cart-giftcard-toggle"',
+    "promo code prompt": "yl-cart-promo-toggle",
+    "subtotal breakdown": "yl-cart-breakdown",
+    "Share Cart": "yl-cart-share-btn",
+    "fine print": "yl-cart-note"
+  };
+  Object.keys(footerParts).forEach((name) => {
+    assert(
+      footHtml.split(footerParts[name]).length === 2,
+      "footer renders the " + name + " exactly once"
+    );
+  });
+  ["checkout", "estimated total"].forEach((name) => {
+    assert(dockRegion.includes(footerParts[name]), name + " is in the dock");
+    assert(!scrollRegion.includes(footerParts[name]), name + " is not in the scroll area");
+  });
+  [
+    "pick-up checkbox",
+    "gift order checkbox",
+    "gift card prompt",
+    "promo code prompt",
+    "subtotal breakdown",
+    "Share Cart",
+    "fine print"
+  ].forEach((name) => {
+    assert(scrollRegion.includes(footerParts[name]), name + " is in the scroll area");
+    assert(!dockRegion.includes(footerParts[name]), name + " is not in the dock");
+  });
 
   // Test drawer state
   YLCart.open();
@@ -1665,9 +1742,28 @@ assert(
       itemsRule && /min-height:\s*0/.test(itemsRule[0]),
       "cart.css: .yl-cart-items may shrink below its content"
     );
+    /* Below 500px of height the split gives way to one drawer-wide scroller
+       with the dock pinned (red team, 2026-10-09: the footer's own scroller
+       was 12px tall at 667x375). scripts/cart-drawer-layout.browser.test.js
+       measures the result; this pins the three rules it depends on. */
+    const shortQuery = cartCss.match(/@media\s*\(max-height:\s*500px\)\s*\{([\s\S]*?)\n\}/);
+    const shortBody = shortQuery ? shortQuery[1] : "";
     assert(
-      /@media\s*\(max-height:\s*480px\)\s*\{\s*\.yl-cart-foot\s*\{[^}]*padding:/.test(cartCss),
-      "cart.css: a short-viewport media query trims the footer padding"
+      /\.yl-cart-drawer\s*\{[^}]*overflow-y:\s*auto/.test(shortBody),
+      "cart.css: on a short screen the whole drawer is the scroller"
+    );
+    assert(
+      /\.yl-cart-foot\s*\{[^}]*display:\s*contents/.test(shortBody),
+      "cart.css: on a short screen the footer's regions join the drawer's own column"
+    );
+    assert(
+      /\.yl-cart-head\s*\{[^}]*position:\s*sticky/.test(shortBody),
+      "cart.css: on a short screen the header stays pinned"
+    );
+    const dockRule = cartCss.match(/\.yl-cart-foot-dock\s*\{[^}]*\}/);
+    assert(
+      dockRule && /position:\s*sticky/.test(dockRule[0]) && /bottom:\s*0/.test(dockRule[0]),
+      "cart.css: the dock is pinned to the bottom of whatever scrolls it"
     );
     assert(
       cartCss.indexOf("*/") < cartCss.indexOf("/* Monoline SVG Icon System */"),

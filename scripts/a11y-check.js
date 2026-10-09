@@ -442,10 +442,18 @@ const INTERACTIVE_INCOMPLETE_BASELINE = {
   "index.html [light] {nav open @390}": 3,
   "shop.html [dark] {nav open @390}": 4,
   "shop.html [light] {nav open @390}": 4,
-  "shop.html [dark] {cart drawer open @390}": 6,
-  "shop.html [light] {cart drawer open @390}": 6,
-  "products/miracle-balm.html [dark] {cart drawer open @390}": 5,
-  "products/miracle-balm.html [light] {cart drawer open @390}": 5
+  /* +2 each, 2026-10-09: the subtotal/shipping breakdown moved out of the
+     always-visible dock into the footer's own scroll area (the dock had
+     swallowed the scroller on short screens). At 390x844 that scroller's
+     bottom edge falls across the "Shipping" line, so axe reports its <span>
+     and <strong> as "partially obscured by another element" -- the dock sits
+     where the clipped half would be. Measured 1 or 2 nodes depending on the
+     cart's upsell height; same colours as the Subtotal line above it, which
+     axe does decide (no violation). Scroll it into view and it measures. */
+  "shop.html [dark] {cart drawer open @390}": 8,
+  "shop.html [light] {cart drawer open @390}": 8,
+  "products/miracle-balm.html [dark] {cart drawer open @390}": 7,
+  "products/miracle-balm.html [light] {cart drawer open @390}": 7
 };
 const INTERACTIVE_INCOMPLETE_DEFAULT = 0;
 

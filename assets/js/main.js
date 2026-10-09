@@ -565,9 +565,37 @@
         if (l.code === activeLang) opt.selected = true;
         langSelect.appendChild(opt);
       });
+      /* setLanguage() resolves to the language actually IN EFFECT, which is
+         not always the one asked for: when a dictionary cannot load
+         (offline, a 404 after a bad deploy) it keeps the page as it is and
+         fires no yl-language-changed. The select used to ignore that answer,
+         so it sat on 日本語 over an English page -- and picking 日本語 again
+         fired no change event at all (red team, 2026-10-09). Follow the
+         answer. `langRequest` drops a stale answer when the shopper has
+         already picked again. */
+      var langRequest = 0;
       langSelect.addEventListener("change", function () {
+        var select = this;
         if (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.setLanguage === "function") {
-          window.YL_TRANSLATOR.setLanguage(this.value);
+          var mine = ++langRequest;
+          var settle = function (lang) {
+            if (mine !== langRequest) return;
+            var current =
+              typeof window.YL_TRANSLATOR.getCurrentLanguage === "function"
+                ? window.YL_TRANSLATOR.getCurrentLanguage()
+                : null;
+            var resolved = typeof lang === "string" && lang ? lang : current;
+            if (resolved && select.value !== resolved) select.value = resolved;
+          };
+          var result;
+          try {
+            result = window.YL_TRANSLATOR.setLanguage(select.value);
+          } catch {
+            result = null;
+          }
+          Promise.resolve(result).then(settle, function () {
+            settle(null);
+          });
         } else {
           try {
             localStorage.setItem("yl-lang", this.value);
@@ -6312,9 +6340,34 @@
           priceCurrency: "USD",
           url: ticketHref
         };
+        var availability = workshopOfferAvailability(ev);
+        if (availability) ld.offers.availability = availability;
       }
     }
     return ld;
+  }
+
+  /* schema.org availability for a workshop's ticket Offer, read the way the
+     ticket card reads it (workshopTicketHTML): a live count from
+     /api/inventory when there is one, otherwise the CMS's "Tickets
+     available", where 0 means sold out. A blank count makes no claim --
+     tickets not on sale yet, or sold somewhere this site cannot see. Twin of
+     workshopOfferAvailability() in scripts/build-site-data.js, which writes
+     the static block; there is no on-sale date in the CMS, so no validFrom
+     (red team, 2026-10-09). */
+  function workshopOfferAvailability(ev) {
+    if (!ev) return null;
+    var SOLD_OUT = "https://schema.org/SoldOut";
+    var IN_STOCK = "https://schema.org/InStock";
+    if (typeof ev.liveSpots === "number" && isFinite(ev.liveSpots)) {
+      return ev.liveSpots <= 0 ? SOLD_OUT : IN_STOCK;
+    }
+    var raw = ev.spots;
+    if (raw === undefined || raw === null) return null;
+    if (typeof raw === "string" && !raw.trim()) return null;
+    var spots = Number(raw);
+    if (!Number.isInteger(spots) || spots < 0) return null;
+    return spots === 0 ? SOLD_OUT : IN_STOCK;
   }
 
   /* All upcoming events, JSON-LD-ready. Filters out anything buildEventJsonLd
@@ -8388,10 +8441,19 @@
         state.query = searchInput.value;
         render();
       });
-      var searchForm = document.getElementById("shopSearch");
+      /* The FORM, not the input. This used to look up "shopSearch" -- the
+         <input> -- and listen for `submit` on it; inputs never receive
+         submit, so preventDefault() never ran and Enter reloaded shop.html
+         as ?q=..., throwing away every other filter (and the WebMCP
+         agentInvoked branch below was dead). Red team, 2026-10-09. */
+      var searchForm = document.getElementById("shopSearchForm") || searchInput.form;
       if (searchForm) {
         searchForm.addEventListener("submit", function (e) {
           e.preventDefault();
+          // Enter filters now rather than waiting out the input debounce.
+          clearTimeout(debounceTimer);
+          state.query = searchInput.value;
+          render();
           // For WebMCP agents: respond immediately with the filtered state
           if (e.agentInvoked && typeof e.respondWith === "function") {
             e.respondWith(
@@ -9797,75 +9859,95 @@
      label with no time keeps 9am. */
   /* The opening clock time in a dateLabel, as {hour, minute} in 24h, or null.
      The FIRST time in the label wins, whichever way it is written:
-       "6:30pm", "6:30 p.m.", "11am"      -- its own am/pm
-       "6:30–9pm", "6–9pm", "11–2pm"     -- a range sharing the closing am/pm
-                                             (11–2pm opens at 11am: a start
-                                             later on the clock than the end
-                                             is the morning)
-       "noon–4pm"                          -- noon
-       "18:30"                             -- 24-hour
-     Taking only the first time that carried its OWN am/pm read "6:30–9pm" as
-     9pm, so the countdown said "3 hours until" a workshop already running,
-     and "6:30 p.m." or "18:30" fell back to 9am (red team, 2026-10-08).
-     No lookbehind: the file still has to parse in older Safari. */
+       "6:30pm", "6:30 p.m.", "11am", "6p", "9a"   -- its own am/pm
+       "6:30–9pm", "6–9pm", "6:30 til 9pm",
+       "6:30/9pm", "6 to 9pm", "8–noon"            -- a range: the start takes
+                                                      the end's half of the day
+       "noon–4pm", "midnight"                      -- the words
+       "18:30", "08:00"                            -- 24-hour
+       "Doors 5:30, class 6–9pm"                   -- a bare H:MM borrows from
+                                                      the next time in the label
+     A range start borrows from its END, converted to 24h first: the start is
+     the pm reading unless that would land at or after the end, in which case
+     it is the morning. So "11–2pm" opens at 11am, "10–12pm" at 10am (12pm is
+     noon, the EARLIEST pm hour -- the old rule treated 12 as the latest and
+     read 22:00), "8–noon" at 8am and "6–9pm" at 6pm. A bare "H:MM" is
+     24-hour only when the hour is 13+ or zero-padded; otherwise it borrows
+     the same way from the next time after it ("Doors 5:30" before a 6pm
+     class is 5:30pm) and is read as written only when nothing follows. A
+     bare hour with no am/pm ("Oct 17", "Table 4") is never a time on its own
+     -- only as the start of a range. Red team, 2026-10-08 and 2026-10-09.
+     No lookbehind: the file still has to parse in older Safari, so group 1
+     carries the character before each token instead. */
   function labelStartClock(label) {
     var text = String(label || "");
-    var MER = "([ap])\\.?\\s?m(?![a-z])\\.?";
-    var NUM = "(\\d{1,2})(?::([0-5]\\d))?(?!\\d)";
-    var found = [];
-    var range = new RegExp(
-      "(^|[^\\d:])" +
-        NUM +
-        "\\s*(?:" +
-        MER +
-        ")?\\s*(?:-|\u2013|\u2014|to)\\s*" +
-        NUM +
-        "\\s*" +
-        MER,
-      "i"
-    ).exec(text);
-    if (range) {
-      var startH = parseInt(range[2], 10);
-      var endH = parseInt(range[5], 10);
-      var endMer = range[7].toLowerCase();
-      var mer = range[4] ? range[4].toLowerCase() : endMer;
-      if (!range[4] && endMer === "p" && startH !== 12 && startH > endH) mer = "a";
-      if (startH >= 1 && startH <= 12) {
-        found.push({
-          at: range.index + range[1].length,
-          hour: (startH % 12) + (mer === "p" ? 12 : 0),
-          minute: range[3] ? parseInt(range[3], 10) : 0
-        });
+    var TOKEN =
+      /(^|[^\d:])(?:\b(?:12\s*)?(noon|midnight)\b|(\d{1,2})(?::([0-5]\d))?(?!\d)(?:\s*([ap])\.?\s?m(?![a-z])\.?|([ap])(?![a-z]))?)/gi;
+    var SEP = /^\s*(?:-|–|—|\/|to|till?|['’]til|until|thru|through)\s*$/i;
+    var tokens = [];
+    var m;
+    while ((m = TOKEN.exec(text))) {
+      var t = { at: m.index + m[1].length, end: TOKEN.lastIndex, value: null, endValue: null };
+      if (m[2]) {
+        var isNoon = m[2].toLowerCase() === "noon";
+        t.value = isNoon ? 720 : 0;
+        // As the END of a range, midnight closes the day.
+        t.endValue = isNoon ? 720 : 1440;
+        t.kind = "fixed";
+      } else {
+        var h = parseInt(m[3], 10);
+        var min = m[4] ? parseInt(m[4], 10) : 0;
+        var mer = (m[5] || m[6] || "").toLowerCase();
+        if (mer) {
+          if (h < 1 || h > 12) continue;
+          t.value = t.endValue = ((h % 12) + (mer === "p" ? 12 : 0)) * 60 + min;
+          t.kind = "fixed";
+        } else if (m[4]) {
+          if (h > 23) continue;
+          if (h >= 13 || h === 0 || m[3].charAt(0) === "0") {
+            t.value = t.endValue = h * 60 + min;
+            t.kind = "h24";
+          } else {
+            t.kind = "bare";
+          }
+        } else {
+          if (h < 1 || h > 12) continue;
+          t.kind = "hour";
+        }
+        t.h = h;
+        t.min = min;
+      }
+      tokens.push(t);
+    }
+    function borrow(tok, endValue) {
+      var pm = ((tok.h % 12) + 12) * 60 + tok.min;
+      return pm < endValue ? pm : (tok.h % 12) * 60 + tok.min;
+    }
+    // Ranges: a start with no am/pm of its own takes it from the end.
+    for (var i = 0; i + 1 < tokens.length; i++) {
+      var a = tokens[i];
+      var b = tokens[i + 1];
+      if (a.value !== null || b.value === null) continue;
+      if (!SEP.test(text.slice(a.end, b.at))) continue;
+      a.value = b.kind === "h24" ? a.h * 60 + a.min : borrow(a, b.endValue);
+    }
+    // A bare H:MM outside a range borrows from the next time after it.
+    for (var j = tokens.length - 1; j >= 0; j--) {
+      var c = tokens[j];
+      if (c.kind !== "bare" || c.value !== null) continue;
+      var next = null;
+      for (var k = j + 1; k < tokens.length && !next; k++) {
+        if (tokens[k].value !== null) next = tokens[k];
+      }
+      if (!next || next.kind === "h24") c.value = c.h * 60 + c.min;
+      else c.value = borrow(c, next.endValue !== null ? next.endValue : next.value);
+    }
+    for (var n = 0; n < tokens.length; n++) {
+      if (tokens[n].value !== null) {
+        return { hour: Math.floor(tokens[n].value / 60), minute: tokens[n].value % 60 };
       }
     }
-    var single = new RegExp("(^|[^\\d:])" + NUM + "\\s*" + MER, "i").exec(text);
-    if (single) {
-      var h = parseInt(single[2], 10);
-      if (h >= 1 && h <= 12) {
-        found.push({
-          at: single.index + single[1].length,
-          hour: (h % 12) + (single[4].toLowerCase() === "p" ? 12 : 0),
-          minute: single[3] ? parseInt(single[3], 10) : 0
-        });
-      }
-    }
-    var noon = /\bnoon\b/i.exec(text);
-    if (noon) found.push({ at: noon.index, hour: 12, minute: 0 });
-    var h24 = /(^|[^\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d]|\s*[ap]\.?\s?m(?![a-z]))/i.exec(text);
-    if (h24) {
-      found.push({
-        at: h24.index + h24[1].length,
-        hour: parseInt(h24[2], 10),
-        minute: parseInt(h24[3], 10)
-      });
-    }
-    var first = null;
-    for (var i = 0; i < found.length; i++) {
-      // Earliest in the label; on a tie the range (pushed first) wins, so
-      // "6:30–9pm" is never read as a bare 24-hour 6:30.
-      if (!first || found[i].at < first.at) first = found[i];
-    }
-    return first;
+    return null;
   }
 
   function eventStartMs(evt) {
@@ -12925,15 +13007,20 @@
       )
       .join(",");
 
+    /* No ids and no `for` in here. This markup is rendered into the photo
+       lightbox ON TOP OF a product page whose own ritual section already
+       carries id="ritual-item-<id>" (and pdpRitualTotalPrice and friends):
+       the copies duplicated every id, and a lightbox label's `for` resolved
+       to the FIRST match -- the hidden page checkbox -- so tapping an item in
+       the lightbox toggled the page's box and left the lightbox total wrong
+       (red team, 2026-10-09). Each <input> sits inside its <label>, which
+       labels it without an id, and initPdpRitualSection() finds the total,
+       badge and button by class within the section it is given. */
     var itemsHtml =
-      '<label class="pdp-ritual-item is-checked" for="ritual-item-' +
-      attrEsc(product.id) +
-      '" data-product-id="' +
+      '<label class="pdp-ritual-item is-checked" data-product-id="' +
       attrEsc(product.id) +
       '">' +
-      '<input type="checkbox" id="ritual-item-' +
-      attrEsc(product.id) +
-      '" name="ritual_item_' +
+      '<input type="checkbox" name="ritual_item_' +
       attrEsc(product.id) +
       '" class="pdp-ritual-checkbox" checked disabled aria-label="Include ' +
       attrEsc(product.name) +
@@ -12967,14 +13054,10 @@
     pairedItems.forEach(function (p, idx) {
       itemsHtml +=
         '<span class="pdp-ritual-plus" aria-hidden="true">+</span>' +
-        '<label class="pdp-ritual-item is-checked" for="ritual-item-' +
-        attrEsc(p.id) +
-        '" data-product-id="' +
+        '<label class="pdp-ritual-item is-checked" data-product-id="' +
         attrEsc(p.id) +
         '">' +
-        '<input type="checkbox" id="ritual-item-' +
-        attrEsc(p.id) +
-        '" name="ritual_item_' +
+        '<input type="checkbox" name="ritual_item_' +
         attrEsc(p.id) +
         '" class="pdp-ritual-checkbox" checked aria-label="Include ' +
         attrEsc(p.name) +
@@ -13035,14 +13118,14 @@
       '<div class="pdp-ritual-footer">' +
       '<div class="pdp-ritual-total-wrap">' +
       '<span class="pdp-ritual-total-label">Bundle:</span>' +
-      '<span class="pdp-ritual-total-price" id="pdpRitualTotalPrice">' +
+      '<span class="pdp-ritual-total-price">' +
       formatMoney(total) +
       "</span>" +
-      '<span class="pdp-ritual-shipping-badge" id="pdpRitualShippingBadge"' +
+      '<span class="pdp-ritual-shipping-badge"' +
       (unlocksFreeShipping ? "" : ' hidden=""') +
       ">✓ Unlocks Free Tracked Shipping!</span>" +
       "</div>" +
-      '<button type="button" class="btn btn-primary btn-sm pdp-ritual-add-btn" id="pdpRitualAddBtn" data-ritual-ids="' +
+      '<button type="button" class="btn btn-primary btn-sm pdp-ritual-add-btn" data-ritual-ids="' +
       attrEsc(allIds) +
       '">' +
       '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>' +
@@ -13623,6 +13706,7 @@
       applyTheme: applyTheme,
       pickFeatured: pickFeatured,
       pickNextEvent: pickNextEvent,
+      labelStartClock: labelStartClock,
       toggleWish: toggleWish,
       isWished: isWished,
       currentTheme: currentTheme,
@@ -13645,6 +13729,7 @@
       buildEventDateTimeISO: buildEventDateTimeISO,
       buildEventJsonLdLocation: buildEventJsonLdLocation,
       buildEventJsonLd: buildEventJsonLd,
+      workshopOfferAvailability: workshopOfferAvailability,
       buildEventsJsonLd: buildEventsJsonLd,
       injectEventJsonLd: injectEventJsonLd,
       eventInviteOrganizerHTML: eventInviteOrganizerHTML,

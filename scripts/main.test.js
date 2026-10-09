@@ -987,6 +987,165 @@ eq(
     "countdown: " + c[2]
   );
 });
+/* labelStartClock, table-driven (red team, 2026-10-09). The first block were
+   all wrong: 12pm treated as the LATEST pm hour ("10-12pm" -> 22:00), a bare
+   H:MM read as 24-hour morning while a later am/pm said otherwise, ranges
+   joined only by -/–/—/to and closed only by an am/pm (so "til", "/" and
+   "noon" never closed one), and no short "6p"/"9a". The second block are the
+   forms that already worked; they must keep working. */
+assert(typeof main.labelStartClock === "function", "labelStartClock is exported for testing");
+function clockOf(label) {
+  const c = main.labelStartClock(label);
+  return c ? String(c.hour).padStart(2, "0") + ":" + String(c.minute).padStart(2, "0") : null;
+}
+const CLOCK_FIXED = [
+  ["10-12pm", "10:00"],
+  ["10–12pm", "10:00"],
+  ["11–12pm", "11:00"],
+  ["9-12pm", "09:00"],
+  ["6:30 til 9pm", "18:30"],
+  ["6:30 till 9pm", "18:30"],
+  ["6:30 'til 9pm", "18:30"],
+  ["6:30 until 9pm", "18:30"],
+  ["6:30 thru 9pm", "18:30"],
+  ["6:30 through 9pm", "18:30"],
+  ["6:30/9pm", "18:30"],
+  ["Doors 5:30, class 6-9pm", "17:30"],
+  ["8–noon", "08:00"],
+  ["1st Sat · 8–noon", "08:00"],
+  ["9–midnight", "21:00"],
+  ["6p-9p", "18:00"],
+  ["tues 6p", "18:00"],
+  ["9a", "09:00"],
+  ["midnight", "00:00"]
+];
+const CLOCK_KEPT = [
+  ["6:30-9pm", "18:30"],
+  ["6-9pm", "18:00"],
+  ["6–9pm", "18:00"],
+  ["6—9pm", "18:00"],
+  ["6 to 9pm", "18:00"],
+  ["11-2pm", "11:00"],
+  ["11:30-1pm", "11:30"],
+  ["8–11am", "08:00"],
+  ["12-4pm", "12:00"],
+  ["noon-4pm", "12:00"],
+  ["12 noon–4pm", "12:00"],
+  ["Noon to 4", "12:00"],
+  ["6:30 p.m.", "18:30"],
+  ["18:30", "18:30"],
+  ["00:30", "00:30"],
+  ["12pm", "12:00"],
+  ["12am", "00:00"],
+  ["9 AM", "09:00"],
+  ["9:00a.m.", "09:00"],
+  ["10am-2pm", "10:00"],
+  ["6:30pm CT", "18:30"],
+  ["Sat & Sun, 11am–7pm", "11:00"],
+  ["Doors 6pm, class 6:30-9pm", "18:00"],
+  ["10:00–16:00", "10:00"],
+  ["6:00-21:00", "06:00"],
+  ["Oct 17 – 18 · 10am–4pm", "10:00"],
+  ["Oct 2–4, 10am–5pm", "10:00"],
+  ["10/17 10-4pm", "10:00"],
+  ["Table 4-6, 11am", "11:00"],
+  ["Booth #12 9am-2pm", "09:00"],
+  ["Every 2nd Saturday, 9-1pm", "09:00"],
+  ["Afternoon tea, 2pm", "14:00"],
+  ["November 6, 2026 · Friday, 6:30pm", "18:30"],
+  ["August 29–30, 2026 · Sat & Sun, 11:30am–7pm", "11:30"],
+  ["All day", null],
+  ["TBA", null],
+  ["", null],
+  ["Saturday 10–4", null],
+  ["October 17, 2026", null],
+  ["24:00", null]
+];
+CLOCK_FIXED.concat(CLOCK_KEPT).forEach(function (c) {
+  eq(clockOf(c[0]), c[1], "labelStartClock(" + JSON.stringify(c[0]) + ")");
+});
+eq(
+  startOf({ date: "2026-11-06", dateLabel: "November 6, 2026 · Friday, 10–12pm", name: "Brunch" }),
+  Date.parse("2026-11-06T10:00:00-05:00"),
+  "countdown: a 10–12pm event opens at 10am, not 10pm"
+);
+eq(
+  startOf({ date: "2026-11-06", dateLabel: "", name: "No Label" }),
+  Date.parse("2026-11-06T09:00:00-05:00"),
+  "countdown: an empty label keeps the 9am default"
+);
+
+/* Workshop Event JSON-LD: the ticket Offer says whether tickets are left
+   (red team, 2026-10-09 -- a sold-out workshop still advertised an open
+   Offer). 0 is sold out, a positive count is in stock, a blank count makes
+   no claim; a live count wins over the CMS's starting count, as on the card. */
+{
+  const ws = (extra) =>
+    Object.assign(
+      {
+        id: "potions-night-2099-11-06",
+        kind: "workshop",
+        ticketId: "ticket-potions-night-2099-11-06",
+        name: "Potions Night",
+        date: "2099-11-06",
+        location: "Landrum, SC",
+        price: 60
+      },
+      extra
+    );
+  const offerOf = (ev) => {
+    const ld = main.buildEventJsonLd(ev);
+    return ld && ld.offers ? ld.offers : null;
+  };
+  [
+    [{ spots: 0 }, "https://schema.org/SoldOut", "a sold-out workshop (0 spots)"],
+    [{ spots: "0" }, "https://schema.org/SoldOut", "a CMS count of '0'"],
+    [{ spots: 12 }, "https://schema.org/InStock", "a workshop with 12 spots"],
+    [{ spots: 12, liveSpots: 0 }, "https://schema.org/SoldOut", "a live count of 0 over 12"],
+    [{ spots: 0, liveSpots: 3 }, "https://schema.org/InStock", "a live count of 3"],
+    [
+      { ticketId: undefined, ticketUrl: "https://square.link/u/x", spots: 0 },
+      "https://schema.org/SoldOut",
+      "an outside-link workshop marked 0 spots"
+    ]
+  ].forEach(function (c) {
+    const offer = offerOf(ws(c[0]));
+    assert(offer !== null, "workshop Offer exists for " + c[2]);
+    eq(offer && offer.availability, c[1], "workshop Offer availability: " + c[2]);
+  });
+  [
+    [{ spots: "" }, "a blank count"],
+    [{ spots: undefined }, "no count at all"],
+    [{ spots: null }, "a null count"],
+    [{ spots: -2 }, "a negative count"],
+    [{ ticketId: undefined, ticketUrl: "https://square.link/u/x" }, "an outside link, no count"]
+  ].forEach(function (c) {
+    const offer = offerOf(ws(c[0]));
+    assert(offer !== null, "workshop Offer exists for " + c[1]);
+    assert(
+      offer && !("availability" in offer),
+      "workshop Offer makes no availability claim for " + c[1]
+    );
+  });
+  assert(
+    !("validFrom" in (offerOf(ws({ spots: 5 })) || { validFrom: "missing offer" })),
+    "workshop Offer carries no validFrom -- the CMS has no on-sale date to give it"
+  );
+  /* The static block on events.html comes from the build's twin; the two
+     must agree on every CMS value (no live count exists at build time). */
+  const buildData = require("./build-site-data.js");
+  assert(
+    typeof buildData.workshopOfferAvailability === "function",
+    "build-site-data.js exports workshopOfferAvailability"
+  );
+  [0, "0", 1, 12, "12", "", "  ", undefined, null, -1, 2.5, "abc"].forEach(function (spots) {
+    eq(
+      buildData.workshopOfferAvailability({ spots: spots }),
+      main.workshopOfferAvailability({ spots: spots }),
+      "build and client agree on availability for spots=" + JSON.stringify(spots)
+    );
+  });
+}
 eq(
   startOf({ date: "2026-10-17", dateLabel: "October 17, 2026", name: "No Hours" }),
   Date.parse("2026-10-17T09:00:00-04:00"),
