@@ -20,6 +20,15 @@
  * not there. The one thing that is NOT swallowed is a refusal for want of
  * stock: that is the answer the hook exists to give.
  *
+ * EXCEPT FOR A WORKSHOP TICKET, which fails CLOSED. A product's static
+ * `stock` is a real cap to fall back on; a workshop's spots are only where
+ * its count started, and a seat sold with no hold is one the ledger never
+ * hears of -- with every seat held, a D1 error used to sell the workshop
+ * again (red team, 2026-10-09). When the ledger cannot count a ticket line
+ * (uncountedTickets) or cannot hold it (reserveForCheckout), checkout
+ * answers 503 TICKETS_UNCOUNTED_MESSAGE and sells nothing; the other lines
+ * in the cart wait with it, which is a minute's retry, not a lost sale.
+ *
  * ZERO-STOCK OWNER ALERT
  * When a commit takes a product to zero, `announceSoldOut` logs it under
  * INVENTORY_SOLD_OUT and emails the shop through routes/alerts.js's
@@ -35,12 +44,13 @@ import { alertOwner } from "./alerts.js";
 import {
   InventoryError,
   availableCounts,
+  awaitDelayedPayment,
   commitInventory,
   inventorySnapshot,
   releaseInventory,
   reserveInventory,
   restockInventory,
-  syncInventory,
+  syncFromCatalog,
   trackedProductsOf
 } from "../state/inventory.js";
 
@@ -73,21 +83,20 @@ export async function handleInventory(request, env, origin, ctx) {
     return json({ error: "Too many requests. Please wait a minute." }, 429, origin, env);
   }
   const index = await loadProductIndex(env, ctx);
-  /* No calendar means no workshop tickets in the index, and a sync without
-     them would erase the ticket counts (workers/state/tickets.js). */
-  if (!index.size || index.ticketsUnavailable) {
+  if (!index.size) {
     return json({ error: "Live stock is unavailable." }, 503, origin, env);
   }
   await ensureSchema(env.STATE_DB);
-  // The catalogue's own age goes with it, so an isolate holding a copy older
-  // than the last owner correction cannot reseed a row backwards -- the same
-  // guard availabilityForCheckout gets from catalog.fetchedAt.
-  const snapshot = await inventorySnapshot(
-    env.STATE_DB,
-    trackedProductsOf(index.values()),
-    Date.now(),
-    index.fetchedAt
-  );
+  /* The index carries its own age (index.fetchedAt), so an isolate holding a
+     copy older than the last owner correction cannot reseed a row backwards.
+     No calendar means no workshop tickets in the index: syncFromCatalog
+     refuses to sync that (workers/state/inventory.js), and a snapshot that
+     would leave the tickets out is not published either -- 503, and the
+     page keeps its static rendering. */
+  const snapshot = await inventorySnapshot(env.STATE_DB, index, Date.now());
+  if (!snapshot) {
+    return json({ error: "Live stock is unavailable." }, 503, origin, env);
+  }
   return json(snapshot, 200, origin, env);
 }
 
@@ -96,7 +105,8 @@ export async function handleInventory(request, env, origin, ctx) {
 /**
  * `Map<productId, available>` for allocateStock, from the ledger -- or null
  * when the ledger cannot answer, in which case allocateStock uses the
- * catalog's own `stock` exactly as it did before the ledger existed.
+ * catalog's own `stock` exactly as it did before the ledger existed. (A
+ * workshop ticket does not get that fallback: see uncountedTickets.)
  */
 export async function availabilityForCheckout(env, catalog) {
   if (!env.STATE_DB) return null;
@@ -105,13 +115,10 @@ export async function availabilityForCheckout(env, catalog) {
     if (!tracked.length) return new Map();
     await ensureSchema(env.STATE_DB);
     /* A catalogue that could not read the calendar has no workshop tickets
-       in it (workers/checkout.js loadCatalog). Syncing that list would mark
-       every ticket row untracked, and the next full sync would reseed them
-       from scratch -- forgetting the tickets already sold. Read the counts
-       the ledger already has instead. */
-    if (!(catalog && catalog.ticketsUnavailable)) {
-      await syncInventory(env.STATE_DB, tracked, Date.now(), catalog && catalog.fetchedAt);
-    }
+       in it (workers/checkout.js loadCatalog); syncFromCatalog refuses to
+       sync that list, and the counts the ledger already has are read
+       instead. */
+    await syncFromCatalog(env.STATE_DB, catalog, Date.now());
     return await availableCounts(
       env.STATE_DB,
       tracked.map((p) => p.id)
@@ -120,6 +127,43 @@ export async function availabilityForCheckout(env, catalog) {
     warnFailOpen("reading availability", err);
     return null;
   }
+}
+
+/**
+ * What a shopper is told when a ticket cannot be counted right now. A 503:
+ * nothing is wrong with the cart, so the drawer keeps the line.
+ */
+export const TICKETS_UNCOUNTED_MESSAGE =
+  "We couldn't check how many workshop spots are left just now, so tickets can't be booked " +
+  "this minute. Nothing was charged -- please try again in a moment.";
+
+/**
+ * The workshop tickets in an allocation that the ledger has no live count
+ * for: `availability` is null (no STATE_DB, or the read failed) or has no
+ * row for the ticket. A product in that position falls back to its static
+ * `stock`; a ticket must not. Spots are only where the count STARTED, and a
+ * session made with no ledger row is a seat no hold backs and no commit
+ * counts -- with 12 of 12 held, a D1 error used to sell 12 more (red team,
+ * 2026-10-09). So checkout refuses these lines (503), and reserveForCheckout
+ * refuses the same way when the hold itself cannot be written.
+ *
+ * @param {Array<{qty: number, holds?: Array<{productId: string, isTicket?: boolean}>}>} allocation
+ * @param {Map<string, number>|null} availability
+ * @returns {string[]} ticket ids, once each
+ */
+export function uncountedTickets(allocation, availability) {
+  const live = availability instanceof Map ? availability : null;
+  const out = [];
+  for (const line of allocation || []) {
+    // A line allocated nothing sells nothing; buildLineItems refuses it.
+    if (!line || !(line.qty > 0)) continue;
+    for (const hold of (Array.isArray(line.holds) && line.holds) || []) {
+      if (!hold || hold.isTicket !== true) continue;
+      if (live && live.has(hold.productId)) continue;
+      if (!out.includes(hold.productId)) out.push(hold.productId);
+    }
+  }
+  return out;
 }
 
 /**
@@ -149,7 +193,9 @@ export function holdsFromAllocation(items, allocation, customBoxId) {
           name: hold.name || hold.productId,
           qty,
           lineId,
-          viaBox: lineId === customBoxId
+          viaBox: lineId === customBoxId,
+          // Only when true, so a product's hold reads exactly as it did.
+          ...(hold.isTicket === true ? { isTicket: true } : {})
         });
       }
     }
@@ -163,11 +209,40 @@ export function holdsFromAllocation(items, allocation, customBoxId) {
  * or when the ledger is down -- fail open, logged); `{ ok: false, refusal,
  * name }` when another session took the last units first, with `refusal` in
  * the `unavailableDetails` shape the drawer already knows how to drop.
+ *
+ * A workshop ticket is the exception to failing open (uncountedTickets):
+ * when the hold cannot be written, or the ledger had no row to hold a
+ * ticket against, the answer is `{ ok: false, uncounted: [ids] }` -- the
+ * caller unwinds the session and answers 503, because a seat sold with no
+ * hold is one the ledger never learns of.
  */
 export async function reserveForCheckout(env, sessionId, holds) {
-  if (!env.STATE_DB || !Array.isArray(holds) || !holds.length) return { ok: true, held: [] };
+  if (!Array.isArray(holds) || !holds.length) return { ok: true, held: [] };
+  const ticketIds = holds.filter((h) => h && h.isTicket === true).map((h) => h.productId);
+  if (!env.STATE_DB) {
+    // checkout.js refuses a ticket line before it gets here (no live count);
+    // this is the same refusal for any caller that did not.
+    return ticketIds.length ? { ok: false, uncounted: ticketIds } : { ok: true, held: [] };
+  }
   try {
     const out = await reserveInventory(env.STATE_DB, sessionId, holds);
+    const heldIds = new Set(out.holds.map((h) => h.productId));
+    const unheld = ticketIds.filter((id) => !heldIds.has(id));
+    if (unheld.length) {
+      // Held nothing for a ticket: it had no ledger row. The products it did
+      // hold go back at once, with the session that is about to be unwound.
+      console.error(`${LOG_MARKER} no ledger row for ${unheld.join(", ")}; refusing the ticket`);
+      if (out.reserved) {
+        try {
+          await releaseInventory(env.STATE_DB, sessionId);
+        } catch (releaseErr) {
+          // The session is expired by the caller; its expiry webhook (or the
+          // stale-hold sweep) releases these units if this did not.
+          console.error(`${LOG_MARKER} releasing ${sessionId} threw:`, releaseErr);
+        }
+      }
+      return { ok: false, uncounted: unheld };
+    }
     return { ok: true, held: out.holds };
   } catch (err) {
     if (err instanceof InventoryError && err.code === "insufficient_stock") {
@@ -176,6 +251,14 @@ export async function reserveForCheckout(env, sessionId, holds) {
         ? { id: hold.lineId, reason: "member_unavailable", member: hold.productId }
         : { id: hold.lineId, reason: "sold_out" };
       return { ok: false, refusal, name: hold.name, productId: hold.productId };
+    }
+    if (ticketIds.length) {
+      console.error(
+        `${LOG_MARKER} reserving for ${sessionId} failed; refusing the ticket(s) ` +
+          `${ticketIds.join(", ")} rather than selling seats no hold backs:`,
+        err && (err.stack || err.message || err)
+      );
+      return { ok: false, uncounted: ticketIds };
     }
     warnFailOpen(`reserving for ${sessionId}`, err);
     return { ok: true, held: [], failedOpen: true };
@@ -279,6 +362,20 @@ export async function commitInventoryForSession(session, env, ctx) {
     out.committed.map((h) => h.productId)
   );
   return out;
+}
+
+/**
+ * checkout.session.completed with the payment still clearing (ACH): the held
+ * units stay held until async_payment_succeeded commits them or
+ * async_payment_failed releases them -- not the 35 minutes an open session
+ * gets (workers/state/inventory.js awaitDelayedPayment). NOT fail-open: the
+ * caller pushes a throw to Stripe's retry, because a hold the sweep releases
+ * here is a paid unit sold twice.
+ */
+export async function holdForDelayedPayment(session, env) {
+  if (!env.STATE_DB || !session || !session.id) return { skipped: "no-state-db" };
+  await ensureSchema(env.STATE_DB);
+  return awaitDelayedPayment(env.STATE_DB, session.id);
 }
 
 /** checkout.session.expired / async_payment_failed: the held units go back on sale. */

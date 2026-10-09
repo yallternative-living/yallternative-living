@@ -229,6 +229,8 @@ import {
   holdsFromAllocation,
   releaseInventoryForSession,
   reserveForCheckout,
+  TICKETS_UNCOUNTED_MESSAGE,
+  uncountedTickets,
   unwindRefusedSession
 } from "./routes/inventory.js";
 
@@ -985,8 +987,18 @@ function allocateStock(items, catalog, availability) {
     const entry = findEntry(catalog, String(item && item.id));
     if (!entry) return { qty: wanted, exhausted: null, holds: [] };
     const qty = take(entry, wanted);
+    // A workshop ticket's hold says so: when the ledger cannot count or hold
+    // it, checkout refuses the line instead of selling it on its starting
+    // spots (routes/inventory.js uncountedTickets).
     const holds = hasTrackedStock(entry)
-      ? [{ productId: entry.id, name: entry.name || entry.id, units: 1 }]
+      ? [
+          {
+            productId: entry.id,
+            name: entry.name || entry.id,
+            units: 1,
+            ...(entry.isTicket === true ? { isTicket: true } : {})
+          }
+        ]
       : [];
     return { qty, exhausted: qty <= 0 && hasTrackedStock(entry) ? entry.id : null, holds };
   });
@@ -1846,6 +1858,12 @@ async function handleCheckout(request, env, ctx, origin) {
       // the catalog's own `stock` caps exactly as it did before the ledger).
       const availability = await availabilityForCheckout(env, catalog);
       const allocation = allocateStock(items, catalog, availability);
+      // Products fall back to their static `stock` when the ledger cannot
+      // answer; a workshop ticket does not -- refused before any session
+      // exists, with nothing for the drawer to drop (routes/inventory.js).
+      if (uncountedTickets(allocation, availability).length) {
+        throw new ClientError(TICKETS_UNCOUNTED_MESSAGE, 503);
+      }
 
       const { lineItems, retentionProductIds, retentionCategories } = buildLineItems(
         catalog,
@@ -2395,6 +2413,9 @@ async function handleCheckout(request, env, ctx, origin) {
         );
         if (!held.ok) {
           await unwindRefusedSession(env, session.id, appliedGiftCardCouponId);
+          // A ticket the ledger could not hold: not sold out, just not
+          // countable this minute -- the line stays in the drawer.
+          if (held.uncounted) throw new ClientError(TICKETS_UNCOUNTED_MESSAGE, 503);
           throw new ClientError(`Sold out: ${held.name}`, 400, unavailableDetails(held.refusal));
         }
       }
@@ -2643,8 +2664,10 @@ export default {
           ],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
           /* Inventory holds whose Stripe session died without the expiry
-             webhook arriving: released after 25h so a lost event cannot keep
-             the last unit off the shelf (workers/state/inventory.js). */
+             webhook arriving: released 35 minutes after they were taken (14
+             days for a delayed payment still clearing) so a lost event
+             cannot keep the last unit off the shelf
+             (workers/state/inventory.js). */
           [
             "inventory hold sweep",
             async () => (await import("./state/inventory.js")).sweepStaleHolds(env.STATE_DB)

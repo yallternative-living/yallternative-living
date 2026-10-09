@@ -885,7 +885,9 @@ Subscribe to exactly these five:
 - `checkout.session.completed` -- issues the cards an order bought and settles
   the hold on a card an order spent, but only once `payment_status` is `paid`;
   an unpaid completion (a delayed-notification method such as ACH) is recorded
-  as deferred and nothing is minted or debited,
+  as deferred and nothing is minted or debited -- but the stock and workshop
+  spots it holds stay held (up to 14 days from checkout) until the payment
+  clears or fails, instead of going back on sale after 35 minutes,
 - `checkout.session.async_payment_succeeded` -- the delayed payment cleared;
   runs the same steps `completed` would have. Never fires while only card
   payment is enabled, and costs nothing to subscribe,

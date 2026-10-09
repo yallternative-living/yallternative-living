@@ -2618,9 +2618,28 @@ async function runWorkerCheckoutTests() {
   /* ---- Workshop tickets (workers/state/tickets.js) ------------------------
      A workshop in events.json's "workshops" list with a price and spots and
      no outside link sells tickets here: priced from the calendar, never from
-     the client, counted by the ledger, and shipped nowhere. */
+     the client, counted by the ledger, and shipped nowhere. A ticket is only
+     ever sold against a live ledger count (routes/inventory.js
+     uncountedTickets), so each of these runs with a fresh STATE_DB bound --
+     the production configuration; what happens without one is pinned below. */
   {
-    const only = await executeCheckout({ items: [{ id: POTIONS_TICKET, qty: 2 }] });
+    const { DatabaseSync } = require("node:sqlite");
+    const { makeD1 } = require("./lib/d1-emulator.js");
+    const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
+    const { holdRows, resetInventoryMemo } = await import("../workers/state/inventory.js");
+    const ledgerDb = async () => {
+      resetSchemaMemo();
+      resetInventoryMemo();
+      const fresh = makeD1(new DatabaseSync(":memory:"));
+      await applyMigrations(fresh);
+      return fresh;
+    };
+    const withLedger = async (env = {}) => ({ env: { STATE_DB: await ledgerDb(), ...env } });
+
+    const only = await executeCheckout(
+      { items: [{ id: POTIONS_TICKET, qty: 2 }] },
+      await withLedger()
+    );
     eq(only.status, 200, "ticket: a ticket-only cart checks out");
     const p = only.sessionParams;
     eq(
@@ -2652,12 +2671,15 @@ async function runWorkerCheckoutTests() {
     );
     eq(p.get("metadata[retention_product_ids]"), null, "ticket: no retention signals");
 
-    const mixed = await executeCheckout({
-      items: [
-        { id: POTIONS_TICKET, qty: 1 },
-        { id: "lavender-soak", qty: 1 }
-      ]
-    });
+    const mixed = await executeCheckout(
+      {
+        items: [
+          { id: POTIONS_TICKET, qty: 1 },
+          { id: "lavender-soak", qty: 1 }
+        ]
+      },
+      await withLedger()
+    );
     eq(mixed.status, 200, "ticket + product: checks out");
     assert(
       mixed.sessionParams.get("shipping_address_collection[allowed_countries][0]") !== null,
@@ -2674,14 +2696,20 @@ async function runWorkerCheckoutTests() {
       ["ticket-old-class-2020-01-01", "already over"],
       ["ticket-no-such-class", "not on the calendar"]
     ]) {
-      const refused = await executeCheckout({ items: [{ id, qty: 1 }] });
+      const refused = await executeCheckout({ items: [{ id, qty: 1 }] }, await withLedger());
       eq(refused.status, 400, `ticket ${why}: refused`);
     }
-    const full = await executeCheckout({ items: [{ id: "ticket-full-class-2099-10-01", qty: 1 }] });
+    const full = await executeCheckout(
+      { items: [{ id: "ticket-full-class-2099-10-01", qty: 1 }] },
+      await withLedger()
+    );
     eq(full.status, 400, "ticket for a full workshop (0 spots): refused");
     assert(/Sold out/.test(String(full.data && full.data.error)), "...as sold out");
 
-    const capped = await executeCheckout({ items: [{ id: POTIONS_TICKET, qty: 20 }] });
+    const capped = await executeCheckout(
+      { items: [{ id: POTIONS_TICKET, qty: 20 }] },
+      await withLedger()
+    );
     eq(capped.status, 200, "ticket: asking for 20 of 12 spots still checks out...");
     eq(
       capped.sessionParams.get("line_items[0][quantity]"),
@@ -2699,7 +2727,7 @@ async function runWorkerCheckoutTests() {
           { id: "lavender-soak", qty: 1 }
         ]
       },
-      { env: { STRIPE_TAX_ENABLED: "true" } }
+      await withLedger({ STRIPE_TAX_ENABLED: "true" })
     );
     eq(taxed.status, 200, "ticket, tax on: checks out");
     eq(
@@ -2714,14 +2742,7 @@ async function runWorkerCheckoutTests() {
     );
 
     // The ledger holds ticket spots like product units.
-    const { DatabaseSync } = require("node:sqlite");
-    const { makeD1 } = require("./lib/d1-emulator.js");
-    const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
-    const { holdRows, resetInventoryMemo } = await import("../workers/state/inventory.js");
-    resetSchemaMemo();
-    resetInventoryMemo();
-    const db = makeD1(new DatabaseSync(":memory:"));
-    await applyMigrations(db);
+    const db = await ledgerDb();
     const held = await executeCheckout(
       { items: [{ id: POTIONS_TICKET, qty: 3 }] },
       { env: { STATE_DB: db } }
@@ -2731,6 +2752,95 @@ async function runWorkerCheckoutTests() {
       (await holdRows(db, "cs_test_mock_session")).map((r) => [r.product_id, r.qty, r.state]),
       [[POTIONS_TICKET, 3, "active"]],
       "ticket, ledger bound: the session holds 3 spots"
+    );
+
+    /* FAIL CLOSED for a ticket (red team, 2026-10-09). A product falls back
+       to its static `stock` when the ledger cannot answer; a ticket must
+       not -- with every seat held, a D1 error sold the workshop again. */
+    const { TICKETS_UNCOUNTED_MESSAGE } = await import("../workers/routes/inventory.js");
+    assert(
+      typeof TICKETS_UNCOUNTED_MESSAGE === "string" && TICKETS_UNCOUNTED_MESSAGE.length > 20,
+      "fail closed: the shopper-facing message exists"
+    );
+    const fullDb = await ledgerDb();
+    const allSeats = await executeCheckout(
+      { items: [{ id: POTIONS_TICKET, qty: 12 }] },
+      { env: { STATE_DB: fullDb } }
+    );
+    eq(allSeats.status, 200, "fail closed: a first buyer takes all 12 spots");
+    eq(
+      (await holdRows(fullDb, "cs_test_mock_session")).map((r) => [r.product_id, r.qty]),
+      [[POTIONS_TICKET, 12]],
+      "...and holds all 12"
+    );
+    const deadDb = {
+      prepare() {
+        throw new Error("D1_ERROR: storage unavailable");
+      },
+      batch() {
+        throw new Error("D1_ERROR: storage unavailable");
+      }
+    };
+    const quiet = console.error;
+    console.error = () => {};
+    let duringOutage;
+    let mixedOutage;
+    let noLedger;
+    let reserveDies;
+    let productOnly;
+    try {
+      duringOutage = await executeCheckout(
+        { items: [{ id: POTIONS_TICKET, qty: 12 }] },
+        { env: { STATE_DB: deadDb } }
+      );
+      mixedOutage = await executeCheckout(
+        {
+          items: [
+            { id: "lavender-soak", qty: 1 },
+            { id: POTIONS_TICKET, qty: 1 }
+          ]
+        },
+        { env: { STATE_DB: deadDb } }
+      );
+      productOnly = await executeCheckout(
+        { items: [{ id: "lavender-soak", qty: 1 }] },
+        { env: { STATE_DB: deadDb } }
+      );
+      noLedger = await executeCheckout({ items: [{ id: POTIONS_TICKET, qty: 1 }] });
+      // The read works; the hold's own write dies after Stripe made the session.
+      reserveDies = await executeCheckout(
+        { items: [{ id: POTIONS_TICKET, qty: 2 }] },
+        {
+          env: { STATE_DB: await ledgerDb() },
+          beforeReserve: async (e) => {
+            e.STATE_DB.batch = async () => {
+              throw new Error("D1_ERROR: batch failed");
+            };
+          }
+        }
+      );
+    } finally {
+      console.error = quiet;
+    }
+    eq(duringOutage.status, 503, "fail closed: D1 down, a ticket is refused (503), not sold");
+    eq(duringOutage.data.error, TICKETS_UNCOUNTED_MESSAGE, "...with the try-again message");
+    eq(duringOutage.sessionAttempts.length, 0, "...and no Stripe session is ever created");
+    assert(
+      !("unavailable" in duringOutage.data),
+      "...nor an `unavailable` list: the drawer keeps the line for the retry"
+    );
+    eq(mixedOutage.status, 503, "fail closed: a product beside the ticket waits with it");
+    eq(mixedOutage.sessionAttempts.length, 0, "...no session for the mixed cart either");
+    eq(productOnly.status, 200, "...while a cart of products alone still fails OPEN");
+    eq(noLedger.status, 503, "fail closed: no STATE_DB bound, a ticket is refused (503)");
+    eq(noLedger.sessionAttempts.length, 0, "...before any session exists");
+    eq(reserveDies.status, 503, "fail closed: the hold cannot be written -> 503");
+    eq(reserveDies.data.error, TICKETS_UNCOUNTED_MESSAGE, "...with the same message");
+    eq(
+      reserveDies.expiredSessions.length > 0 &&
+        reserveDies.expiredSessions.every((u) => u.includes("cs_test_mock_session/expire")),
+      true,
+      "...and the session Stripe already made is expired so it cannot be paid"
     );
   }
 

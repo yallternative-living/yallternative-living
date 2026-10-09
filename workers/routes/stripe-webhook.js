@@ -67,6 +67,7 @@ import { alertOwner } from "./alerts.js";
 import { ensureSchema } from "../state/migrations.js";
 import {
   commitInventoryForSession,
+  holdForDelayedPayment,
   releaseInventoryForSession,
   restockInventoryForRefund
 } from "./inventory.js";
@@ -1256,6 +1257,18 @@ export async function processStripeEvent(event, env, ctx) {
       outcome.issued = [];
       outcome.ownerNotice = { skipped: outcome.deferred };
       outcome.revenue = { sent: false, reason: outcome.deferred };
+      /* The one step that DOES run on an unpaid completion: the units this
+         session holds must still be held when the money clears, days from
+         now -- not released by the 35-minute sweep, which handed 10 paid
+         seats back to the shop (red team, 2026-10-09). A failure here is
+         worth a redelivery, like the commit below. */
+      try {
+        outcome.inventory = await holdForDelayedPayment(session, env);
+      } catch (err) {
+        const error = new Error(`inventory: ${err && err.message}`);
+        error.partial = outcome;
+        throw error;
+      }
       return outcome;
     }
     try {

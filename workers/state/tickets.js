@@ -10,14 +10,18 @@
  * from the CMS, capped by the inventory ledger (spots = `stock`), held while a
  * Stripe session is open and committed when it is paid.
  *
- * Both readers of the ledger MUST see the same tickets:
+ * Every reader of the ledger MUST see the same tickets:
  *   - workers/checkout.js loadCatalog() (the money path), and
- *   - workers/state/site-data.js loadProductIndex() (/api/inventory).
- * syncInventory() marks any row the tracked list it is given does not name as
- * untracked, and an untracked row reseeds FROM SCRATCH the next time it is
- * tracked. One reader without tickets would therefore erase every ticket sold
- * the next time the other one synced. Hence one helper here, and both callers
- * refuse to sync at all when they could not read the calendar.
+ *   - workers/state/site-data.js loadProductIndex() (/api/inventory, and the
+ *     Square register in routes/square-webhook.js).
+ * syncInventory() marks any PRODUCT row the tracked list it is given does not
+ * name as untracked, and an untracked row reseeds FROM SCRATCH the next time
+ * it is tracked. Hence one helper here for the list, and one sync for every
+ * reader -- workers/state/inventory.js syncFromCatalog(), which refuses to
+ * sync at all when the calendar could not be read. A ticket row is never
+ * marked untracked in the first place (a stale events.json copy, or the day
+ * after the workshop, drops it from the list without touching its seats), so
+ * a workshop postponed under its stamped id resumes its count.
  *
  * The workshop id is the CMS `id` when set, else the same slug of
  * "<name> <date>" scripts/build-site-data.js ensureEventId() assigns, so the
