@@ -184,6 +184,29 @@ function makeFixture() {
     // Host headers: loopback names (with or without a port) only.
     assert(serve.isLoopbackHost("127.0.0.1") && serve.isLoopbackHost("::1"), "loopback binds");
     assert(!serve.isLoopbackHost("0.0.0.0"), "0.0.0.0 is not a loopback bind");
+    // Every spelling of loopback keeps the Host check on (red team, 2026-10-08:
+    // a fixed list of four switched it off for 127.0.0.2 and friends).
+    for (const h of ["127.0.0.2", "127.1", "0:0:0:0:0:0:0:1", "::ffff:127.0.0.1", "LOCALHOST"]) {
+      assert(serve.isLoopbackHost(h), JSON.stringify(h) + " is a loopback bind");
+    }
+    for (const h of ["::", "192.168.1.2", "example.com", "127.0.0.1.nip.io", ""]) {
+      assert(!serve.isLoopbackHost(h), JSON.stringify(h) + " is not a loopback bind");
+    }
+    assert(serve.isLoopbackHostHeader("127.0.0.2:8082"), "Host 127.0.0.2 is loopback");
+    // Git-ignored local files that are not dot-files are not part of the site.
+    assert(
+      r("/node_modules/x/package.json") === null,
+      "resolveRequestPath: node_modules/ is hidden"
+    );
+    assert(
+      r("/sub/node_modules/a.js") === null,
+      "resolveRequestPath: a nested node_modules/ is hidden"
+    );
+    assert(r("/debug.log") === null, "resolveRequestPath: *.log files are hidden");
+    assert(
+      r("/catalog.html") === path.join(site, "catalog.html"),
+      "...a name merely containing 'log' is not"
+    );
     for (const h of ["localhost", "localhost:8082", "LOCALHOST:1", "127.0.0.1", "[::1]:8082"]) {
       assert(serve.isLoopbackHostHeader(h), "Host " + h + " is loopback");
     }

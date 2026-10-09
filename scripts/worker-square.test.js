@@ -229,6 +229,15 @@ function makeSquare({
         const headers = state.siteDate ? { date: new Date(state.siteDate).toUTCString() } : {};
         return new Response(JSON.stringify(catalog), { status: 200, headers });
       }
+      if (u.endsWith("/assets/data/events.json")) {
+        // The calendar /api/inventory reads workshop tickets from; served with
+        // the same age as products.json so the reseed guard sees one date.
+        const headers = state.siteDate ? { date: new Date(state.siteDate).toUTCString() } : {};
+        return new Response(JSON.stringify({ upcoming: [], past: [], workshops: [] }), {
+          status: 200,
+          headers
+        });
+      }
       if (u.endsWith("/assets/data/content.json")) {
         return new Response(
           JSON.stringify({ site: { enableSquareSync: state.enabled !== false } }),

@@ -1427,6 +1427,157 @@ function ensureEventId(evt, usedIds, idx) {
   }
   return evt.id;
 }
+
+/* Every event's id, for the whole calendar. Ids the file already holds are
+   claimed FIRST, so a blank one is generated around them: one pass in array
+   order used to let a market with no id take "<name>-<date>" and then a
+   workshop that already held that very id (its ticket's ledger key) claim it
+   too, unchecked -- two cards with one DOM id, one pickup label, and a share
+   link landing on the wrong card (red team, 2026-10-08). Two upcoming
+   entries holding the same id is a build error; a duplicate among past
+   entries (a record, nothing sells there) is only warned about. */
+function assignEventIds(events) {
+  const upcoming = events && Array.isArray(events.upcoming) ? events.upcoming : [];
+  const past = events && Array.isArray(events.past) ? events.past : [];
+  const used = new Set();
+  upcoming.forEach(function (evt) {
+    if (!evt || !evt.id) return;
+    if (used.has(evt.id)) {
+      throw new Error(
+        'Two upcoming events in assets/data/events.json have the id "' +
+          evt.id +
+          '" (a market and a workshop with the same name and date?). Rename one of them.'
+      );
+    }
+    used.add(evt.id);
+  });
+  past.forEach(function (evt) {
+    if (!evt || !evt.id) return;
+    if (used.has(evt.id)) {
+      console.warn('[events] more than one event has the id "' + evt.id + '".');
+    }
+    used.add(evt.id);
+  });
+  upcoming.forEach(function (evt, idx) {
+    if (evt && !evt.id) ensureEventId(evt, used, idx);
+  });
+  past.forEach(function (evt, idx) {
+    if (evt && !evt.id) ensureEventId(evt, used, idx);
+  });
+  return events;
+}
+
+/* Workshops & classes (the CMS's "Workshops & classes" list, events.json
+   `workshops`). The same rule workers/state/tickets.js sellsTicketsOnSite()
+   applies before the Worker will price a ticket -- the two MUST agree, or a
+   card offers a ticket checkout refuses (scripts/worker-tickets.test.js pins
+   them together): a positive price, a whole number of spots, and no outside
+   ticket link. */
+const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function workshopSellsOnSite(w) {
+  if (!w || typeof w !== "object") return false;
+  if (typeof w.ticketUrl === "string" && w.ticketUrl.trim()) return false;
+  const price = Number(w.price);
+  const spots = Number(w.spots);
+  return Number.isFinite(price) && price > 0 && Number.isInteger(spots) && spots >= 0;
+}
+
+/* Folds events.json's `workshops` into `upcoming`, so everything that reads
+   the calendar -- the events page, the countdown, search, Event JSON-LD, the
+   day-after archive and the cart's pickup list -- has them with no second
+   code path. Each one gets `kind: "workshop"`, its id (the CMS id, else the
+   slug of "<name> <date>" ensureEventId would make; the Worker derives the
+   same one, so it has to be the bare slug -- never a "-2" suffix) and, when
+   tickets sell on the site, the cart line id `ticketId`. Mutates and returns
+   `events`; `workshops` is removed so nothing reads them twice. */
+function mergeWorkshopsIntoUpcoming(events) {
+  if (!events || typeof events !== "object") return events;
+  const workshops = Array.isArray(events.workshops) ? events.workshops : [];
+  if (!Array.isArray(events.upcoming)) events.upcoming = [];
+  const seen = new Set();
+  workshops.forEach(function (w) {
+    if (!w || typeof w !== "object") return;
+    const id =
+      typeof w.id === "string" && w.id.trim()
+        ? w.id.trim()
+        : slugify([w.name, w.date].filter(Boolean).join(" "));
+    if (!id) {
+      throw new Error(
+        "A workshop in assets/data/events.json has neither a name nor a date -- it needs both."
+      );
+    }
+    /* Both, not either: workers/state/tickets.js ticketEntriesOf() prices
+       only a workshop with a name and a YYYY-MM-DD date, so a card without
+       one would offer a Buy Tickets button checkout refuses as unknown -- and
+       a date the archive cannot compare ("11/20/2026" sorts before any
+       "2026-..." string) moves the workshop to "Where We've Been" the day it
+       is published, with no warning (red team, 2026-10-08). The CMS form
+       requires both and writes the date as YYYY-MM-DD; this catches a hand
+       edit. */
+    if (!w.name || !ISO_DAY_RE.test(String(w.date || ""))) {
+      throw new Error(
+        'The workshop "' +
+          (w.name || id) +
+          '" in assets/data/events.json needs a name and a date written YYYY-MM-DD (got ' +
+          JSON.stringify(w.date === undefined ? null : w.date) +
+          ")."
+      );
+    }
+    if (w.endDate !== undefined && w.endDate !== "" && !ISO_DAY_RE.test(String(w.endDate))) {
+      throw new Error(
+        'The workshop "' +
+          w.name +
+          '" in assets/data/events.json has an end date not written YYYY-MM-DD (got ' +
+          JSON.stringify(w.endDate) +
+          ")."
+      );
+    }
+    if (seen.has(id)) {
+      throw new Error(
+        'Two workshops in assets/data/events.json come out as "' +
+          id +
+          '" (same name and date). Give one of them a different name.'
+      );
+    }
+    seen.add(id);
+    const merged = Object.assign({}, w, { id: id, kind: "workshop" });
+    if (workshopSellsOnSite(w)) merged.ticketId = "ticket-" + id;
+    /* Half set up is not an error -- the card says "Tickets coming soon" --
+       but say so, so it isn't a mystery why there is no Buy button. */
+    const hasOutside = typeof w.ticketUrl === "string" && w.ticketUrl.trim();
+    const hasPrice = Number(w.price) > 0;
+    const hasSpots = Number.isInteger(Number(w.spots)) && w.spots !== "" && w.spots != null;
+    if (!hasOutside && hasPrice !== hasSpots) {
+      console.warn(
+        '[workshops] "' +
+          (w.name || id) +
+          '" has ' +
+          (hasPrice ? "a price but no Tickets available" : "Tickets available but no price") +
+          ' -- it shows "Tickets coming soon" until both are filled in.'
+      );
+    }
+    if (typeof w.image === "string" && w.image.trim()) {
+      const rel = w.image.trim().replace(/^\/+/, "");
+      if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(w.image.trim())) {
+        console.warn(
+          '[workshops] "' +
+            (w.name || id) +
+            '" ticket image ' +
+            w.image +
+            " is an outside link -- upload the photo instead; the cart and checkout use the logo."
+        );
+      } else if (!fs.existsSync(path.join(ROOT, rel))) {
+        console.warn(
+          '[workshops] "' + (w.name || id) + '" ticket image ' + w.image + " is not in the repo."
+        );
+      }
+    }
+    events.upcoming.push(merged);
+  });
+  delete events.workshops;
+  return events;
+}
 /* A bundle's price is either set outright (`price`) or worked out as a
    percentage off the sum of its parts (`discountPercent`, the older form
    and still the fallback). A chosen member option that costs more (the
@@ -2255,7 +2406,7 @@ function buildSiteData() {
   // window.YL_EVENTS global the pages load -- is GENERATED from it below, exactly
   // like products.json -> products-data.js. (Previously events-data.js was the
   // hand-edited source; flipped so Savanna can edit dates in the /admin editor.)
-  const EVENTS = readJson("assets/data/events.json");
+  const EVENTS = mergeWorkshopsIntoUpcoming(readJson("assets/data/events.json"));
   // Customer reviews: assets/data/site-reviews.json is the canonical, CMS-edited
   // source (Savanna approves + adds reviews at /admin); assets/js/site-reviews-data.js
   // -- the window.YL_SITE_REVIEWS global shop.html loads -- is generated from it
@@ -2641,13 +2792,7 @@ function buildSiteData() {
   /* 6b. Process Event IDs & Guards (see ensureEventId above). Runs before
      archiving so a market that's about to move to "past" already carries
      its own id instead of a blank one. */
-  const USED_EVENT_IDS = new Set();
-  (EVENTS && Array.isArray(EVENTS.upcoming) ? EVENTS.upcoming : []).forEach(function (evt, idx) {
-    ensureEventId(evt, USED_EVENT_IDS, idx);
-  });
-  (EVENTS && Array.isArray(EVENTS.past) ? EVENTS.past : []).forEach(function (evt, idx) {
-    ensureEventId(evt, USED_EVENT_IDS, idx);
-  });
+  assignEventIds(EVENTS);
 
   /* 7. Auto-Archive Past Events & Sort Upcoming Events Chronologically */
   const todayStr = new Intl.DateTimeFormat("en-CA", {
@@ -2687,7 +2832,8 @@ function buildSiteData() {
           zip: evt.zip,
           emoji: evt.emoji,
           url: evt.url,
-          note: evt.note
+          note: evt.note,
+          kind: evt.kind
         });
       } else {
         stillUpcoming.push(evt);
@@ -4140,10 +4286,11 @@ function buildSiteData() {
     if (!ev || !ev.name) return null;
     const start = buildEventDateTimeISO(ev.date);
     if (!start) return null;
+    const isWorkshop = ev.kind === "workshop";
     const ld = {
       "@context": "https://schema.org",
       "@type": "Event",
-      name: "Y'allternative Living at " + ev.name,
+      name: isWorkshop ? String(ev.name) : "Y'allternative Living at " + ev.name,
       startDate: start.iso,
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -4152,6 +4299,32 @@ function buildSiteData() {
     if (ev.endDate) {
       const end = buildEventDateTimeISO(ev.endDate);
       if (end) ld.endDate = end.iso;
+    }
+    /* A workshop is the shop's OWN ticketed night, not a market it vends at,
+       so the two omissions above do not apply to it: it has an organizer
+       (this shop), and an offer when tickets are on sale -- here on the site
+       or through an outside https link. */
+    if (isWorkshop) {
+      ld.organizer = {
+        "@type": "Organization",
+        name: "Y'allternative Living",
+        url: "https://yallternativeliving.com"
+      };
+      const price = Number(ev.price);
+      const outside = typeof ev.ticketUrl === "string" ? ev.ticketUrl.trim() : "";
+      const ticketHref = /^https:\/\//i.test(outside)
+        ? outside
+        : ev.ticketId && ev.id
+          ? "https://yallternativeliving.com/events.html#" + encodeURIComponent(ev.id)
+          : "";
+      if (price > 0 && ticketHref) {
+        ld.offers = {
+          "@type": "Offer",
+          price: price.toFixed(2),
+          priceCurrency: "USD",
+          url: ticketHref
+        };
+      }
     }
     return ld;
   }
@@ -4164,7 +4337,7 @@ function buildSiteData() {
 
   /* ---------- 4b) events.html Past Events Pre-population ---------- */
   let eventsHtml = readText("events.html", "events page");
-  const eventsJson = readJson("assets/data/events.json");
+  const eventsJson = mergeWorkshopsIntoUpcoming(readJson("assets/data/events.json"));
 
   const rawUpcoming = eventsJson.upcoming || [];
   const rawPast = eventsJson.past || [];
@@ -4300,9 +4473,12 @@ function buildSiteData() {
     SITE_CONFIG.enableEventJsonLd === false ? [] : buildEventsJsonLd(sortedUpcomingForLd);
   const eventLdBody = eventLdObjects.length
     ? '\n<script type="application/ld+json" id="yl-event-jsonld">\n' +
-      JSON.stringify(eventLdObjects.length === 1 ? eventLdObjects[0] : eventLdObjects, null, 2)
-        .split("</")
-        .join("<\\/") +
+      // escapeJsonForScript, not just "</": a CMS title holding "<!--<script"
+      // put the HTML parser in its escaped state and swallowed the rest of
+      // events.html up to the next </script> (red team, 2026-10-08).
+      escapeJsonForScript(
+        JSON.stringify(eventLdObjects.length === 1 ? eventLdObjects[0] : eventLdObjects, null, 2)
+      ) +
       "\n</" +
       "script>\n"
     : "";
@@ -4704,7 +4880,7 @@ function buildSiteData() {
       const ld = journalPublished ? generateJournalJsonLd(journal, DOMAIN) : null;
       const ldTag = ld
         ? '<script type="application/ld+json">\n' +
-          JSON.stringify(ld, null, 2).replace(/<\//g, "<\\/") +
+          escapeJsonForScript(JSON.stringify(ld, null, 2)) +
           "\n</script>"
         : "";
       updated = updated.replace(reLd, function (m, p1, p2) {
@@ -8090,10 +8266,10 @@ function renderProductPdpHtml(
   const breadcrumbJsonLd = generateProductBreadcrumbJsonLd(product, domain, categoryLabel);
   const jsonLdBlock =
     '  <script type="application/ld+json">\n' +
-    JSON.stringify(productJsonLd, null, 2).replace(/<\//g, "<\\/") +
+    escapeJsonForScript(JSON.stringify(productJsonLd, null, 2)) +
     "\n  </script>\n" +
     '  <script type="application/ld+json">\n' +
-    JSON.stringify(breadcrumbJsonLd, null, 2).replace(/<\//g, "<\\/") +
+    escapeJsonForScript(JSON.stringify(breadcrumbJsonLd, null, 2)) +
     "\n  </script>\n";
 
   const stockBadge = product.comingSoon
@@ -9009,6 +9185,9 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     assertBundlePricesSane,
     formatMoney: formatMoney,
+    mergeWorkshopsIntoUpcoming: mergeWorkshopsIntoUpcoming,
+    assignEventIds: assignEventIds,
+    workshopSellsOnSite: workshopSellsOnSite,
     loadJournal,
     listJournalFiles,
     SEARCH_CHIP_ICONS: SEARCH_CHIP_ICONS,

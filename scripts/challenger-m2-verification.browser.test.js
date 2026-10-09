@@ -19,9 +19,121 @@ const ROOT = path.resolve(__dirname, "..");
 // pool alongside test-m2-ugc-strip.js, which owns the fixed port 8085.
 const PORT = 0;
 
+/* ---- Fixture calendar ----
+   assets/data/events.json is live business data, edited in the CMS, and the
+   build and main.js both move a market to the past list the day after it
+   ends -- so what is "upcoming" there depends on the day this suite runs.
+   The suite used to take its markets from that file: an empty calendar
+   failed it, and a placeholder event that was never real sat on the live
+   site (homepage countdown, Event JSON-LD, checkout pickup) keeping it
+   green. The local server below answers assets/js/events-data.js with this
+   fixture instead, dated relative to today in America/New_York so its
+   upcoming markets are always upcoming, and every page under test -- in
+   Puppeteer and in each Playwright engine -- renders it. The real
+   events.json is still checked as data in category 2. */
+function easternToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+}
+
+function shiftDays(ymd, days) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+function longDate(ymd) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function buildFixtureEvents(today) {
+  const soon = shiftDays(today, 14);
+  const later = shiftDays(today, 30);
+  const laterEnd = shiftDays(today, 31);
+  const recent = shiftDays(today, -20);
+  const older = shiftDays(today, -45);
+  return {
+    // Listed out of date order on purpose: events.html sorts them.
+    upcoming: [
+      {
+        id: "fixture-two-day-fair",
+        date: later,
+        endDate: laterEnd,
+        dateLabel: `${longDate(later)} – ${longDate(laterEnd)} · 11am–7pm`,
+        name: "Fixture Two-Day Fair",
+        type: "Fair",
+        location: "Spartanburg, SC",
+        zip: "29303",
+        venue: "Fixture Fairgrounds",
+        address: "575 Fairgrounds Rd",
+        url: "https://example.com/fixture-two-day-fair",
+        note: "Two-day fixture market for the browser suite."
+      },
+      {
+        id: "fixture-night-market",
+        date: soon,
+        dateLabel: `${longDate(soon)} · 6:30pm`,
+        name: "Fixture Night Market",
+        type: "Night Market",
+        location: "Landrum, SC",
+        zip: "29356",
+        venue: "Fixture Depot",
+        address: "211 N Trade Ave",
+        url: "https://example.com/fixture-night-market",
+        note: "Single-day fixture market for the browser suite."
+      }
+    ],
+    past: [
+      {
+        id: "fixture-recent-market",
+        date: recent,
+        dateLabel: `${longDate(recent)} · 9am–1pm`,
+        name: "Fixture Recent Market",
+        type: "Farmers Market",
+        location: "Landrum, SC",
+        zip: "29356",
+        note: "Past fixture market."
+      },
+      {
+        id: "fixture-older-market",
+        date: older,
+        dateLabel: `${longDate(older)} · 10am–4pm`,
+        name: "Fixture Older Market",
+        type: "Craft Show",
+        location: "Flat Rock, NC",
+        zip: "28731",
+        note: "Older past fixture market."
+      }
+    ]
+  };
+}
+
+const FIXTURE_EVENTS = buildFixtureEvents(easternToday());
+// What the page should show, soonest first -- also the market every deep
+// link below targets.
+const FIXTURE_UPCOMING_IN_ORDER = FIXTURE_EVENTS.upcoming
+  .slice()
+  .sort((a, b) => a.date.localeCompare(b.date));
+const EVENTS_DATA_PATH = "/assets/js/events-data.js";
+
 function createServer(port = PORT) {
   const server = http.createServer((req, res) => {
     let reqPath = req.url.split("?")[0].split("#")[0];
+    if (reqPath === EVENTS_DATA_PATH) {
+      res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+      res.end("window.YL_EVENTS = " + JSON.stringify(FIXTURE_EVENTS) + ";\n");
+      return;
+    }
     if (reqPath === "/") reqPath = "/index.html";
     let filePath = path.join(ROOT, reqPath);
 
@@ -282,6 +394,7 @@ async function runAdversarialSuite() {
             // Past markets are a record, not a call to action: no pickup,
             // calendar, RSVP or directions on those cards.
             isPast: !!card.closest("#pastEvents"),
+            name: card.querySelector("h3") ? card.querySelector("h3").textContent.trim() : "",
             hasPickupBtn: !!pickupBtn,
             pickupHref: pickupBtn ? pickupBtn.getAttribute("href") : null,
             hasGcalBtn: !!gcalBtn,
@@ -302,6 +415,15 @@ async function runAdversarialSuite() {
       // at all used to pass all four of these checks (audit "vacuous passes").
       const upcomingCards = cardButtons.filter((c) => !c.isPast);
       const pastCards = cardButtons.filter((c) => c.isPast);
+      /* The fixture calendar reached the page, soonest first. If the
+         events-data.js override ever stops applying, the page would quietly
+         render the real calendar instead -- this is where that shows. */
+      const expectedUpcoming = FIXTURE_UPCOMING_IN_ORDER.map((e) => e.name);
+      check(
+        `[${vp.name}] events.html renders the fixture's upcoming markets, soonest first`,
+        JSON.stringify(upcomingCards.map((c) => c.name)) === JSON.stringify(expectedUpcoming),
+        `expected ${JSON.stringify(expectedUpcoming)}, got ${JSON.stringify(upcomingCards.map((c) => c.name))}`
+      );
       check(
         `[${vp.name}] Past event cards carry no pickup, calendar or directions actions`,
         pastCards.length >= 1 &&
@@ -394,10 +516,22 @@ async function runAdversarialSuite() {
     // =========================================================================
     console.log("\n--- CATEGORY 2: CALENDAR DOWNLOAD TRIGGERS & FORMATTING ---");
 
+    /* The real events.json is checked as data here -- every market the CMS
+       holds must produce a valid calendar file -- alongside the fixture, so
+       the loop always has a subject even on a day the real calendar is
+       empty. */
     const eventsData = JSON.parse(
       fs.readFileSync(path.join(ROOT, "assets/data/events.json"), "utf8")
     );
-    const allEvents = (eventsData.upcoming || []).concat(eventsData.past || []);
+    check(
+      "assets/data/events.json has upcoming and past arrays",
+      Array.isArray(eventsData.upcoming) && Array.isArray(eventsData.past)
+    );
+    const allEvents = FIXTURE_EVENTS.upcoming.concat(
+      FIXTURE_EVENTS.past,
+      eventsData.upcoming || [],
+      eventsData.past || []
+    );
 
     // Test each event's RFC 5545 ICS payload
     for (const ev of allEvents) {
@@ -569,6 +703,21 @@ async function runAdversarialSuite() {
     console.log(
       `  Found ${availableUpcomingEvents.length} active upcoming event(s) in window.YL_EVENTS.upcoming`
     );
+
+    /* main.js and cart.js only honour a pickup deep link for a market that
+       is on the calendar, so every deep link below targets the fixture's
+       soonest market. Confirm the page is running on the fixture first:
+       otherwise the loop below would test whatever the real calendar holds
+       today, or nothing at all. */
+    const fixtureIds = FIXTURE_EVENTS.upcoming.map((e) => e.id).sort();
+    const pageIds = availableUpcomingEvents.map((e) => e.id).sort();
+    check(
+      "shop.html's window.YL_EVENTS.upcoming is the fixture calendar",
+      JSON.stringify(pageIds) === JSON.stringify(fixtureIds),
+      `expected ${JSON.stringify(fixtureIds)}, got ${JSON.stringify(pageIds)}`
+    );
+    const deepLinkEvent = FIXTURE_UPCOMING_IN_ORDER[0];
+    const deepLinkParam = encodeURIComponent(deepLinkEvent.id);
 
     for (const targetEvent of availableUpcomingEvents) {
       const testPage = await hermeticPage(browser, baseUrl);
@@ -786,7 +935,7 @@ async function runAdversarialSuite() {
     // 3.5 Uncheck Pickup & Re-Navigation Flow
     console.log("\n  [Adversarial Pickup Toggle & Navigation Flow]");
     const navPage = await hermeticPage(browser, baseUrl);
-    await navPage.goto(`${baseUrl}/shop.html?pickup_market=autumn-apothecary-faire`, {
+    await navPage.goto(`${baseUrl}/shop.html?pickup_market=${deepLinkParam}`, {
       waitUntil: "networkidle0"
     });
 
@@ -875,13 +1024,13 @@ async function runAdversarialSuite() {
       );
 
       // Navigate to shop.html with deep link
-      await pwPage.goto(`${baseUrl}/shop.html?pickup_market=autumn-apothecary-faire#shop-catalog`);
+      await pwPage.goto(`${baseUrl}/shop.html?pickup_market=${deepLinkParam}#shop-catalog`);
       const pwBanner = pwPage.locator("#pickupMarketBanner");
       await pwBanner.waitFor({ state: "visible", timeout: 4000 });
       const pwBannerText = await pwBanner.textContent();
       check(
         `[${eng.name}] Deep-link banner displays correctly`,
-        pwBannerText.includes("Autumn Apothecary Faire")
+        pwBannerText.includes(deepLinkEvent.name)
       );
 
       // Dismiss banner

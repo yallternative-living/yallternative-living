@@ -36,6 +36,7 @@
  * cache shape, different projection.
  */
 
+import { TICKET_NAME_PREFIX } from "../state/tickets.js";
 import { escapeHtml } from "./http.js";
 import { fromAddress, sendEmail } from "./gift-cards.js";
 import { giftNoteLink, giftNotesOf } from "./gift-note.js";
@@ -279,11 +280,16 @@ export function describeOrder(session, catalog) {
   for (const item of lineItemsOf(session)) {
     const qty = Number(item && item.quantity);
     const parsed = readLine(item && item.description, catalog);
+    const label = parsed.raw || "(unnamed line)";
     const line = {
       qty: Number.isFinite(qty) && qty > 0 ? Math.round(qty) : 1,
-      label: parsed.raw || "(unnamed line)",
-      contents: []
+      label,
+      contents: [],
+      // Nothing goes in a box for a workshop ticket or a gift card.
+      packs: !label.startsWith(TICKET_NAME_PREFIX) && !(parsed.entry && !isPhysical(parsed.entry))
     };
+    if (label.startsWith(TICKET_NAME_PREFIX))
+      line.label = `${label} -- workshop ticket, nothing to pack`;
     if (parsed.isBox) {
       const contents = boxes[boxIndex] || [];
       boxIndex += 1;
@@ -333,9 +339,15 @@ function orderHeading(order) {
 /** The owner's email. Plain text is the real one; the HTML mirrors it. */
 export function digestEmail(orders, day) {
   const count = orders.length;
-  const subject = count
-    ? `${count} order${count === 1 ? "" : "s"} to pack -- ${day}`
-    : `No new orders -- ${day}`;
+  // An order of nothing but workshop tickets (or gift cards) has nothing to
+  // pack, so it is not counted as one to pack (red team, 2026-10-08). A line
+  // with no `packs` flag (an older caller) counts as packable.
+  const toPack = orders.filter((o) => o.lines.some((line) => line.packs !== false)).length;
+  const subject = !count
+    ? `No new orders -- ${day}`
+    : toPack === count
+      ? `${count} order${count === 1 ? "" : "s"} to pack -- ${day}`
+      : `${count} new order${count === 1 ? "" : "s"}, ${toPack} to pack -- ${day}`;
 
   const textBlocks = orders.map((order) => {
     const rows = order.lines.map((line) => {

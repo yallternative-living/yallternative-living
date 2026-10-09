@@ -5609,11 +5609,35 @@
         .map(function (x) {
           return x.ev;
         });
-      if (sortedUpcoming.length) {
-        upcomingEl.innerHTML = sortedUpcoming.map(eventCardHTML).join("");
+      /* Workshops & classes get their own section (#upcomingWorkshops) when
+         the page has one; markets stay in this grid. A calendar holding only
+         workshops leaves this grid empty rather than saying no dates are
+         booked right above one. */
+      var workshopsEl = document.getElementById("upcomingWorkshops");
+      var workshopList = workshopsEl
+        ? sortedUpcoming.filter(function (ev) {
+            return ev && ev.kind === "workshop";
+          })
+        : [];
+      var marketList = workshopsEl
+        ? sortedUpcoming.filter(function (ev) {
+            return !(ev && ev.kind === "workshop");
+          })
+        : sortedUpcoming;
+      if (workshopsEl) renderWorkshops(workshopsEl, workshopList);
+      if (marketList.length) {
+        upcomingEl.innerHTML = marketList.map(eventCardHTML).join("");
+        wireEventShare(upcomingEl, marketList);
+      } else if (workshopList.length) {
+        upcomingEl.innerHTML = "";
       } else {
+        /* No `reveal` here: this block only exists once main.js has run,
+           and it lands on screen, so a fade-in from opacity 0 read as blank
+           space for as long as the script took (scripts/reveal-check.js,
+           events.html with an empty calendar). It appears as soon as it is
+           inserted. */
         upcomingEl.innerHTML =
-          '<div class="event-empty reveal">' +
+          '<div class="event-empty">' +
           '<span class="glyph" aria-hidden="true">✦</span>' +
           "<h3>New Pop-Ups Land Here As Soon As They're Booked</h3>" +
           "<p>We keep this page current the second a market or Pride date is locked in. In the meantime, " +
@@ -5627,6 +5651,7 @@
       markReveal(upcomingEl);
 
       injectEventJsonLd(sortedUpcoming);
+      scrollToLinkedEvent();
     }
 
     if (pastEl) {
@@ -6221,7 +6246,8 @@
      host: see docs/research-2026-09-01/research-E-local-discovery.md §3 on
      why marking this shop as `organizer` of a market it doesn't run is
      against Google's own content policy) and never an `offers` block
-     (there is no ticket to buy). */
+     (there is no ticket to buy) -- for a MARKET. A workshop is the shop's own
+     ticketed night and gets both; see buildEventJsonLd. */
   function buildEventJsonLdLocation(ev) {
     var address = { "@type": "PostalAddress", addressCountry: "US" };
     var loc = ev && ev.location ? String(ev.location) : "";
@@ -6247,11 +6273,12 @@
     if (!ev || !ev.name) return null;
     var start = buildEventDateTimeISO(ev.date);
     if (!start) return null;
+    var isWorkshop = ev.kind === "workshop";
 
     var ld = {
       "@context": "https://schema.org",
       "@type": "Event",
-      name: "Y'allternative Living at " + ev.name,
+      name: isWorkshop ? String(ev.name) : "Y'allternative Living at " + ev.name,
       startDate: start.iso,
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -6260,6 +6287,32 @@
     if (ev.endDate) {
       var end = buildEventDateTimeISO(ev.endDate);
       if (end) ld.endDate = end.iso;
+    }
+    /* A workshop is the shop's OWN ticketed night, not a market it vends at,
+       so the two omissions above do not apply to it: it has an organizer
+       (this shop), and an offer when tickets are on sale -- here on the site
+       or through an outside https link. */
+    if (isWorkshop) {
+      ld.organizer = {
+        "@type": "Organization",
+        name: "Y'allternative Living",
+        url: "https://yallternativeliving.com"
+      };
+      var price = Number(ev.price);
+      var outside = typeof ev.ticketUrl === "string" ? ev.ticketUrl.trim() : "";
+      var ticketHref = /^https:\/\//i.test(outside)
+        ? outside
+        : ev.ticketId && ev.id
+          ? "https://yallternativeliving.com/events.html#" + encodeURIComponent(ev.id)
+          : "";
+      if (price > 0 && ticketHref) {
+        ld.offers = {
+          "@type": "Offer",
+          price: price.toFixed(2),
+          priceCurrency: "USD",
+          url: ticketHref
+        };
+      }
     }
     return ld;
   }
@@ -6748,6 +6801,258 @@
     };
   }
 
+  /* The image a ticket line shows in the cart when the workshop has none. */
+  var TICKET_IMAGE = "assets/img/logo.png";
+
+  function formatTicketPrice(price) {
+    return (
+      "$" + (Math.round(price * 100) % 100 === 0 ? String(Math.round(price)) : price.toFixed(2))
+    );
+  }
+
+  /* The ticket half of a workshop card -- a workshop from the CMS's
+     "Workshops & classes" list, folded into the upcoming calendar by the
+     build with kind "workshop" (scripts/build-site-data.js
+     mergeWorkshopsIntoUpcoming). Three cases:
+       - tickets sold here (`ticketId`): a cart button for that line, which
+         workers/checkout.js prices from the same CMS entry
+         (workers/state/tickets.js) -- the price on the button is display only;
+       - tickets sold elsewhere (`ticketUrl`, e.g. Square): a link out;
+       - no price yet: "Tickets coming soon".
+     `ev.liveSpots` is the live count from /api/inventory once it has
+     answered. The CMS number is where the count STARTED, so it is never shown
+     as what is left -- only a live count says "Only 3 spots left" or sells
+     out the button (a CMS count of 0 is the one static exception: nothing was
+     ever on sale). Returns `{ info, cta }`. */
+  function workshopTicketHTML(ev) {
+    var price = Number(ev.price);
+    var priceText = isFinite(price) && price > 0 ? formatTicketPrice(price) : "";
+    var info = priceText
+      ? '<p class="event-price"><strong>' + priceText + "</strong> per person</p>"
+      : "";
+    if (ev.ticketId && priceText) {
+      var cmsSpots = Number(ev.spots);
+      var left = typeof ev.liveSpots === "number" ? ev.liveSpots : cmsSpots === 0 ? 0 : null;
+      if (left === 0) {
+        return {
+          info: info + '<p class="event-spots sold-out">Sold out</p>',
+          cta: '<button type="button" class="btn btn-primary btn-sm btn-block" disabled>Sold Out</button>'
+        };
+      }
+      if (left !== null && left <= LOW_STOCK_THRESHOLD) {
+        info +=
+          '<p class="event-spots low-stock">Only ' +
+          left +
+          (left === 1 ? " spot" : " spots") +
+          " left</p>";
+      }
+      var maxQty = left !== null ? left : Number.isInteger(cmsSpots) ? cmsSpots : null;
+      return {
+        info: info,
+        cta:
+          '<button type="button" class="btn btn-primary btn-sm btn-block yl-add-item event-ticket-btn"' +
+          ' data-item-id="' +
+          attrEsc(ev.ticketId) +
+          '" data-item-name="' +
+          attrEsc("Ticket: " + ev.name) +
+          '" data-item-price="' +
+          attrEsc(String(price)) +
+          '" data-item-image="' +
+          attrEsc(ev.image || TICKET_IMAGE) +
+          '" data-item-categories="workshops"' +
+          (maxQty !== null ? ' data-item-max-quantity="' + maxQty + '"' : "") +
+          ">Buy Tickets — " +
+          priceText +
+          "</button>"
+      };
+    }
+    var outside = safeUrl(ev.ticketUrl);
+    if (outside) {
+      return {
+        info: info,
+        cta:
+          '<a class="btn btn-primary btn-sm btn-block" href="' +
+          attrEsc(outside) +
+          '" target="_blank" rel="noopener noreferrer">Get Tickets' +
+          (priceText ? " — " + priceText : "") +
+          '<span class="sr-only"> (opens in new tab)</span></a>'
+      };
+    }
+    return { info: info + '<p class="event-spots">Tickets coming soon</p>', cta: "" };
+  }
+
+  /* Fills the Workshops & Classes grid and shows its section only while
+     there is one to show, then asks /api/inventory how many spots are left
+     for the ones selling tickets here and redraws with the live counts. No
+     `reveal` on these cards: the section is un-hidden by script, and a fade
+     from opacity 0 there reads as blank space (scripts/reveal-check.js). */
+  /* The link a workshop's Share button hands out: its own card on the events
+     page. The card carries the id (eventCardHTML), and scrollToLinkedEvent()
+     brings it into view once the script has drawn it. */
+  function eventShareUrl(ev) {
+    var origin =
+      window.location && window.location.origin && /^https?:/.test(window.location.origin)
+        ? window.location.origin
+        : "https://yallternativeliving.com";
+    return origin + "/events.html#" + encodeURIComponent(ev.id || "");
+  }
+
+  function eventShareText(ev) {
+    var bits = [ev.dateLabel || ev.date, ev.venue || ev.location].filter(Boolean);
+    var price = Number(ev.price);
+    if (ev.kind === "workshop" && isFinite(price) && price > 0) {
+      bits.push("tickets " + formatTicketPrice(price));
+    }
+    return ev.name + (bits.length ? " — " + bits.join(" · ") : "");
+  }
+
+  /* Share (every upcoming card): the phone's own share sheet where there is one (Messages,
+     Instagram, Facebook...), otherwise the link is copied and the button
+     says so; a browser that allows neither shows it to copy by hand. One
+     listener for the page, since the cards are redrawn with live counts. */
+  function shareEvent(ev, btn) {
+    var url = eventShareUrl(ev);
+    var text = eventShareText(ev);
+    if (typeof window.plausible === "function") {
+      window.plausible("Event Shared", { props: { event: ev.id || "" } });
+    }
+    function copied() {
+      if (!btn) return;
+      var label = btn.querySelector(".event-share-label");
+      var was = label ? label.textContent : "";
+      btn.classList.add("is-copied");
+      if (label) label.textContent = "Link copied";
+      setTimeout(function () {
+        btn.classList.remove("is-copied");
+        if (label) label.textContent = was;
+      }, 2500);
+    }
+    function copyLink() {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        navigator.clipboard.writeText(url).then(copied, function () {
+          prompt("Copy this link to share:", url);
+        });
+        return;
+      }
+      prompt("Copy this link to share:", url);
+    }
+    if (navigator.share) {
+      navigator
+        .share({ title: ev.name + " · Y'allternative Living", text: text, url: url })
+        .catch(function (err) {
+          /* Dismissed (AbortError): nothing to do. Anything else -- a
+             NotAllowedError in an in-app browser or an iframe, say -- means
+             the share sheet never opened, so copy the link instead of
+             leaving the button dead (red team, 2026-10-08). */
+          if (err && err.name === "AbortError") return;
+          copyLink();
+        });
+      return;
+    }
+    copyLink();
+  }
+
+  function wireEventShare(container, list) {
+    if (!container || container.getAttribute("data-share-wired") === "1") return;
+    container.setAttribute("data-share-wired", "1");
+    container.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest(".event-share-btn") : null;
+      if (!btn) return;
+      var id = btn.getAttribute("data-share-event");
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].id === id) {
+          shareEvent(list[i], btn);
+          return;
+        }
+      }
+    });
+  }
+
+  /* events.html#<id> -- a shared workshop link, or a search result. The
+     browser looks for the anchor before main.js has drawn the cards, so it
+     lands at the top; scroll to the card once it exists. */
+  function scrollToLinkedEvent() {
+    var hash = window.location && window.location.hash ? window.location.hash.slice(1) : "";
+    if (!hash) return;
+    var id;
+    try {
+      id = decodeURIComponent(hash);
+    } catch {
+      return;
+    }
+    var card = document.getElementById(id);
+    if (card && card.classList && card.classList.contains("event-card") && card.scrollIntoView) {
+      card.scrollIntoView({ block: "start" });
+    }
+  }
+
+  function renderWorkshops(container, list) {
+    var section = document.getElementById("workshopsSection");
+    function draw() {
+      container.innerHTML = list
+        .map(function (ev) {
+          return eventCardHTML(ev, { noReveal: true });
+        })
+        .join("");
+    }
+    draw();
+    if (section) section.hidden = !list.length;
+    wireEventShare(container, list);
+    var selling = list.filter(function (ev) {
+      return ev && ev.ticketId;
+    });
+    if (!selling.length || !liveStockEnabled()) return;
+    fetch(LIVE_INVENTORY_URL, { headers: { Accept: "application/json" }, cache: "no-store" })
+      .then(function (res) {
+        return res && res.ok ? res.json() : null;
+      })
+      .then(function (payload) {
+        var live = payload && payload.products;
+        if (!live || typeof live !== "object") return;
+        var moved = false;
+        selling.forEach(function (ev) {
+          var row = live[ev.ticketId];
+          /* Only a number is a count -- the same rule applyLiveInventory
+             keeps for products: a broken answer never sells out a night. */
+          if (!row || row.tracked !== true || typeof row.available !== "number") return;
+          if (!isFinite(row.available) || row.available < 0) return;
+          ev.liveSpots = Math.floor(row.available);
+          moved = true;
+        });
+        if (moved) draw();
+      })
+      .catch(function () {
+        /* The cards stand as drawn. */
+      });
+  }
+
+  /* A workshop's "What's included" list and "Good to know" line, from the
+     CMS fields of the same names. Both optional; blank items are skipped. */
+  function workshopDetailsHTML(ev) {
+    var items = Array.isArray(ev.includes)
+      ? ev.includes
+          .map(function (it) {
+            return typeof it === "string" ? it.trim() : "";
+          })
+          .filter(Boolean)
+      : [];
+    var html = "";
+    if (items.length) {
+      html +=
+        '<p class="event-includes-label">What\'s included</p>' +
+        '<ul class="event-includes">' +
+        items
+          .map(function (it) {
+            return "<li>" + attrEsc(it) + "</li>";
+          })
+          .join("") +
+        "</ul>";
+    }
+    var good = typeof ev.goodToKnow === "string" ? ev.goodToKnow.trim() : "";
+    if (good) html += '<p class="event-goodtoknow">' + attrEsc(good) + "</p>";
+    return html;
+  }
+
   function eventCardHTML(ev, opts) {
     var isPast = Boolean(opts && opts.past);
     var gCalUrl = generateGoogleCalendarUrl(ev);
@@ -6759,6 +7064,9 @@
 
     /* Search results deep-link to events.html#<id>, so the card carries it. */
     var idAttr = ev.id ? ' id="' + attrEsc(ev.id) + '"' : "";
+
+    var isWorkshop = ev.kind === "workshop";
+    var ticket = isWorkshop && !isPast ? workshopTicketHTML(ev) : { info: "", cta: "" };
 
     var details = resolveEventDetails(ev);
     var venue = details.venue;
@@ -6795,17 +7103,22 @@
       ? ""
       : '<div class="event-actions-row">' +
         '<div class="event-cta-main">' +
+        ticket.cta +
         (safeUrl(ev.url)
           ? '<a class="btn btn-primary btn-sm btn-block" href="' +
             attrEsc(safeUrl(ev.url)) +
             '" target="_blank" rel="noopener noreferrer">More Info / RSVP<span class="sr-only"> (opens in new tab)</span></a>'
           : "") +
         '<a class="btn ' +
-        (safeUrl(ev.url) ? "btn-outline" : "btn-primary") +
+        (safeUrl(ev.url) || ticket.cta ? "btn-outline" : "btn-primary") +
         ' btn-sm btn-block" href="shop.html?pickup_market=' +
         pickupParam +
         '#shop-catalog">' +
-        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Reserve / Pick Up at This Booth' +
+        '<svg class="yl-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> ' +
+        // A workshop has no booth: the order is picked up at the night itself.
+        (ev.kind === "workshop"
+          ? "Order Ahead / Pick Up Here"
+          : "Reserve / Pick Up at This Booth") +
         "</a>" +
         "</div>" +
         '<div class="event-calendar-row">' +
@@ -6831,12 +7144,24 @@
         "</div>";
 
     return (
-      '<article class="card event-card reveal"' +
+      '<article class="card event-card' +
+      (opts && opts.noReveal ? "" : " reveal") +
+      '"' +
       idAttr +
       ">" +
+      (isPast
+        ? ""
+        : '<button type="button" class="event-share-btn" data-share-event="' +
+          attrEsc(ev.id || "") +
+          '" title="Share">' +
+          '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>' +
+          '<span class="sr-only event-share-label">Share ' +
+          attrEsc(ev.name || "this event") +
+          "</span>" +
+          "</button>") +
       '<div class="card-body">' +
       '<span class="card-cat">' +
-      attrEsc(ev.type || "Pop-Up Market") +
+      attrEsc(ev.type || (isWorkshop ? "Workshop" : "Pop-Up Market")) +
       "</span>" +
       "<h3>" +
       attrEsc(ev.name) +
@@ -6865,6 +7190,8 @@
           attrEsc(ev.name) +
           ' on Apple Maps">Apple Maps<span class="sr-only"> directions (opens in new tab)</span></a></p>') +
       (note ? '<p class="event-desc">' + attrEsc(note) + "</p>" : "") +
+      (isWorkshop && !isPast ? workshopDetailsHTML(ev) : "") +
+      ticket.info +
       actionsHtml +
       "</div>" +
       "</article>"
@@ -8769,7 +9096,7 @@
           return;
         }
         try {
-          card.scrollIntoView({ block: "center" });
+          card.scrollIntoView({ block: "start" });
         } catch {
           /* older engines: no smooth options, fall through */
         }
@@ -9450,6 +9777,115 @@
      { event, startTime } or null when there's nothing left on the calendar.
      Split out of initCountdownTicker so it can be unit-tested without a DOM
      (scripts/main.test.js). */
+  /* When an event starts, as epoch ms -- what the countdown counts down to.
+     A full ISO stamp in `date` (with its own UTC offset) is used as written.
+     The CMS date field stores the day only, so for those the start comes
+     from the first clock time in dateLabel ("November 6, 2026 · Friday,
+     6:30pm" -> 6:30pm, "Sat & Sun, 11am–7pm" -> 11am) -- the hours the
+     event card already shows. It used to be a flat 9am in the visitor's own
+     zone, so an evening event read "in progress today" from breakfast on.
+     The time is Eastern, where the markets are, not the visitor's zone; a
+     label with no time keeps 9am. */
+  /* The opening clock time in a dateLabel, as {hour, minute} in 24h, or null.
+     The FIRST time in the label wins, whichever way it is written:
+       "6:30pm", "6:30 p.m.", "11am"      -- its own am/pm
+       "6:30–9pm", "6–9pm", "11–2pm"     -- a range sharing the closing am/pm
+                                             (11–2pm opens at 11am: a start
+                                             later on the clock than the end
+                                             is the morning)
+       "noon–4pm"                          -- noon
+       "18:30"                             -- 24-hour
+     Taking only the first time that carried its OWN am/pm read "6:30–9pm" as
+     9pm, so the countdown said "3 hours until" a workshop already running,
+     and "6:30 p.m." or "18:30" fell back to 9am (red team, 2026-10-08).
+     No lookbehind: the file still has to parse in older Safari. */
+  function labelStartClock(label) {
+    var text = String(label || "");
+    var MER = "([ap])\\.?\\s?m(?![a-z])\\.?";
+    var NUM = "(\\d{1,2})(?::([0-5]\\d))?(?!\\d)";
+    var found = [];
+    var range = new RegExp(
+      "(^|[^\\d:])" +
+        NUM +
+        "\\s*(?:" +
+        MER +
+        ")?\\s*(?:-|\u2013|\u2014|to)\\s*" +
+        NUM +
+        "\\s*" +
+        MER,
+      "i"
+    ).exec(text);
+    if (range) {
+      var startH = parseInt(range[2], 10);
+      var endH = parseInt(range[5], 10);
+      var endMer = range[7].toLowerCase();
+      var mer = range[4] ? range[4].toLowerCase() : endMer;
+      if (!range[4] && endMer === "p" && startH !== 12 && startH > endH) mer = "a";
+      if (startH >= 1 && startH <= 12) {
+        found.push({
+          at: range.index + range[1].length,
+          hour: (startH % 12) + (mer === "p" ? 12 : 0),
+          minute: range[3] ? parseInt(range[3], 10) : 0
+        });
+      }
+    }
+    var single = new RegExp("(^|[^\\d:])" + NUM + "\\s*" + MER, "i").exec(text);
+    if (single) {
+      var h = parseInt(single[2], 10);
+      if (h >= 1 && h <= 12) {
+        found.push({
+          at: single.index + single[1].length,
+          hour: (h % 12) + (single[4].toLowerCase() === "p" ? 12 : 0),
+          minute: single[3] ? parseInt(single[3], 10) : 0
+        });
+      }
+    }
+    var noon = /\bnoon\b/i.exec(text);
+    if (noon) found.push({ at: noon.index, hour: 12, minute: 0 });
+    var h24 = /(^|[^\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d]|\s*[ap]\.?\s?m(?![a-z]))/i.exec(text);
+    if (h24) {
+      found.push({
+        at: h24.index + h24[1].length,
+        hour: parseInt(h24[2], 10),
+        minute: parseInt(h24[3], 10)
+      });
+    }
+    var first = null;
+    for (var i = 0; i < found.length; i++) {
+      // Earliest in the label; on a tie the range (pushed first) wins, so
+      // "6:30–9pm" is never read as a bare 24-hour 6:30.
+      if (!first || found[i].at < first.at) first = found[i];
+    }
+    return first;
+  }
+
+  function eventStartMs(evt) {
+    var date = String(evt.date);
+    var day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    if (!day) return new Date(date).getTime();
+    var hour = 9;
+    var minute = 0;
+    var clock = labelStartClock(evt.dateLabel);
+    if (clock) {
+      hour = clock.hour;
+      minute = clock.minute;
+    }
+    var y = Number(day[1]);
+    var m = Number(day[2]);
+    var d = Number(day[3]);
+    var offset = getEasternOffsetForDate(new Date(Date.UTC(y, m - 1, d, 12)));
+    if (!offset) return new Date(y, m - 1, d, hour, minute, 0).getTime();
+    return new Date(
+      date +
+        "T" +
+        String(hour).padStart(2, "0") +
+        ":" +
+        String(minute).padStart(2, "0") +
+        ":00" +
+        offset
+    ).getTime();
+  }
+
   function pickNextEvent(list, todayStr) {
     var best = null;
     (list || []).forEach(function (evt) {
@@ -9460,13 +9896,7 @@
          the following event while the list right below it still shows the
          market that's open today. */
       if (String(evt.endDate || evt.date).slice(0, 10) < todayStr) return;
-      var t;
-      if (evt.date.length === 10) {
-        var p = evt.date.split("-");
-        t = new Date(p[0], p[1] - 1, p[2], 9, 0, 0).getTime();
-      } else {
-        t = new Date(evt.date).getTime();
-      }
+      var t = eventStartMs(evt);
       if (isNaN(t)) return;
       /* Take the SOONEST event, not merely the first one in the array.
          events.json is hand-ordered through the CMS, so an event Savanna
@@ -9487,6 +9917,9 @@
       window.YL_EVENTS && window.YL_EVENTS.upcoming ? window.YL_EVENTS.upcoming : [];
     var picked = pickNextEvent(upcomingList, todayInEastern());
     var nextEvt = picked ? picked.event : null;
+    /* A workshop is a ticketed night, not a pop-up: the countdown names it
+       as what it is. */
+    var nextKindWord = nextEvt && nextEvt.kind === "workshop" ? "workshop" : "pop-up";
     var targetTime = picked ? picked.startTime : 0;
 
     if (!nextEvt) {
@@ -9554,7 +9987,9 @@
             '<h3 style="margin: 0.4rem 0 0.6rem; font-family: var(--font-heading);">' +
             attrEsc(nextEvt.name) +
             "</h3>" +
-            '<p style="margin: 0;">Pop-up in progress today!</p></div>';
+            '<p style="margin: 0;">' +
+            (nextKindWord === "workshop" ? "Workshop" : "Pop-up") +
+            " in progress today!</p></div>";
         }
         updateAnnouncementCrowding();
         return;
@@ -9563,7 +9998,7 @@
       if (tickerContainer) {
         var tickerBadgeEl = tickerContainer.querySelector(".ticker-badge");
         if (tickerBadgeEl) {
-          tickerBadgeEl.innerHTML = iconHtml + "NEXT POP-UP:";
+          tickerBadgeEl.innerHTML = iconHtml + "NEXT " + nextKindWord.toUpperCase() + ":";
         }
       }
 
@@ -9645,7 +10080,9 @@
           "</p>" +
           '  <p class="event-timer-clock" style="font-size: 1.1rem; margin: 0.2rem 0 0.4rem;"><svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg> <strong>' +
           timeStr +
-          "</strong> until pop-up</p>" +
+          "</strong> until " +
+          nextKindWord +
+          "</p>" +
           '  <p class="event-location" style="font-size: 0.85rem; color: var(--paper-dim); margin: 0;"><svg class="yl-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
           attrEsc(nextEvt.location || "Upstate, SC") +
           "</p>" +
@@ -13208,6 +13645,7 @@
       parsePickupMarketParam: parsePickupMarketParam,
       handlePickupMarketDeepLink: handlePickupMarketDeepLink,
       eventCardHTML: eventCardHTML,
+      shareEvent: shareEvent,
       getReadingTime: getReadingTime,
       renderClockIconSvg: renderClockIconSvg,
       renderJournalTagsHtml: renderJournalTagsHtml,

@@ -614,6 +614,45 @@ const onePage = (sessions) => [{ data: sessions, has_more: false }];
       [],
       "a gift card has 'variants' (the presets) but is never a size question"
     );
+    // Red team, 2026-10-08: an order of nothing but workshop tickets (or
+    // gift cards) is not one "to pack".
+    const ticketOnly = session("cs_test_ticketonly8", {
+      line_items: {
+        data: [
+          {
+            description: "Ticket: Potions Night (November 6, 2099 · Landrum Depot, Landrum, SC)",
+            quantity: 2
+          }
+        ]
+      },
+      metadata: {}
+    });
+    const ticketView = digest.describeOrder(ticketOnly, cat);
+    eq(ticketView.lines[0].packs, false, "a workshop ticket line packs nothing");
+    assert(
+      /workshop ticket, nothing to pack/.test(ticketView.lines[0].label),
+      "the ticket line says there is nothing to pack"
+    );
+    eq(
+      digest.describeOrder(giftCardOnly, cat).lines[0].packs,
+      false,
+      "a gift card line packs nothing"
+    );
+    const bundleView = digest.describeOrder(BUNDLE_ORDER, cat);
+    const mail = digest.digestEmail(
+      [ticketView, digest.describeOrder(giftCardOnly, cat), bundleView],
+      "2099-11-01"
+    );
+    eq(
+      mail.subject,
+      "3 new orders, 1 to pack -- 2099-11-01",
+      "the subject counts only orders to pack"
+    );
+    eq(
+      digest.digestEmail([bundleView], "2099-11-01").subject,
+      "1 order to pack -- 2099-11-01",
+      "...and reads as before when everything packs"
+    );
     eq(
       digest.productsNeedingChoice(BUNDLE_ORDER, cat).map((p) => p.via),
       ["Grit & Grace Starter Set"],

@@ -722,7 +722,6 @@
     "tpl.mixMatchNeed": "Add {needed} more {item} to get {all} for {price} each!",
     "tpl.mixMatchApplied": "{price}/ea {item} volume tier applied!",
     "tpl.mixMatchNext": "Add {amount} for {perk}!",
-    "auto.artsFestival.c73a7e": "Arts Festival",
     "auto.moreInfoRsvp.b097db": "More Info / RSVP",
     "cart.havePromoCode": "Have a code?",
     "cart.promoGiftCardNotice": "Promo codes and gift cards can't be combined. Remove the gift card to use a code.",
@@ -846,9 +845,11 @@
     "auto.copyCode.1589b6": "Copy Code",
     "auto.materials.2402ea": "Materials",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living On Social",
-    "auto.freeDowntownArtsMusic.3f38cd": "Free downtown arts & music festival — come find our table.",
     "auto.freeFamilyFunLive.1f6fec": "Free family fun & live entertainment, followed by Grand Prix show jumping.",
-    "auto.thePerfectGiftFor.057d2a": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox."
+    "auto.thePerfectGiftFor.057d2a": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
+    "auto.craftShow.a76ec3": "Craft Show",
+    "auto.handsOnNightsWhere.b360f5": "Hands-on nights where you make your own self-care goodies and take them home. Grab your ticket right here.",
+    "auto.workshopsClasses.446555": "Workshops & Classes"
   }
 };
 

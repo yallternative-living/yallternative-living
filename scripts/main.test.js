@@ -919,6 +919,89 @@ eq(
   "pickNextEvent ignores entries with a missing or unparseable date"
 );
 
+/* The countdown counts to the event's own start time. The CMS stores the day
+   only, so a date-only event takes its start from the first clock time in
+   dateLabel, read as Eastern time whatever zone the visitor is in (absolute
+   instants below, so the assertions hold in any TZ the suite runs under). */
+function startOf(evt) {
+  const picked = main.pickNextEvent([evt], TODAY);
+  return picked ? picked.startTime : null;
+}
+eq(
+  startOf({ date: "2026-11-06", dateLabel: "November 6, 2026 · Friday, 6:30pm", name: "Evening" }),
+  Date.parse("2026-11-06T18:30:00-05:00"),
+  "countdown targets a date-only event's 6:30pm label time, in Eastern standard time"
+);
+eq(
+  startOf({
+    date: "2026-09-19",
+    dateLabel: "September 19, 2026 · Saturday, 4pm–9pm",
+    name: "Range"
+  }),
+  Date.parse("2026-09-19T16:00:00-04:00"),
+  "countdown takes the opening time of an hours range, in Eastern daylight time"
+);
+eq(
+  startOf({
+    date: "2026-08-29",
+    endDate: "2026-08-30",
+    dateLabel: "August 29–30, 2026 · Sat & Sun, 11:30am–7pm",
+    name: "Two Day"
+  }),
+  Date.parse("2026-08-29T11:30:00-04:00"),
+  "countdown skips the day numbers in a multi-day label and reads 11:30am"
+);
+eq(
+  startOf({ date: "2026-10-03", dateLabel: "October 3, 2026 · Saturday, 12pm–4pm", name: "Noon" }),
+  Date.parse("2026-10-03T12:00:00-04:00"),
+  "countdown reads 12pm as noon"
+);
+/* Red team, 2026-10-08: a range sharing ONE am/pm, a spelled-out meridiem,
+   noon and 24-hour times. The old pattern took the first time with its own
+   am/pm, so "6:30–9pm" counted down to 9pm while the workshop ran. */
+[
+  [
+    "Friday, 6:30–9pm",
+    "2026-11-06T18:30:00-05:00",
+    "a range sharing the closing pm opens at 6:30pm"
+  ],
+  ["Friday, 6–9pm", "2026-11-06T18:00:00-05:00", "a bare-hour range sharing pm opens at 6pm"],
+  [
+    "Friday, 11–2pm",
+    "2026-11-06T11:00:00-05:00",
+    "a start later on the clock than the end is the morning"
+  ],
+  ["Friday, noon–4pm", "2026-11-06T12:00:00-05:00", "noon opens at 12pm"],
+  ["Friday, 6:30 p.m.", "2026-11-06T18:30:00-05:00", "a spelled-out p.m. is read"],
+  ["Friday, 18:30", "2026-11-06T18:30:00-05:00", "a 24-hour time is read"],
+  [
+    "Friday, 6:30 - 9:00 pm",
+    "2026-11-06T18:30:00-05:00",
+    "a spaced range with minutes opens at 6:30pm"
+  ],
+  ["Sat 10 AM - 2 PM", "2026-11-06T10:00:00-05:00", "upper-case AM/PM with spaces"]
+].forEach(function (c) {
+  eq(
+    startOf({ date: "2026-11-06", dateLabel: "November 6, 2026 · " + c[0], name: "Workshop" }),
+    Date.parse(c[1]),
+    "countdown: " + c[2]
+  );
+});
+eq(
+  startOf({ date: "2026-10-17", dateLabel: "October 17, 2026", name: "No Hours" }),
+  Date.parse("2026-10-17T09:00:00-04:00"),
+  "countdown falls back to 9am Eastern when the label carries no time"
+);
+eq(
+  startOf({
+    date: "2026-10-17T13:15:00-04:00",
+    dateLabel: "October 17, 2026 · 6pm",
+    name: "Stamped"
+  }),
+  Date.parse("2026-10-17T13:15:00-04:00"),
+  "countdown uses a full ISO date as written, ahead of the label"
+);
+
 /* 8. Milestone 2: Calendar, Maps & Pickup deep-linking exports */
 const testEv = {
   id: "punk-flea",
@@ -985,6 +1068,137 @@ assert(
 assert(cardMarkup.includes("iCal / Apple Calendar (.ics)"), "eventCardHTML includes iCal button");
 assert(cardMarkup.includes("Google Maps"), "eventCardHTML includes Google Maps link");
 assert(cardMarkup.includes("Apple Maps"), "eventCardHTML includes Apple Maps link");
+
+/* Workshop cards (events.json "workshops", folded in by the build with
+   kind "workshop"): the three ticket states, plus the CMS's "What's
+   included" list and "Good to know" line, escaped like every CMS string. */
+const workshopBase = {
+  id: "potions-night",
+  kind: "workshop",
+  date: "2099-11-06",
+  dateLabel: "November 6, 2099 · Friday, 6:30pm",
+  name: "Potions Night",
+  location: "Landrum, SC",
+  price: 60
+};
+const onSite = main.eventCardHTML(
+  Object.assign({}, workshopBase, {
+    spots: 12,
+    ticketId: "ticket-potions-night",
+    includes: ["A 2 oz body oil", "  ", "<b>Snacks</b>"],
+    goodToKnow: "No experience needed & all welcome"
+  })
+);
+assert(
+  onSite.includes('data-item-id="ticket-potions-night"') && onSite.includes("Buy Tickets — $60"),
+  "workshop selling on the site: a Buy Tickets cart button for its ticket id"
+);
+assert(onSite.includes(">Workshop<"), "workshop card is labelled Workshop");
+assert(
+  onSite.includes("<li>A 2 oz body oil</li>") &&
+    onSite.includes("<li>&lt;b&gt;Snacks&lt;/b&gt;</li>") &&
+    (onSite.match(/<li>/g) || []).length === 2,
+  "What's included renders one escaped item per non-blank line"
+);
+assert(
+  onSite.includes('class="event-goodtoknow">No experience needed &amp; all welcome<'),
+  "Good to know renders, escaped"
+);
+assert(
+  onSite.includes('class="event-share-btn" data-share-event="potions-night"'),
+  "a workshop card carries a Share button for its own id"
+);
+assert(
+  cardMarkup.includes('class="event-share-btn" data-share-event="punk-flea"'),
+  "a market card carries a Share button too"
+);
+assert(
+  !main.eventCardHTML(testEv, { past: true }).includes("event-share-btn"),
+  "a past card has no Share button"
+);
+
+/* Share: a share sheet that never opens (NotAllowedError in an in-app
+   browser or iframe) falls back to copying the link; a dismissal does not
+   (red team, 2026-10-08). */
+const pendingAsync = [];
+async function shareOutcome(errName) {
+  const copiedUrls = [];
+  const savedNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const label = { textContent: "Share" };
+  const btn = {
+    classList: { add() {}, remove() {} },
+    querySelector: () => label
+  };
+  // defineProperty, not assignment: Node's own global `navigator` is an
+  // accessor, and a plain assignment to it is silently ignored.
+  const mockNavigator = {
+    userAgent: "node",
+    share: () => {
+      const err = new Error(errName);
+      err.name = errName;
+      return Promise.reject(err);
+    },
+    clipboard: {
+      writeText: (u) => {
+        copiedUrls.push(u);
+        return Promise.resolve();
+      }
+    }
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    value: mockNavigator,
+    configurable: true,
+    writable: true
+  });
+  try {
+    main.shareEvent({ id: "potions-night", name: "Potions Night" }, btn);
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+  } finally {
+    if (savedNavigator) Object.defineProperty(globalThis, "navigator", savedNavigator);
+  }
+  return { copiedUrls, label: label.textContent };
+}
+pendingAsync.push(
+  (async () => {
+    const blocked = await shareOutcome("NotAllowedError");
+    assert(
+      blocked.copiedUrls.length === 1 &&
+        /events\.html#potions-night$/.test(blocked.copiedUrls[0]) &&
+        blocked.label === "Link copied",
+      "share: a share sheet that cannot open copies the link instead"
+    );
+    const dismissed = await shareOutcome("AbortError");
+    assert(dismissed.copiedUrls.length === 0, "share: a dismissed share sheet copies nothing");
+  })()
+);
+const outside = main.eventCardHTML(
+  Object.assign({}, workshopBase, { ticketUrl: "https://square.link/u/x" })
+);
+assert(
+  outside.includes('href="https://square.link/u/x"') &&
+    outside.includes("Get Tickets — $60") &&
+    !outside.includes("yl-add-item event-ticket-btn"),
+  "workshop sold elsewhere: links out, no cart button"
+);
+const notYet = main.eventCardHTML(Object.assign({}, workshopBase, { price: undefined }));
+assert(
+  notYet.includes("Tickets coming soon") && !notYet.includes("Buy Tickets"),
+  "workshop without a price yet: 'Tickets coming soon'"
+);
+const workshopSoldOut = main.eventCardHTML(
+  Object.assign({}, workshopBase, { spots: 12, ticketId: "ticket-potions-night", liveSpots: 0 })
+);
+assert(
+  workshopSoldOut.includes("Sold Out") && !workshopSoldOut.includes("yl-add-item event-ticket-btn"),
+  "a live count of 0 sells the workshop out"
+);
+assert(
+  !main
+    .eventCardHTML(Object.assign({}, workshopBase, { includes: ["x"] }), { past: true })
+    .includes("event-includes"),
+  "a past workshop card carries no ticket details"
+);
 
 /* A comma-split piece of ev.location used to be compiled straight into a
    RegExp inside resolveEventDetails(); "[" or "(" in a CMS location threw a
@@ -2854,8 +3068,10 @@ eq(main.quizParamName({}, 3), "quiz-step4", "quizParamName falls back to quiz-st
    drifts, so pin them together against the real assets/data/events.json.
    Asserts the tag EXISTS first: an empty match would otherwise make this
    check pass by comparing nothing. */
-const eventsJsonSrc = JSON.parse(
-  fs404.readFileSync(path404.join(repoRoot, "assets/data/events.json"), "utf8")
+/* Workshops (events.json `workshops`) are folded into the upcoming calendar
+   by the build, and so into its Event JSON-LD: run the same fold here. */
+const eventsJsonSrc = require("./build-site-data.js").mergeWorkshopsIntoUpcoming(
+  JSON.parse(fs404.readFileSync(path404.join(repoRoot, "assets/data/events.json"), "utf8"))
 );
 const contentJsonSrc = JSON.parse(
   fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
@@ -3292,6 +3508,7 @@ eq(
     "placeholder-coming-soon.svg contains botanical artwork"
   );
 
+  await Promise.all(pendingAsync);
   console.log(`\nmain.test.js: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 })();

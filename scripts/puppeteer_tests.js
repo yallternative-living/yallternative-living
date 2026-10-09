@@ -13,6 +13,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { resolveRequestPath } = require("./serve.js");
 
 /**
  * Creates and starts a lightweight local static HTTP server for test execution.
@@ -24,9 +25,12 @@ function createStaticServer(port = 8082) {
   const server = http.createServer((req, res) => {
     let reqPath = req.url.split("?")[0];
     if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(root, reqPath);
+    // serve.js's resolver, not path.join: a raw join served anything the
+    // process could read (/../../etc/passwd, /.git/, /.env) while the suite
+    // ran (red team, 2026-10-08). Outside or hidden reads as missing.
+    let filePath = resolveRequestPath(root, reqPath);
 
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    if (!filePath || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       filePath = path.join(root, "404.html");
     }
 

@@ -714,7 +714,6 @@
     "tpl.mixMatchNeed": "{item} {needed}개 더 추가하고 {all} 개당 {price}에 만나보세요!",
     "tpl.mixMatchApplied": "{item} 개당 {price} 수량 할인이 적용되었어요!",
     "tpl.mixMatchNext": "{amount} 더 담고 {perk} 혜택을 받아보세요!",
-    "auto.artsFestival.c73a7e": "아트 페스티벌",
     "auto.moreInfoRsvp.b097db": "상세 정보 / 참석 신청",
     "cart.havePromoCode": "코드가 있으신가요?",
     "cart.promoGiftCardNotice": "프로모션 코드와 기프트 카드는 함께 사용할 수 없습니다. 코드를 사용하려면 기프트 카드를 제거하세요.",
@@ -838,8 +837,10 @@
     "auto.copyCode.1589b6": "코드 복사",
     "auto.materials.2402ea": "소재",
     "auto.yallternativeLivingOnSocial.e86ad9": "소셜 미디어 속 Y'allternative Living",
-    "auto.freeDowntownArtsMusic.3f38cd": "무료 다운타운 예술 & 음악 페스티벌 — 저희 부스를 찾아와 주세요.",
     "auto.freeFamilyFunLive.1f6fec": "온 가족이 무료로 즐기는 다채로운 놀거리와 라이브 공연, 그리고 그랑프리 쇼점핑 경기가 이어져요.",
-    "auto.thePerfectGiftFor.057d2a": "Black Sheep & Bold Hearts를 위한 완벽한 선물이에요. $10부터 $500까지 원하는 금액을 선택해 보세요. 유효기간 없이 받은편지함으로 바로 전송돼요."
+    "auto.thePerfectGiftFor.057d2a": "Black Sheep & Bold Hearts를 위한 완벽한 선물이에요. $10부터 $500까지 원하는 금액을 선택해 보세요. 유효기간 없이 받은편지함으로 바로 전송돼요.",
+    "auto.craftShow.a76ec3": "크래프트 쇼",
+    "auto.handsOnNightsWhere.b360f5": "나만의 셀프케어 아이템을 직접 만들어 챙겨가는 체험의 밤이에요. 티켓은 바로 여기서 예매하세요.",
+    "auto.workshopsClasses.446555": "워크숍 & 클래스"
   }
 }

@@ -833,9 +833,30 @@ async function run() {
   {
     const env = await makeEnv();
     const originalFetch = global.fetch;
+    /* The calendar is read too: a workshop selling tickets on the site is a
+       tracked entry like a product (workers/state/tickets.js). `eventsDown`
+       stands in for an unreachable events.json. */
+    let eventsDown = false;
+    const mockEvents = {
+      upcoming: [],
+      past: [],
+      workshops: [
+        {
+          name: "Potions Night",
+          date: "2099-11-06",
+          dateLabel: "November 6, 2099 · 6:30pm",
+          location: "Landrum, SC",
+          price: 60,
+          spots: 12
+        }
+      ]
+    };
     global.fetch = async (url) => {
       if (String(url).includes("products.json")) {
         return { ok: true, clone: () => ({ body: null }), json: async () => mockCatalog };
+      }
+      if (String(url).includes("events.json") && !eventsDown) {
+        return { ok: true, clone: () => ({ body: null }), json: async () => mockEvents };
       }
       return { ok: false, status: 404, json: async () => ({}) };
     };
@@ -863,12 +884,32 @@ async function run() {
             "single-tee": { available: 0, tracked: true },
             "boxable-salve": { available: 2, tracked: true },
             "boxable-soak": { available: 9, tracked: true },
-            "boxable-body": { available: 9, tracked: true }
+            "boxable-body": { available: 9, tracked: true },
+            "ticket-potions-night-2099-11-06": { available: 12, tracked: true }
           }
         },
-        "the shape is { products: { id: { available, tracked: true } } } for tracked products only"
+        "the shape is { products: { id: { available, tracked: true } } } for tracked products only, workshop tickets included"
       );
       assert(!("lavender-soak" in body.products), "an untracked product is absent, not zero");
+
+      /* No calendar: no tickets in the index, and syncing that would mark the
+         ticket row untracked so the next sync reseeds it -- forgetting tickets
+         sold. The route refuses instead, and the row is left exactly as is. */
+      await env.STATE_DB.prepare(
+        "UPDATE inventory SET on_hand = 5 WHERE product_id = 'ticket-potions-night-2099-11-06'"
+      ).run();
+      inv.resetInventoryMemo();
+      eventsDown = true;
+      const down = await get(env, "2.2.2.2");
+      eq(down.status, 503, "events.json unreachable: GET /api/inventory answers 503, no sync");
+      eventsDown = false;
+      inv.resetInventoryMemo();
+      const back = await (await get(env, "3.3.3.3")).json();
+      eq(
+        back.products["ticket-potions-night-2099-11-06"],
+        { available: 5, tracked: true },
+        "...and the ticket count (7 of 12 sold) survives: the next sync does not reseed it"
+      );
 
       const { INVENTORY_RATE_LIMIT } = routes;
       let last;
@@ -909,6 +950,51 @@ async function run() {
     } finally {
       global.fetch = originalFetch;
     }
+  }
+
+  /* ======================================================================
+     Red team, 2026-10-08: each row is guarded by its own file's fetch time.
+     Workshop tickets come from events.json, products from products.json,
+     cached separately. Stamping every row with the older of the two
+     refused a fresh ticket correction whenever the products copy predated
+     the last seed -- through the real loadCatalog/trackedProductsOf path.
+     ====================================================================== */
+  {
+    const db = await freshDb();
+    inv.resetInventoryMemo();
+    const P1 = 100_000; // products.json copy, served first
+    const E1 = 100_100; // events.json copy, 100s newer
+    const tracked = (spots, eventsAt) =>
+      inv.trackedProductsOf([
+        { id: "shea", stock: 10 },
+        { id: "ticket-night", stock: spots, isTicket: true, fetchedAt: eventsAt }
+      ]);
+    eq(
+      tracked(12, E1).find((p) => p.id === "ticket-night").fetchedAt,
+      E1,
+      "trackedProductsOf keeps an entry's own fetch time"
+    );
+    await inv.syncInventory(db, tracked(12, E1), E1 + 5, P1);
+    // The owner corrects the spots to 8. events.json is refetched; the
+    // products copy is still the same edge-cached one.
+    const E2 = E1 + 200;
+    const fix = await inv.syncInventory(db, tracked(8, E2), E2 + 5, P1);
+    eq(fix.changed, 1, "a ticket correction applies though the products copy is older");
+    const rows = await inv.readAvailability(db, ["shea", "ticket-night"]);
+    eq(
+      [rows.get("shea").onHand, rows.get("ticket-night").onHand],
+      [10, 8],
+      "...the ticket row takes the new count and the product row is untouched"
+    );
+    // A stale events copy (older than the correction) still cannot undo it.
+    inv.resetInventoryMemo();
+    const stale = await inv.syncInventory(db, tracked(12, E1), E2 + 50, P1 + 400);
+    eq(stale.changed, 0, "an older events.json copy cannot reseed the ticket backwards");
+    eq(
+      (await inv.readAvailability(db, ["ticket-night"])).get("ticket-night").onHand,
+      8,
+      "...the correction stands"
+    );
   }
 
   /* ======================================================================

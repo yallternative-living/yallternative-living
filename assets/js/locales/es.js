@@ -722,7 +722,6 @@
     "tpl.mixMatchNeed": "¡Agrega {needed} {item} más para llevarte {all} por {price} cada uno!",
     "tpl.mixMatchApplied": "¡Nivel por volumen de {price} c/u en {item} aplicado!",
     "tpl.mixMatchNext": "¡Agrega {amount} para obtener {perk}!",
-    "auto.artsFestival.c73a7e": "Festival de artes",
     "auto.moreInfoRsvp.b097db": "Más información / RSVP",
     "cart.havePromoCode": "¿Tienes un código?",
     "cart.promoGiftCardNotice": "Los códigos promocionales y las tarjetas de regalo no se pueden combinar. Quita la tarjeta de regalo para usar un código.",
@@ -846,9 +845,11 @@
     "auto.copyCode.1589b6": "Copiar código",
     "auto.materials.2402ea": "Materiales",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living en redes sociales",
-    "auto.freeDowntownArtsMusic.3f38cd": "Festival gratuito de arte y música en el centro — ven a buscar nuestra mesa.",
     "auto.freeFamilyFunLive.1f6fec": "Diversión familiar gratis y entretenimiento en vivo, seguidos de salto ecuestre Grand Prix.",
-    "auto.thePerfectGiftFor.057d2a": "El regalo perfecto para Black Sheep & Bold Hearts. Elige cualquier monto de $10 a $500. Sin fecha de vencimiento, directo a su bandeja de entrada."
+    "auto.thePerfectGiftFor.057d2a": "El regalo perfecto para Black Sheep & Bold Hearts. Elige cualquier monto de $10 a $500. Sin fecha de vencimiento, directo a su bandeja de entrada.",
+    "auto.craftShow.a76ec3": "Feria artesanal",
+    "auto.handsOnNightsWhere.b360f5": "Noches prácticas donde preparas tus propios productos de autocuidado y te los llevas a casa. Consigue tu boleto justo aquí.",
+    "auto.workshopsClasses.446555": "Talleres y clases"
   }
 };
 

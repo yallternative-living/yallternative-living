@@ -7,15 +7,28 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "id": "autumn-apothecary-faire",
-      "date": "2026-10-17T09:00:00-04:00",
-      "dateLabel": "October 17, 2026",
-      "name": "Autumn Apothecary Faire",
-      "type": "Artisan Fair",
+      "id": "potions-pour-decisions-2026-11-06",
+      "name": "Potions & Pour Decisions",
+      "date": "2026-11-06",
+      "dateLabel": "November 6, 2026 · Friday, 6:30pm",
       "location": "Landrum, SC",
       "zip": "29356",
-      "emoji": "✨",
-      "note": "Pop-up market table with handmade salves, soaks & soaps."
+      "venue": "Landrum Depot",
+      "address": "211 N Trade Ave",
+      "emoji": "🔮",
+      "price": 60,
+      "ticketUrl": "https://square.link/u/GZiFttbS",
+      "note": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
+      "includes": [
+        "A 2 oz custom body oil you blend yourself",
+        "An 8 oz botanical bath soak, your scents",
+        "A fall wine potion or zero-proof mocktail",
+        "Light snacks & refreshments",
+        "The Y'allternative pop-up shop",
+        "All ingredients, supplies & instruction"
+      ],
+      "goodToKnow": "No experience needed — come with friends, your partner, or solo and meet some new weirdos. Spots are limited and tickets are advance only.",
+      "kind": "workshop"
     }
   ],
   "past": [
@@ -26,9 +39,9 @@ window.YL_EVENTS = {
       "name": "Fall Family Festival & Market",
       "type": "Craft Show",
       "location": "Moore, SC",
+      "zip": "29369",
       "venue": "The Gathering Farm",
       "address": "140 Waldon Road",
-      "zip": "29369",
       "url": "https://www.facebook.com/events/1701695287526740/",
       "note": "First-ever fall festival with 40+ craft vendors."
     },
@@ -39,9 +52,9 @@ window.YL_EVENTS = {
       "name": "Saturday Night Lights",
       "type": "Festival",
       "location": "Mill Spring, NC",
+      "zip": "28756",
       "venue": "Tryon International",
       "address": "25 International Blvd",
-      "zip": "28756",
       "url": "https://resort.tryon.com/events/saturday-night-lights-september19-thwdz",
       "note": "Free family fun & live entertainment, followed by Grand Prix show jumping."
     },
@@ -52,9 +65,9 @@ window.YL_EVENTS = {
       "name": "MRB Renaissance Festival",
       "type": "Festival",
       "location": "Mills River, NC",
+      "zip": "28759",
       "venue": "Mills River Brewing Co",
       "address": "336 Banner Farm Rd",
-      "zip": "28759",
       "url": "https://www.millsriverbrewingco.com/events/mountain-mayhem-renaissance-festival",
       "note": "Free family-friendly renaissance festival with medieval combat, live music & 40+ vendors."
     },
@@ -65,9 +78,9 @@ window.YL_EVENTS = {
       "name": "Boomtown Arts & Heritage FestAVL",
       "type": "Arts Festival",
       "location": "Asheville, NC",
+      "zip": "28801",
       "venue": "Pack Square Park",
       "address": "121 College St",
-      "zip": "28801",
       "emoji": "🎨",
       "url": "https://www.boomtownfestavl.com/",
       "note": "Free downtown arts & music festival — come find our table."
@@ -110,8 +123,8 @@ window.YL_EVENTS = {
     },
     {
       "id": "upstate-pride-colors-of-pride",
-      "date": "2026-06-20",
-      "dateLabel": "June 2026",
+      "date": "2026-06-27",
+      "dateLabel": "June 27, 2026 · Saturday, 11am–5pm",
       "name": "Upstate Pride: Colors of Pride",
       "type": "Pride Event",
       "location": "Greenville, SC",
@@ -130,8 +143,8 @@ window.YL_EVENTS = {
     },
     {
       "id": "out-in-the-open-rainbow-parade",
-      "date": "2025-10-11",
-      "dateLabel": "October 2025",
+      "date": "2025-10-25",
+      "dateLabel": "October 25, 2025 · Saturday, 5pm–10pm",
       "name": "OUT IN THE OPEN: Rainbow Parade & Market",
       "type": "Pride Event",
       "location": "Spartanburg, SC",
