@@ -46,6 +46,9 @@
  *   active    --commit-->   committed   (paid: on_hand -= qty, reserved -= qty)
  *   active    --release-->  released    (expired / failed / stale: reserved -= qty)
  *   committed --restock-->  restocked   (full refund: on_hand += qty)
+ * "Stale" is HOLD_TTL_MS after the hold was taken, or ASYNC_PAYMENT_HOLD_MS
+ * for a session that completed with its payment still clearing
+ * (awaitDelayedPayment).
  * Every transition is keyed on the current state, so a redelivered webhook
  * finds nothing in the state it wants and moves nothing. The exactly-once
  * claim in webhook-events.js is the first line; this is the second.
@@ -56,7 +59,15 @@
  * `stock` in products.json -- the behaviour the shop had before this ledger
  * existed. A refusal for WANT of stock is different from a failure and is
  * thrown as InventoryError so callers can tell the two apart.
+ *
+ * Except for a workshop TICKET. A seat has no static fallback worth the
+ * name -- spots are a starting number, and a session sold against it with
+ * no hold is a seat the ledger never hears about -- so the checkout hooks
+ * refuse a ticket line (503, "try again in a minute") when the ledger cannot
+ * count it, while every other line keeps failing open (routes/inventory.js).
  */
+
+import { TICKET_ID_PREFIX } from "./tickets.js";
 
 /**
  * Checkout Sessions are created with `expires_at` 31 minutes out
@@ -66,6 +77,20 @@
  * checkout hold a product's whole count for a day (red team, 2026-09-09).
  */
 export const HOLD_TTL_MS = 35 * 60 * 1000;
+
+/**
+ * How long a hold may wait on a DELAYED payment, counted from when the hold
+ * was taken. A session paid by a delayed-notification method (ACH Direct
+ * Debit, the one Stripe offers a US shop) completes with `payment_status:
+ * "unpaid"`; the money clears -- or does not -- up to four business days
+ * later, as `checkout.session.async_payment_succeeded` (commit) or
+ * `..._failed` (release), and Stripe retries a webhook it could not deliver
+ * for three more days. Fourteen days covers both with room to spare and
+ * still bounds a hold whose last event was lost. Before this, the 35-minute
+ * sweep released the hold, the success event days later committed nothing,
+ * and 10 paid seats went back on sale (red team, 2026-10-09).
+ */
+export const ASYNC_PAYMENT_HOLD_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** Ceiling on a seeded count; anything larger is a typo, not a shelf. */
 export const MAX_SEED_STOCK = 1000000;
@@ -197,14 +222,28 @@ export async function syncInventory(db, tracked, now = Date.now(), catalogFetche
      tracks. Mark them so that tracking the product again -- even at the
      very number it had before -- seeds fresh instead of silently resuming
      a count that went on changing while untracked (red team, 2026-09-09).
-     seed_at goes to 0 so the guard above cannot block that reseed. */
+     seed_at goes to 0 so the guard above cannot block that reseed.
+
+     NOT a workshop ticket's row. A ticket leaves the tracked list for
+     reasons that say nothing about its seats: a colo still holding an
+     events.json copy from before the workshop went on sale (cached up to
+     300s per colo, with no fetch time this sweep could weigh), or the day
+     after the date, when ticketEntriesOf() drops it -- and the owner then
+     postpones it under the same id. Untracking it there reseeded the row
+     to full spots on the next sync: 9 of 12 sold became 12 on sale again
+     (red team, 2026-10-09). A ticket's row is keyed by its workshop's
+     stamped id, which no other workshop ever takes, so it simply keeps its
+     count while it is off the list and resumes it when it is back. The
+     owner's correction still goes through the seed_stock/seed_at guard
+     above: a new "Tickets available" number reseeds as it always did. */
   statements.push(
     db
       .prepare(
         `UPDATE inventory SET seed_stock = ?, seed_at = 0, updated_at = ?
-         WHERE synced_at < ? AND seed_stock <> ?`
+         WHERE synced_at < ? AND seed_stock <> ?
+           AND substr(product_id, 1, ?) <> ?`
       )
-      .bind(UNTRACKED_SEED, now, now, UNTRACKED_SEED)
+      .bind(UNTRACKED_SEED, now, now, UNTRACKED_SEED, TICKET_ID_PREFIX.length, TICKET_ID_PREFIX)
   );
   const results = await db.batch(statements);
   // Count seeds/reseeds only (every other statement in the batch is a stamp).
@@ -215,6 +254,54 @@ export async function syncInventory(db, tracked, now = Date.now(), catalogFetche
   }
   syncedSignature = signature;
   return { changed, tracked: list.length };
+}
+
+/** The entries of a catalogue in either reader's shape (see syncFromCatalog). */
+function catalogEntries(catalog) {
+  if (!catalog || typeof catalog !== "object") return [];
+  if (Array.isArray(catalog.products)) return catalog.products;
+  if (typeof catalog.values === "function") return [...catalog.values()];
+  return [];
+}
+
+/**
+ * THE way a reader of the site's catalogue syncs the ledger -- the only one.
+ * Three readers seed rows from what they loaded, and each used to carry its
+ * own copy of the guard below, so one of them forgot it (red team,
+ * 2026-10-09: the Square register's seedLedger synced a ticket-less list
+ * during an events.json blip and the next sync sold 7 sold seats again):
+ *   - workers/checkout.js loadCatalog()      `{products: [...]}`, via
+ *     routes/inventory.js availabilityForCheckout (the money path);
+ *   - workers/state/site-data.js loadProductIndex()   a Map, via
+ *     routes/inventory.js handleInventory (/api/inventory);
+ *   - the same index, via routes/square-webhook.js seedLedger (a register
+ *     sale or refund, the push after every paid order, the hourly tick).
+ *
+ * Refuses -- `{synced: false}`, nothing written -- when the catalogue says
+ * its calendar could not be read (`ticketsUnavailable`) or holds nothing at
+ * all. A sync marks every row its list does not name as untracked, so a
+ * list missing the products (or, before syncInventory stopped untracking
+ * tickets, missing the tickets) erases what was sold. The caller then reads
+ * the counts the ledger already has.
+ *
+ * @param {object} db D1 binding
+ * @param {object|Map} catalog either reader's catalogue, with its
+ *   non-enumerable `fetchedAt` and (when the calendar was down)
+ *   `ticketsUnavailable`
+ * @returns {Promise<{synced: boolean, reason?: string, changed: number,
+ *   tracked: Array<{id: string, stock: number}>}>} `tracked` either way, so a
+ *   refused caller still knows which ids to read
+ */
+export async function syncFromCatalog(db, catalog, now = Date.now()) {
+  const tracked = trackedProductsOf(catalogEntries(catalog));
+  if (!catalog || catalog.ticketsUnavailable) {
+    return { synced: false, reason: "tickets-unavailable", changed: 0, tracked };
+  }
+  if (!catalogEntries(catalog).length) {
+    return { synced: false, reason: "empty-catalog", changed: 0, tracked };
+  }
+  const out = await syncInventory(db, tracked, now, catalog.fetchedAt);
+  return { synced: true, changed: out.changed, tracked };
 }
 
 /**
@@ -466,10 +553,42 @@ export async function restockInventory(db, sessionId, now = Date.now()) {
 }
 
 /**
+ * The session completed but its payment is still on its way (a delayed-
+ * notification method: `payment_status: "unpaid"`). Its holds must outlive
+ * the 35-minute sweep -- they are released by `async_payment_failed` or
+ * committed by `async_payment_succeeded`, whenever that comes -- yet not
+ * forever, in case the last event is lost. No new column for it: the sweep
+ * releases an active hold once `created_at` is HOLD_TTL_MS old, so moving
+ * `created_at` forward by (ASYNC_PAYMENT_HOLD_MS - HOLD_TTL_MS) makes the
+ * same sweep release it ASYNC_PAYMENT_HOLD_MS after it was taken.
+ *
+ * Exactly once per hold: an active hold's `updated_at` is the moment it was
+ * taken (only a state change writes it), so `created_at = updated_at` means
+ * "not extended yet", and a redelivered completion -- Stripe retries for
+ * three days -- cannot push the bound out again. An active hold whose
+ * created_at is later than its updated_at is one waiting on a payment.
+ *
+ * @returns {Promise<{extended: number}>} holds given the longer life
+ */
+export async function awaitDelayedPayment(db, sessionId) {
+  const session = assertSessionId(sessionId);
+  const res = await db
+    .prepare(
+      `UPDATE inventory_holds SET created_at = created_at + ?
+        WHERE session_id = ? AND state = 'active' AND created_at = updated_at`
+    )
+    .bind(ASYNC_PAYMENT_HOLD_MS - HOLD_TTL_MS, session)
+    .run();
+  return { extended: Number((res && res.meta && res.meta.changes) || 0) };
+}
+
+/**
  * Cron backstop: releases active holds older than HOLD_TTL_MS. Stripe's
  * `checkout.session.expired` is the normal path; this catches a webhook that
  * never arrived, so a lost event cannot keep the last unit off the shelf
- * forever.
+ * forever. A hold waiting on a delayed payment (awaitDelayedPayment) reads
+ * as younger than it is, and is released ASYNC_PAYMENT_HOLD_MS after it was
+ * taken instead.
  *
  * @returns {Promise<number>} holds released
  */
@@ -625,11 +744,20 @@ export async function holdRows(db, sessionId) {
 
 /**
  * The public answer: `{ products: { id: { available, tracked: true } } }`
- * for tracked products only. Syncs first so a product tracked since the last
- * build has a row to read.
+ * for tracked products only. Syncs first (syncFromCatalog) so a product
+ * tracked since the last build has a row to read; null when that sync was
+ * refused, because a snapshot of a catalogue that could not be synced is not
+ * one the route should publish.
+ *
+ * @param {object} db D1 binding
+ * @param {Map|object} catalog site-data.js loadProductIndex()'s index (or
+ *   checkout's catalogue)
+ * @returns {Promise<{products: object}|null>}
  */
-export async function inventorySnapshot(db, tracked, now = Date.now(), catalogFetchedAt = null) {
-  await syncInventory(db, tracked, now, catalogFetchedAt);
+export async function inventorySnapshot(db, catalog, now = Date.now()) {
+  const sync = await syncFromCatalog(db, catalog, now);
+  if (!sync.synced) return null;
+  const tracked = sync.tracked;
   const rows = await readAvailability(
     db,
     tracked.map((p) => p.id)

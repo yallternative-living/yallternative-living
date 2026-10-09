@@ -368,6 +368,13 @@ npx wrangler d1 execute yallternative-state --remote --file=workers/schema.sql
 request -- `workers/state/migrations.js` -- so this is belt and braces, not the
 only path.)
 
+Workshop tickets need this database. Products fall back to their static
+Stock count when D1 is missing or failing; a workshop ticket does not -- a
+seat sold with no hold in the ledger is one nothing counts -- so until
+`STATE_DB` is bound and answering, a ticket at checkout is refused with a 503
+("try again in a moment") and nothing is charged (`workers/routes/inventory.js`,
+`uncountedTickets`).
+
 The Durable Object bindings need no setup: `checkout.js` exports
 `GiftCardLedger` and `RateLimitCounter`, and the `new_sqlite_classes` migration
 in `wrangler.toml` creates them on first deploy. SQLite-backed Durable Objects
@@ -885,7 +892,9 @@ Subscribe to exactly these five:
 - `checkout.session.completed` -- issues the cards an order bought and settles
   the hold on a card an order spent, but only once `payment_status` is `paid`;
   an unpaid completion (a delayed-notification method such as ACH) is recorded
-  as deferred and nothing is minted or debited,
+  as deferred and nothing is minted or debited -- but the stock and workshop
+  spots it holds stay held (up to 14 days from checkout) until the payment
+  clears or fails, instead of going back on sale after 35 minutes,
 - `checkout.session.async_payment_succeeded` -- the delayed payment cleared;
   runs the same steps `completed` would have. Never fires while only card
   payment is enabled, and costs nothing to subscribe,

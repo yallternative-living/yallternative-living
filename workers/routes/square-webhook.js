@@ -84,7 +84,7 @@ import { ensureSchema } from "../state/migrations.js";
 import { loadProductIndex, loadSiteSettings } from "../state/site-data.js";
 import { claimEvent, markEventDone, releaseEvent } from "../state/webhook-events.js";
 import { alertOwner } from "./alerts.js";
-import { readAvailability, syncInventory, trackedProductsOf } from "../state/inventory.js";
+import { readAvailability, syncFromCatalog } from "../state/inventory.js";
 import {
   applySquareSale,
   catalogRows,
@@ -402,13 +402,22 @@ function variationRows(objects, itemNames) {
  * GET /api/inventory does before it reads (routes/inventory.js): a product
  * given a Stock count since the last sale would otherwise have no row and be
  * skipped as untracked. Returns the index it read so callers read it once.
+ *
+ * Through syncFromCatalog, the one sync every reader of the catalogue uses:
+ * it refuses an index that could not read events.json (`ticketsUnavailable`)
+ * or read nothing at all. This used to check only `idx.size`, so a calendar
+ * blip during a register sale, a refund, the push after every paid order or
+ * the hourly tick synced a ticket-less list -- and the next sync sold the
+ * sold seats again (red team, 2026-10-09). Refused, the callers simply read
+ * the counts the ledger already has.
  */
 async function seedLedger(env, ctx, now, index = null) {
   const idx = index || (await loadProductIndex(env, ctx));
   // idx.fetchedAt is when the site served this catalogue, so a copy older
   // than the last owner correction cannot reseed a row backwards.
-  if (idx.size) {
-    await syncInventory(env.STATE_DB, trackedProductsOf(idx.values()), now, idx.fetchedAt);
+  const sync = await syncFromCatalog(env.STATE_DB, idx, now);
+  if (!sync.synced && sync.reason === "tickets-unavailable") {
+    console.warn(`${LOG_MARKER} events.json unreachable; the ledger was not re-synced this time`);
   }
   return idx;
 }

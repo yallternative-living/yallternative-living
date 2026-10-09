@@ -1166,7 +1166,7 @@ singletons:
               value_type: int,
               min: 0,
               required: false,
-              hint: "How many tickets the website can sell. It counts down by itself as people buy, so only change it to correct the number left (say, after selling some in person)."
+              hint: "How many tickets the website can sell. It counts down by itself as people buy, so only change it to correct the number left (say, after selling some in person). Leave it blank while tickets aren't on sale yet -- the card says 'Tickets coming soon'. 0 means sold out."
             }
           - {
               name: ticketUrl,
@@ -1243,7 +1243,7 @@ singletons:
               widget: string,
               required: false,
               readonly: true,
-              hint: "Filled in by itself from the name and date the first time you save, then never changes -- so renaming the workshop or moving its date later keeps its ticket count and any links people have shared."
+              hint: "Filled in by itself from the name and date the first time you save, then never changes -- so renaming the workshop or moving its date later keeps its ticket count and any links people have shared. A workshop you copy gets an ID of its own when it's published."
             }
       - name: past
         label: "Past appearances"

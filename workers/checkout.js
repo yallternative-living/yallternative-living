@@ -229,6 +229,8 @@ import {
   holdsFromAllocation,
   releaseInventoryForSession,
   reserveForCheckout,
+  TICKETS_UNCOUNTED_MESSAGE,
+  uncountedTickets,
   unwindRefusedSession
 } from "./routes/inventory.js";
 
@@ -555,14 +557,34 @@ function pickupLabelFor(evt) {
 // gate on whether an order is treated as a pickup at all -- it runs on every
 // checkout, tax on or off (an unvalidated label used to waive shipping on any
 // order that merely sent the field). Returns the calendar event, or null.
-function findPickupEvent(events, pickupMarket) {
+function findPickupEvent(events, pickupMarket, todayStr = easternToday()) {
   if (!events || !pickupMarket || typeof pickupMarket !== "string") return null;
   // Workshops are on the calendar too (the events page and cart.js list them
   // with the markets), and an order can be picked up at one.
   const upcoming = (Array.isArray(events.upcoming) ? events.upcoming : []).concat(
     Array.isArray(events.workshops) ? events.workshops : []
   );
-  return upcoming.find((e) => pickupLabelFor(e) === pickupMarket) || null;
+  return (
+    upcoming.find(
+      (e) => e && isStillOnCalendar(e, todayStr) && pickupLabelFor(e) === pickupMarket
+    ) || null
+  );
+}
+
+/**
+ * Is this entry still one a shopper could collect at? Exactly the rule the
+ * build archives by (scripts/build-site-data.js: an entry moves to "Where
+ * We've Been" once `endDate || date` sorts before today), judged on today in
+ * Eastern time rather than on the day of the last build. events.json's
+ * `upcoming` keeps a market until someone moves it, and `workshops` keeps
+ * every class ever listed, so without this a pickup label for "Old Class --
+ * Jan 1, 2020" waived shipping (red team, 2026-10-09). An entry with no date
+ * at all -- a standing market like "Saturdays 9am-12pm" -- stays, as the
+ * build keeps it.
+ */
+function isStillOnCalendar(evt, todayStr) {
+  const lastDay = evt.endDate || evt.date;
+  return !lastDay || !(String(lastDay) < todayStr);
 }
 
 function resolvePickupAddress(events, pickupMarket) {
@@ -985,8 +1007,18 @@ function allocateStock(items, catalog, availability) {
     const entry = findEntry(catalog, String(item && item.id));
     if (!entry) return { qty: wanted, exhausted: null, holds: [] };
     const qty = take(entry, wanted);
+    // A workshop ticket's hold says so: when the ledger cannot count or hold
+    // it, checkout refuses the line instead of selling it on its starting
+    // spots (routes/inventory.js uncountedTickets).
     const holds = hasTrackedStock(entry)
-      ? [{ productId: entry.id, name: entry.name || entry.id, units: 1 }]
+      ? [
+          {
+            productId: entry.id,
+            name: entry.name || entry.id,
+            units: 1,
+            ...(entry.isTicket === true ? { isTicket: true } : {})
+          }
+        ]
       : [];
     return { qty, exhausted: qty <= 0 && hasTrackedStock(entry) ? entry.id : null, holds };
   });
@@ -1846,6 +1878,12 @@ async function handleCheckout(request, env, ctx, origin) {
       // the catalog's own `stock` caps exactly as it did before the ledger).
       const availability = await availabilityForCheckout(env, catalog);
       const allocation = allocateStock(items, catalog, availability);
+      // Products fall back to their static `stock` when the ledger cannot
+      // answer; a workshop ticket does not -- refused before any session
+      // exists, with nothing for the drawer to drop (routes/inventory.js).
+      if (uncountedTickets(allocation, availability).length) {
+        throw new ClientError(TICKETS_UNCOUNTED_MESSAGE, 503);
+      }
 
       const { lineItems, retentionProductIds, retentionCategories } = buildLineItems(
         catalog,
@@ -2395,6 +2433,9 @@ async function handleCheckout(request, env, ctx, origin) {
         );
         if (!held.ok) {
           await unwindRefusedSession(env, session.id, appliedGiftCardCouponId);
+          // A ticket the ledger could not hold: not sold out, just not
+          // countable this minute -- the line stays in the drawer.
+          if (held.uncounted) throw new ClientError(TICKETS_UNCOUNTED_MESSAGE, 503);
           throw new ClientError(`Sold out: ${held.name}`, 400, unavailableDetails(held.refusal));
         }
       }
@@ -2634,6 +2675,13 @@ export default {
             async () =>
               (await import("./state/analytics-sends.js")).sweepAnalyticsSends(env.STATE_DB)
           ],
+          /* The fulfilment dashboard's remembered GitHub sign-ins, by digest
+             (routes/fulfillment.js): a row older than 90 days grants nothing,
+             and without this sweep every token ever used stayed forever. */
+          [
+            "known-token sweep",
+            async () => (await import("./routes/fulfillment.js")).sweepKnownTokens(env.STATE_DB)
+          ],
           /* One row per order that has been told it shipped, kept 90 days so a
              late edit to the fulfilment metadata cannot send the notice twice.
              Same reason as the row above: without a sweeper it grows forever. */
@@ -2643,8 +2691,10 @@ export default {
           ],
           ["email-queue sweep", () => retention.sweepEmailQueue(env.STATE_DB)],
           /* Inventory holds whose Stripe session died without the expiry
-             webhook arriving: released after 25h so a lost event cannot keep
-             the last unit off the shelf (workers/state/inventory.js). */
+             webhook arriving: released 35 minutes after they were taken (14
+             days for a delayed payment still clearing) so a lost event
+             cannot keep the last unit off the shelf
+             (workers/state/inventory.js). */
           [
             "inventory hold sweep",
             async () => (await import("./state/inventory.js")).sweepStaleHolds(env.STATE_DB)

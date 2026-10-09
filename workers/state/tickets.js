@@ -10,14 +10,18 @@
  * from the CMS, capped by the inventory ledger (spots = `stock`), held while a
  * Stripe session is open and committed when it is paid.
  *
- * Both readers of the ledger MUST see the same tickets:
+ * Every reader of the ledger MUST see the same tickets:
  *   - workers/checkout.js loadCatalog() (the money path), and
- *   - workers/state/site-data.js loadProductIndex() (/api/inventory).
- * syncInventory() marks any row the tracked list it is given does not name as
- * untracked, and an untracked row reseeds FROM SCRATCH the next time it is
- * tracked. One reader without tickets would therefore erase every ticket sold
- * the next time the other one synced. Hence one helper here, and both callers
- * refuse to sync at all when they could not read the calendar.
+ *   - workers/state/site-data.js loadProductIndex() (/api/inventory, and the
+ *     Square register in routes/square-webhook.js).
+ * syncInventory() marks any PRODUCT row the tracked list it is given does not
+ * name as untracked, and an untracked row reseeds FROM SCRATCH the next time
+ * it is tracked. Hence one helper here for the list, and one sync for every
+ * reader -- workers/state/inventory.js syncFromCatalog(), which refuses to
+ * sync at all when the calendar could not be read. A ticket row is never
+ * marked untracked in the first place (a stale events.json copy, or the day
+ * after the workshop, drops it from the list without touching its seats), so
+ * a workshop postponed under its stamped id resumes its count.
  *
  * The workshop id is the CMS `id` when set, else the same slug of
  * "<name> <date>" scripts/build-site-data.js ensureEventId() assigns, so the
@@ -61,13 +65,28 @@ export function easternToday(now = Date.now()) {
 }
 
 /**
+ * True when "Tickets available" was actually filled in: a number, or a
+ * string with a digit in it. Mirror of scripts/build-site-data.js
+ * workshopSpotsGiven(). A blank CMS number field is saved as null or "",
+ * and Number(null) and Number("") are both 0 -- so a workshop whose spots
+ * were simply not typed yet used to sell out on the card and in checkout
+ * while the build said "Tickets coming soon" (red team, 2026-10-09).
+ */
+export function spotsGiven(value) {
+  if (typeof value === "number") return true;
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/**
  * True when this workshop sells its tickets on the site: a positive price,
- * a whole number of spots, and no outside ticket link (a workshop sold on
- * Square or Eventbrite links out instead and is not sold here).
+ * a whole number of spots that was actually given (spotsGiven), and no
+ * outside ticket link (a workshop sold on Square or Eventbrite links out
+ * instead and is not sold here).
  */
 export function sellsTicketsOnSite(workshop) {
   if (!workshop || typeof workshop !== "object") return false;
   if (typeof workshop.ticketUrl === "string" && workshop.ticketUrl.trim()) return false;
+  if (!spotsGiven(workshop.spots)) return false;
   const price = Number(workshop.price);
   const spots = Number(workshop.spots);
   return Number.isFinite(price) && price > 0 && Number.isInteger(spots) && spots >= 0;
