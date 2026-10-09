@@ -6124,22 +6124,66 @@ section("Form hygiene: all interactive form controls carry name attributes");
       });
       return list;
     }
+    /* The attributes of one tag, parsed rather than pattern-matched: the old
+       test `/\bname\s*=/` was satisfied by `data-item-name="q"` (the \b sits
+       between "-" and "n"), so a control with no name at all passed whenever
+       it carried any *-name attribute (red team, 2026-10-09). Quoted values
+       are consumed whole, so `placeholder="your name = ..."` cannot count
+       either. */
+    function tagAttributes(tag) {
+      var attrs = {};
+      var body = tag.replace(/^<[a-zA-Z][\w-]*/, "").replace(/\/?>$/, "");
+      var re = /([^\s=/>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+)))?/g;
+      var m;
+      while ((m = re.exec(body))) {
+        var v = m[2] !== undefined ? m[2] : m[3] !== undefined ? m[3] : m[4];
+        attrs[m[1].toLowerCase()] = v === undefined ? "" : v;
+      }
+      return attrs;
+    }
+    function hasName(tag) {
+      var attrs = tagAttributes(tag);
+      return Object.prototype.hasOwnProperty.call(attrs, "name") && attrs.name.trim() !== "";
+    }
+    /* The rule's own subject, checked before it is trusted with the site. */
+    if (
+      hasName('<input type="search" data-item-name="q">') ||
+      hasName('<input placeholder="your name = here">') ||
+      !hasName('<input type="text" name="q">') ||
+      !hasName("<select name='topic' id=x>") ||
+      !hasName("<textarea name=message></textarea>")
+    ) {
+      fail("form hygiene self-test", "the name-attribute parser misreads its fixtures");
+    }
     var htmlFiles = walkHtml(ROOT, []);
     var missingNameCount = 0;
+    var examined = 0;
     htmlFiles.forEach(function (f) {
       var rel = path.relative(ROOT, f);
       var content = fs.readFileSync(f, "utf8");
       var tags = content.match(/<(input|select|textarea)\b[^>]*>/gi) || [];
       tags.forEach(function (tag) {
-        if (!/\bname\s*=\s*["'][^"']+["']/i.test(tag)) {
+        examined++;
+        if (!hasName(tag)) {
           fail(rel, "form control missing name attribute: " + tag.slice(0, 80));
           missingNameCount++;
         }
       });
     });
-    if (missingNameCount === 0) {
+    if (!htmlFiles.length || examined === 0) {
+      fail(
+        "form hygiene check",
+        "examined " +
+          examined +
+          " form controls in " +
+          htmlFiles.length +
+          " pages -- nothing to check"
+      );
+    } else if (missingNameCount === 0) {
       ok(
-        "all interactive form controls across " +
+        "all " +
+          examined +
+          " interactive form controls across " +
           htmlFiles.length +
           " HTML pages carry name attributes"
       );
