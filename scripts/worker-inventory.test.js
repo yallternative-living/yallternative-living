@@ -1321,9 +1321,12 @@ async function run() {
       global.fetch = originalFetch;
     }
 
-    /* (b) Postponed after the date: the day after, the ticket drops off the
-       list; the owner then moves the date, and the stamped id keeps the
-       ledger key. The 9 seats sold stay sold. */
+    /* (b) Off the list after its date, then listed again under the SAME id:
+       the 9 seats sold stay sold. (Which edits keep the id is
+       scripts/stamp-workshop-ids.js's call: a date moved on or before the
+       night keeps it; a past night given a new date gets a fresh id and so
+       a fresh row -- stamp-workshop-ids.test.js. This pins the ledger half:
+       a row is never reset just for having been off the list.) */
     const db = await freshDb();
     const trackedOn = (events, today) =>
       inv.trackedProductsOf([{ id: "balm", stock: 3 }, ...ticketEntriesOf(events, today)]);
@@ -1344,7 +1347,7 @@ async function run() {
     const moved = trackedOn({ workshops: [{ ...w, date: "2026-11-13" }] }, "2026-11-07");
     assert(
       moved.some((p) => p.id === TICKET),
-      "...the owner moves the date: the same id is on the list again"
+      "...listed again with a new date under the same id, it is back on the list"
     );
     await inv.syncInventory(db, moved, ++t, t);
     eq(

@@ -388,6 +388,161 @@ async function run() {
     );
   }
 
+  /* ---- A past workshop reused for a new night (red team follow-up,
+     2026-10-09). Past workshops stay in `workshops`, and the ledger never
+     forgets a ticket row (workers/state/inventory.js), so changing last
+     month's entry to next month's date used to resume last month's count:
+     12 of 12 sold -> "Sold out" the moment it was published. With the
+     version before the merge, a workshop that was already over and has a
+     new date is a NEW workshop with a fresh id; one that has not happened
+     yet keeps its id (a postponement). ---- */
+  {
+    const TODAY = "2026-10-09";
+    const lastMonth = {
+      id: "potions-pour-decisions-2026-10-02",
+      name: "Potions & Pour Decisions",
+      date: "2026-10-02",
+      dateLabel: "October 2, 2026 · Friday, 6:30pm",
+      location: "Landrum, SC",
+      venue: "Landrum Depot",
+      price: 60,
+      spots: 12
+    };
+    const previous = { upcoming: [], past: [], workshops: [clone(lastMonth)] };
+    const reused = {
+      upcoming: [],
+      past: [],
+      workshops: [
+        Object.assign(clone(lastMonth), {
+          date: "2026-11-06",
+          dateLabel: "November 6, 2026 · Friday, 6:30pm"
+        })
+      ]
+    };
+    const report = stampEventIds(reused, { previous, today: TODAY });
+    eq(
+      reused.workshops[0].id,
+      "potions-pour-decisions-2026-11-06",
+      "reuse: a past workshop given a new date gets a fresh id (its new name+date slug)"
+    );
+    eq(
+      report.renewed,
+      [
+        {
+          from: "potions-pour-decisions-2026-10-02",
+          to: "potions-pour-decisions-2026-11-06",
+          name: "Potions & Pour Decisions"
+        }
+      ],
+      "...and reports it"
+    );
+    eq(
+      reused.past.map((e) => [e.id, e.date, e.type]),
+      [["potions-pour-decisions-2026-10-02", "2026-10-02", "Workshop"]],
+      "...the past night stays in Past appearances under its old id (shared links still land)"
+    );
+    assert(buildRefusal(reused) === null, "...and the build accepts the calendar");
+
+    /* The point of it, against the real ledger: last month sold out, and the
+       new night is on sale from its own "Tickets available". */
+    {
+      const { DatabaseSync } = require("node:sqlite");
+      const { makeD1 } = require("./lib/d1-emulator.js");
+      const { applyMigrations, resetSchemaMemo } = await import("../workers/state/migrations.js");
+      const inv = await import("../workers/state/inventory.js");
+      resetSchemaMemo();
+      inv.resetInventoryMemo();
+      const db = makeD1(new DatabaseSync(":memory:"));
+      await applyMigrations(db);
+      const tracked = (events, today) =>
+        inv.trackedProductsOf(tickets.ticketEntriesOf(events, today));
+      let t = 1000;
+      await inv.syncInventory(db, tracked(previous, "2026-10-01"), ++t, t);
+      const oldTicket = "ticket-potions-pour-decisions-2026-10-02";
+      await inv.reserveInventory(db, "cs_sold_out", [{ productId: oldTicket, qty: 12 }], t);
+      await inv.commitInventory(db, "cs_sold_out", t);
+      eq(
+        (await inv.readAvailability(db, [oldTicket])).get(oldTicket).available,
+        0,
+        "ledger: last month's night sold all 12"
+      );
+      const onSale = tracked(reused, TODAY);
+      eq(onSale.length, 1, "ledger: the new night is on the tracked list");
+      await inv.syncInventory(db, onSale, ++t, t);
+      eq(
+        (await inv.readAvailability(db, [onSale[0].id])).get(onSale[0].id).available,
+        12,
+        "ledger: the reused entry's new night has 12 on sale, not last month's 0"
+      );
+    }
+
+    // Postponed BEFORE it happens: the same workshop, its id and count kept.
+    const upcomingNight = Object.assign(clone(lastMonth), {
+      id: "potions-pour-decisions-2026-11-06",
+      date: "2026-11-06"
+    });
+    const postponed = {
+      upcoming: [],
+      past: [],
+      workshops: [Object.assign(clone(upcomingNight), { date: "2026-11-13" })]
+    };
+    const postponedReport = stampEventIds(postponed, {
+      previous: { workshops: [clone(upcomingNight)] },
+      today: TODAY
+    });
+    eq(
+      [postponed.workshops[0].id, postponedReport.renewed, postponed.past],
+      ["potions-pour-decisions-2026-11-06", [], []],
+      "postponing a workshop that has not happened yet keeps its id (and its tickets)"
+    );
+    const onTheDay = { workshops: [Object.assign(clone(upcomingNight), { date: "2026-11-20" })] };
+    stampEventIds(onTheDay, {
+      previous: { workshops: [clone(upcomingNight)] },
+      today: "2026-11-06"
+    });
+    eq(
+      onTheDay.workshops[0].id,
+      "potions-pour-decisions-2026-11-06",
+      "...and so does moving it on the day itself"
+    );
+
+    // A past workshop whose date did not change (a typo fixed in its note).
+    const edited = { workshops: [Object.assign(clone(lastMonth), { note: "Thanks, y'all!" })] };
+    stampEventIds(edited, { previous, today: TODAY });
+    eq(
+      edited.workshops[0].id,
+      lastMonth.id,
+      "a past workshop edited but not re-dated keeps its id"
+    );
+
+    // Without the previous version, nothing changes (the old behaviour).
+    const noPrevious = clone({ upcoming: [], past: [], workshops: reused.workshops });
+    noPrevious.workshops[0].id = lastMonth.id;
+    const noPreviousReport = stampEventIds(noPrevious, { today: TODAY });
+    eq(
+      [noPrevious.workshops[0].id, noPreviousReport.written, noPrevious.past],
+      [lastMonth.id, [], []],
+      "without --previous, a re-dated past workshop is left exactly as it is"
+    );
+
+    // The fresh id steps around one already in use, and the past record is
+    // not written twice.
+    const crowded = {
+      upcoming: [],
+      past: [{ id: lastMonth.id, name: lastMonth.name, date: lastMonth.date, type: "Workshop" }],
+      workshops: [
+        Object.assign(clone(lastMonth), { date: "2026-11-06" }),
+        { id: "potions-pour-decisions-2026-11-06", name: "Other", date: "2026-11-07" }
+      ]
+    };
+    stampEventIds(crowded, { previous, today: TODAY });
+    eq(
+      [crowded.workshops[0].id, crowded.past.length],
+      ["potions-pour-decisions-2026-11-06-2", 1],
+      "the fresh id is unique, and an existing past record is not duplicated"
+    );
+  }
+
   /* ---- The command line: `--previous` is optional, and a path that is given
      must exist (a typo must not switch the protection off). Run against the
      real file, where it is a no-op, so the file is left as it was. ---- */
