@@ -709,7 +709,11 @@ async function run() {
       data: { object: { ...paid.data.object, id: "cs_unpaid", payment_status: "unpaid" } }
     };
     const deferred = await processStripeEvent(unpaid, env2, noCtx);
-    assert(deferred.deferred && !deferred.inventory, "an unpaid completion leaves the hold active");
+    assert(
+      deferred.deferred && deferred.inventory && !("committed" in deferred.inventory),
+      "an unpaid completion commits nothing"
+    );
+    eq(deferred.inventory, { extended: 1 }, "...and gives its hold the delayed-payment life");
     eq(
       (await inv.holdRows(env2.STATE_DB, "cs_unpaid"))[0].state,
       "active",
@@ -748,6 +752,125 @@ async function run() {
       [{ productId: "single-tee", qty: 1 }],
       "async_payment_failed releases the hold"
     );
+
+    /* Red team, 2026-10-09: a DELAYED payment (ACH) completes "unpaid" and
+       clears days later. The 35-minute sweep used to release its hold in
+       between, so async_payment_succeeded committed nothing and 10 paid
+       seats went back on sale. */
+    {
+      const achEnv = await makeEnv();
+      const db = achEnv.STATE_DB;
+      await inv.syncInventory(db, [{ id: "ticket-x", stock: 12 }]);
+      const t0 = Date.now();
+      await inv.reserveInventory(db, "cs_ach", [{ productId: "ticket-x", qty: 10 }], t0);
+      const achSession = (status) => ({
+        id: "cs_ach",
+        payment_status: status,
+        customer_details: { email: "buyer@example.com" },
+        metadata: {}
+      });
+      const completed = await processStripeEvent(
+        {
+          id: "evt_ach_done",
+          type: "checkout.session.completed",
+          data: { object: achSession("unpaid") }
+        },
+        achEnv,
+        noCtx
+      );
+      eq(completed.inventory, { extended: 1 }, "ACH: the unpaid completion extends the hold");
+      eq(
+        await inv.sweepStaleHolds(db, t0 + 36 * 60 * 1000),
+        0,
+        "ACH: the 35-minute sweep no longer releases a hold waiting on its payment"
+      );
+      eq(
+        await inv.sweepStaleHolds(db, t0 + 3 * 86400e3),
+        0,
+        "...nor three days later, while the money is still clearing"
+      );
+      const again = await processStripeEvent(
+        {
+          id: "evt_ach_done_2",
+          type: "checkout.session.completed",
+          data: { object: achSession("unpaid") }
+        },
+        achEnv,
+        noCtx
+      );
+      eq(again.inventory, { extended: 0 }, "ACH: a redelivered completion cannot extend it again");
+      eq(
+        (await inv.readAvailability(db, ["ticket-x"])).get("ticket-x").available,
+        2,
+        "...2 of 12 on sale while 10 are held"
+      );
+      const originalFetch = global.fetch;
+      global.fetch = async () => ({
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+        text: async () => ""
+      });
+      let succeeded;
+      try {
+        await capture(async () => {
+          succeeded = await processStripeEvent(
+            {
+              id: "evt_ach_paid",
+              type: "checkout.session.async_payment_succeeded",
+              data: { object: achSession("paid") }
+            },
+            achEnv,
+            noCtx
+          ).catch((err) => err.partial);
+        });
+      } finally {
+        global.fetch = originalFetch;
+      }
+      eq(
+        succeeded.inventory.committed,
+        [{ productId: "ticket-x", qty: 10 }],
+        "ACH: async_payment_succeeded days later commits the 10 held seats"
+      );
+      const row = (await inv.readAvailability(db, ["ticket-x"])).get("ticket-x");
+      eq([row.onHand, row.reserved, row.available], [2, 0, 2], "...and 2 stay on sale, not 12");
+
+      // Bounded: a hold whose last event never comes is released in the end.
+      await inv.reserveInventory(db, "cs_lost", [{ productId: "ticket-x", qty: 1 }], t0);
+      eq((await inv.awaitDelayedPayment(db, "cs_lost")).extended, 1, "a second ACH hold waits");
+      eq(
+        await inv.sweepStaleHolds(db, t0 + inv.ASYNC_PAYMENT_HOLD_MS - 1),
+        0,
+        "...until ASYNC_PAYMENT_HOLD_MS after it was taken"
+      );
+      eq(
+        await inv.sweepStaleHolds(db, t0 + inv.ASYNC_PAYMENT_HOLD_MS + 1),
+        1,
+        "...and is released then, if neither async event ever arrived"
+      );
+      assert(
+        inv.ASYNC_PAYMENT_HOLD_MS > 7 * 86400e3 && inv.ASYNC_PAYMENT_HOLD_MS <= 30 * 86400e3,
+        "the delayed-payment bound covers ACH plus Stripe's 3-day retries, and is bounded"
+      );
+
+      // async_payment_failed still releases an extended hold at once.
+      await inv.reserveInventory(db, "cs_bounce", [{ productId: "ticket-x", qty: 2 }], t0);
+      await inv.awaitDelayedPayment(db, "cs_bounce");
+      const bounced = await processStripeEvent(
+        {
+          id: "evt_ach_fail",
+          type: "checkout.session.async_payment_failed",
+          data: { object: { id: "cs_bounce", metadata: {} } }
+        },
+        achEnv,
+        noCtx
+      ).catch((err) => err.partial);
+      eq(
+        bounced.inventory.released,
+        [{ productId: "ticket-x", qty: 2 }],
+        "ACH: async_payment_failed releases an extended hold straight away"
+      );
+    }
 
     // Refund: full restocks, partial does not; the session comes from Stripe.
     const refundEnv = await makeEnv();
@@ -1123,6 +1246,201 @@ async function run() {
       1,
       "...and a correction after migration reseeds (seed_at started at 0)"
     );
+  }
+
+  /* ======================================================================
+     Red team, 2026-10-09: a workshop ticket's row is never marked
+     untracked. A ticket leaves the tracked list for reasons that say
+     nothing about its seats -- a colo's cached events.json from before it
+     went on sale, or the day after its date -- and untracking it there
+     reseeded the row to full spots on the next sync.
+     ====================================================================== */
+  console.log("\n8. ticket rows keep their count while off the list");
+  {
+    const { ticketEntriesOf } = await import("../workers/state/tickets.js");
+    const W = { id: "candle-night-2026-11-06", name: "Candle Night", date: "2026-11-06" };
+    const TICKET = "ticket-candle-night-2026-11-06";
+
+    /* (a) The stale copy, through the real GET /api/inventory: one colo
+       seeds from the copy served once tickets went on sale (T1), the
+       opening rush sells 9 of 12, another colo still holds the copy served
+       BEFORE the price was filled in (T0: no ticket on it at all), then
+       that colo's cache refreshes. */
+    const env = await makeEnv();
+    const T0 = Date.parse("2026-10-09T15:00:00Z");
+    const T1 = T0 + 4 * 60 * 1000;
+    const before = { upcoming: [], past: [], workshops: [{ ...W, spots: 12 }] };
+    const onSale = { upcoming: [], past: [], workshops: [{ ...W, spots: 12, price: 40 }] };
+    let served = { body: onSale, at: T1 };
+    const originalFetch = global.fetch;
+    global.fetch = async (url) => {
+      const u = String(url);
+      if (u.endsWith("products.json")) {
+        return new Response(JSON.stringify(mockCatalog), {
+          headers: { date: new Date(T0 - 3600e3).toUTCString() }
+        });
+      }
+      if (u.endsWith("events.json")) {
+        return new Response(JSON.stringify(served.body), {
+          headers: { date: new Date(served.at).toUTCString() }
+        });
+      }
+      return new Response("{}", { status: 404 });
+    };
+    let ip = 0;
+    const live = async () => {
+      const res = await worker.fetch(
+        new Request("https://yallternativeliving.com/api/inventory", {
+          headers: { "CF-Connecting-IP": `10.8.0.${++ip}` }
+        }),
+        env,
+        noCtx
+      );
+      return (await res.json()).products || {};
+    };
+    try {
+      eq((await live())[TICKET], { available: 12, tracked: true }, "stale copy: seeded at 12");
+      await inv.reserveInventory(env.STATE_DB, "cs_rush", [{ productId: TICKET, qty: 9 }]);
+      await inv.commitInventory(env.STATE_DB, "cs_rush");
+      served = { body: before, at: T0 };
+      const stale = await live();
+      assert(!(TICKET in stale), "stale copy: a colo still holding the T0 copy lists no ticket");
+      const row = (await inv.inventoryRows(env.STATE_DB)).find((r) => r.product_id === TICKET);
+      eq(
+        [row.on_hand, row.seed_stock],
+        [3, 12],
+        "...and its sync leaves the ticket row as it was (not marked untracked)"
+      );
+      served = { body: onSale, at: T1 };
+      eq(
+        (await live())[TICKET],
+        { available: 3, tracked: true },
+        "...so when that colo's cache refreshes, 3 of 12 are on sale -- not 12 again"
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
+
+    /* (b) Off the list after its date, then listed again under the SAME id:
+       the 9 seats sold stay sold. (Which edits keep the id is
+       scripts/stamp-workshop-ids.js's call: a date moved on or before the
+       night keeps it; a past night given a new date gets a fresh id and so
+       a fresh row -- stamp-workshop-ids.test.js. This pins the ledger half:
+       a row is never reset just for having been off the list.) */
+    const db = await freshDb();
+    const trackedOn = (events, today) =>
+      inv.trackedProductsOf([{ id: "balm", stock: 3 }, ...ticketEntriesOf(events, today)]);
+    const w = { ...W, price: 40, spots: 12 };
+    let t = 1000;
+    await inv.syncInventory(db, trackedOn({ workshops: [w] }, "2026-11-05"), ++t, t);
+    await inv.reserveInventory(db, "cs_night", [{ productId: TICKET, qty: 9 }], t);
+    await inv.commitInventory(db, "cs_night", t);
+    const dayAfter = trackedOn({ workshops: [w] }, "2026-11-07");
+    eq(
+      dayAfter.map((p) => p.id),
+      ["balm"],
+      "postponed: the day after its date the ticket is off the tracked list"
+    );
+    await inv.syncInventory(db, dayAfter, ++t, t);
+    let ticketRow = (await inv.inventoryRows(db)).find((r) => r.product_id === TICKET);
+    eq([ticketRow.on_hand, ticketRow.seed_stock], [3, 12], "...and that sync leaves the row alone");
+    const moved = trackedOn({ workshops: [{ ...w, date: "2026-11-13" }] }, "2026-11-07");
+    assert(
+      moved.some((p) => p.id === TICKET),
+      "...listed again with a new date under the same id, it is back on the list"
+    );
+    await inv.syncInventory(db, moved, ++t, t);
+    eq(
+      (await inv.readAvailability(db, [TICKET])).get(TICKET).available,
+      3,
+      "...and 3 seats are on sale, not 12 (the 9 sold stay sold)"
+    );
+
+    // The owner's own correction still reseeds through the seed guard.
+    const more = trackedOn({ workshops: [{ ...w, date: "2026-11-13", spots: 15 }] }, "2026-11-07");
+    eq((await inv.syncInventory(db, more, ++t, t)).changed, 1, "a new spots count reseeds");
+    ticketRow = (await inv.inventoryRows(db)).find((r) => r.product_id === TICKET);
+    eq([ticketRow.on_hand, ticketRow.seed_stock], [15, 15], "...to what the owner typed");
+
+    // A product dropped from the list is still marked untracked as before.
+    await inv.syncInventory(db, [], ++t, t);
+    const rows = await inv.inventoryRows(db);
+    eq(
+      rows.find((r) => r.product_id === "balm").seed_stock,
+      inv.UNTRACKED_SEED,
+      "a product the catalogue stopped tracking is still marked untracked"
+    );
+    eq(
+      rows.find((r) => r.product_id === TICKET).seed_stock,
+      15,
+      "...in the same sync that leaves the ticket's row alone"
+    );
+  }
+
+  /* ======================================================================
+     Red team, 2026-10-09: ONE sync for every reader of the catalogue.
+     syncFromCatalog refuses a catalogue whose calendar could not be read,
+     or one with nothing in it, in both readers' shapes.
+     ====================================================================== */
+  console.log("\n9. syncFromCatalog: the one guarded sync");
+  {
+    assert(typeof inv.syncFromCatalog === "function", "syncFromCatalog is exported");
+    const db = await freshDb();
+    const products = [
+      { id: "shea", stock: 10 },
+      { id: "ticket-night", stock: 12, isTicket: true }
+    ];
+    const ok = await inv.syncFromCatalog(db, { products }, 1000);
+    eq([ok.synced, ok.changed], [true, 2], "a whole catalogue (checkout's shape) is synced");
+    eq(
+      ok.tracked.map((p) => p.id),
+      ["shea", "ticket-night"],
+      "...and says which ids it tracked"
+    );
+
+    // The owner corrects shea while the calendar is down: nothing is written.
+    const downCatalog = { products: [{ id: "shea", stock: 4 }] };
+    Object.defineProperty(downCatalog, "ticketsUnavailable", { value: true });
+    inv.resetInventoryMemo();
+    const refused = await inv.syncFromCatalog(db, downCatalog, 2000);
+    eq(
+      [refused.synced, refused.reason, refused.changed],
+      [false, "tickets-unavailable", 0],
+      "a catalogue that could not read events.json is refused"
+    );
+    eq(
+      refused.tracked.map((p) => p.id),
+      ["shea"],
+      "...still naming the ids to read"
+    );
+    const index = new Map([["shea", { id: "shea", stock: 4 }]]);
+    Object.defineProperty(index, "ticketsUnavailable", { value: true });
+    eq(
+      (await inv.syncFromCatalog(db, index, 3000)).synced,
+      false,
+      "...in the product index's (Map) shape too"
+    );
+    eq(
+      (await inv.syncFromCatalog(db, new Map(), 4000)).reason,
+      "empty-catalog",
+      "an empty catalogue is refused"
+    );
+    const rows = await inv.inventoryRows(db);
+    eq(
+      rows.map((r) => [r.product_id, r.on_hand, r.seed_stock, r.synced_at]),
+      [
+        ["shea", 10, 10, 1000],
+        ["ticket-night", 12, 12, 1000]
+      ],
+      "...and none of the refusals wrote a row"
+    );
+    const back = new Map([
+      ["shea", { id: "shea", stock: 4 }],
+      ["ticket-night", { id: "ticket-night", stock: 12 }]
+    ]);
+    Object.defineProperty(back, "fetchedAt", { value: 5000 });
+    const resumed = await inv.syncFromCatalog(db, back, 5000);
+    eq([resumed.synced, resumed.changed], [true, 1], "the calendar back, the correction applies");
   }
 
   console.log(`\nworker-inventory.test.js: ${passed} passed, ${failed} failed`);

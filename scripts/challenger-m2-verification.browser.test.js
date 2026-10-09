@@ -8,10 +8,10 @@
  * 3. Pickup selection synchronization between main.js and cart.js across page navigations.
  */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 const { chromium, firefox, webkit } = require("playwright");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -127,51 +127,18 @@ const FIXTURE_UPCOMING_IN_ORDER = FIXTURE_EVENTS.upcoming
 const EVENTS_DATA_PATH = "/assets/js/events-data.js";
 
 function createServer(port = PORT) {
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0].split("#")[0];
-    if (reqPath === EVENTS_DATA_PATH) {
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(ROOT, {
+    onRequest(req, res, ctx) {
+      if (ctx.pathname !== EVENTS_DATA_PATH) return false;
       res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
       res.end("window.YL_EVENTS = " + JSON.stringify(FIXTURE_EVENTS) + ";\n");
-      return;
+      return true;
     }
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(ROOT, reqPath);
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(ROOT, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html; charset=utf-8",
-      ".js": "text/javascript; charset=utf-8",
-      ".css": "text/css; charset=utf-8",
-      ".json": "application/json; charset=utf-8",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".avif": "image/avif",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml",
-      ".ico": "image/x-icon",
-      ".xml": "application/xml"
-    };
-
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-      } else {
-        res.writeHead(200, { "Content-Type": contentType });
-        res.end(data);
-      }
-    });
   });
-
-  return new Promise((resolve) => {
-    server.listen(port, "127.0.0.1", () => resolve(server));
-  });
+  return listenLoopback(server, port);
 }
 
 let passed = 0;

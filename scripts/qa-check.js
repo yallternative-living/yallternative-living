@@ -175,33 +175,60 @@ if (!fs.existsSync(cssPath)) {
 
 /* ---------- 3) JSON-LD validity ---------- */
 section("JSON-LD validity");
-PAGES.forEach(function (page) {
+/* Every shipped page: the top-level ones AND the generated product and
+   journal pages, which carry the Product / BlogPosting blocks CMS text flows
+   into most. The three below are thank-you / utility pages with no
+   structured data by design; every other page must carry at least one block,
+   so a generator that silently stops emitting one fails here rather than
+   leaving this loop with nothing to check. */
+var JSONLD_EXEMPT = ["404.html", "thank-you.html", "welcome.html"];
+var jsonLdPages = PAGES.concat(generatedPages("products"), generatedPages("journal"));
+var jsonLdBlockCount = 0;
+jsonLdPages.forEach(function (page) {
   var full = path.join(ROOT, page);
   if (!fs.existsSync(full)) {
     fail(page, "file missing");
     return;
   }
   var html = fs.readFileSync(full, "utf8");
-  // `[^>]*`: the events page's block carries an id, and the old pattern
-  // (`json">` exactly) skipped it -- the one block CMS titles flow into.
-  var blocks = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g) || [];
-  blocks.forEach(function (block, i) {
-    var jsonText = block.replace(/^<script[^>]*>/, "").replace(/<\/script>$/, "");
+  /* The closing tag is matched the way the HTML parser matches it: any case,
+     optional whitespace before ">". The old pattern wanted a literal
+     lowercase "</script>", so a CMS value carrying "</SCRIPT>" ended the
+     browser's block early while this check read straight past it (red team,
+     2026-10-09). The open tag takes its attributes in any order (the events
+     page's block carries an id). */
+  var blockRe =
+    /<script\b[^>]*\btype\s*=\s*["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script\s*>/gi;
+  var m;
+  var n = 0;
+  while ((m = blockRe.exec(html))) {
+    n++;
+    jsonLdBlockCount++;
+    var label = page + " JSON-LD block #" + n;
+    var jsonText = m[1];
     try {
       JSON.parse(jsonText);
-      ok(page + " JSON-LD block #" + (i + 1));
+      ok(label);
     } catch (e) {
-      fail(page + " JSON-LD block #" + (i + 1), e.message);
+      fail(label, e.message);
     }
-    // Valid JSON is not enough inside <script>: "<!--" followed by
-    // "<script" puts the HTML parser in its escaped state and the block
-    // swallows the page up to the next </script>. The build escapes every
-    // "<" (escapeJsonForScript), so a raw one here is a missed block.
-    if (/<!--|<script/i.test(jsonText)) {
-      fail(page + " JSON-LD block #" + (i + 1), 'holds a raw "<!--" or "<script"');
+    /* Valid JSON is not enough inside <script>: "</script" in any case closes
+       the block, and "<!--" + "<script" sends the parser into its escaped
+       state. The build writes every "<" as < (escapeJsonForScript), so
+       ANY raw "<" in a body means a value reached the page unescaped. */
+    if (jsonText.indexOf("<") !== -1) {
+      fail(label, 'holds a raw "<" -- a value was written without escapeJsonForScript()');
     }
-  });
+  }
+  if (n === 0 && JSONLD_EXEMPT.indexOf(page) === -1) {
+    fail(page, "carries no JSON-LD block");
+  }
 });
+if (jsonLdBlockCount === 0) {
+  fail("JSON-LD validity", "no JSON-LD blocks found on any page -- nothing was checked");
+} else {
+  ok(jsonLdBlockCount + " JSON-LD blocks across " + jsonLdPages.length + " pages checked");
+}
 
 /* ---------- 4) Internal links + images resolve to real files ---------- */
 section("Internal links & asset references");
@@ -6097,22 +6124,66 @@ section("Form hygiene: all interactive form controls carry name attributes");
       });
       return list;
     }
+    /* The attributes of one tag, parsed rather than pattern-matched: the old
+       test `/\bname\s*=/` was satisfied by `data-item-name="q"` (the \b sits
+       between "-" and "n"), so a control with no name at all passed whenever
+       it carried any *-name attribute (red team, 2026-10-09). Quoted values
+       are consumed whole, so `placeholder="your name = ..."` cannot count
+       either. */
+    function tagAttributes(tag) {
+      var attrs = {};
+      var body = tag.replace(/^<[a-zA-Z][\w-]*/, "").replace(/\/?>$/, "");
+      var re = /([^\s=/>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+)))?/g;
+      var m;
+      while ((m = re.exec(body))) {
+        var v = m[2] !== undefined ? m[2] : m[3] !== undefined ? m[3] : m[4];
+        attrs[m[1].toLowerCase()] = v === undefined ? "" : v;
+      }
+      return attrs;
+    }
+    function hasName(tag) {
+      var attrs = tagAttributes(tag);
+      return Object.prototype.hasOwnProperty.call(attrs, "name") && attrs.name.trim() !== "";
+    }
+    /* The rule's own subject, checked before it is trusted with the site. */
+    if (
+      hasName('<input type="search" data-item-name="q">') ||
+      hasName('<input placeholder="your name = here">') ||
+      !hasName('<input type="text" name="q">') ||
+      !hasName("<select name='topic' id=x>") ||
+      !hasName("<textarea name=message></textarea>")
+    ) {
+      fail("form hygiene self-test", "the name-attribute parser misreads its fixtures");
+    }
     var htmlFiles = walkHtml(ROOT, []);
     var missingNameCount = 0;
+    var examined = 0;
     htmlFiles.forEach(function (f) {
       var rel = path.relative(ROOT, f);
       var content = fs.readFileSync(f, "utf8");
       var tags = content.match(/<(input|select|textarea)\b[^>]*>/gi) || [];
       tags.forEach(function (tag) {
-        if (!/\bname\s*=\s*["'][^"']+["']/i.test(tag)) {
+        examined++;
+        if (!hasName(tag)) {
           fail(rel, "form control missing name attribute: " + tag.slice(0, 80));
           missingNameCount++;
         }
       });
     });
-    if (missingNameCount === 0) {
+    if (!htmlFiles.length || examined === 0) {
+      fail(
+        "form hygiene check",
+        "examined " +
+          examined +
+          " form controls in " +
+          htmlFiles.length +
+          " pages -- nothing to check"
+      );
+    } else if (missingNameCount === 0) {
       ok(
-        "all interactive form controls across " +
+        "all " +
+          examined +
+          " interactive form controls across " +
           htmlFiles.length +
           " HTML pages carry name attributes"
       );

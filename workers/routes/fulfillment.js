@@ -47,7 +47,9 @@
  *    account's push bit and a classic token's scopes still leave one gap: an
  *    OAuth app the organisation has not approved holds a `public_repo` token
  *    that reports push:true on this public repository yet cannot push. Only
- *    asking for a write tells the two apart.
+ *    asking for a write tells the two apart -- on an assumption about the
+ *    order of GitHub's checks that has NOT been verified with live tokens;
+ *    the note on probeContentsWrite() says what it is and how to check it.
  *
  * COST CONTROL, NOT A LOCK. A token that does not look like a GitHub token is
  * refused before anything else runs, and a verdict GitHub already gave is
@@ -66,6 +68,13 @@
  * is forgotten on the spot. What is left: a token never verified before (a
  * brand-new sign-in) waits out a flood -- the Stripe Dashboard stays
  * available meanwhile.
+ *
+ * The remembered digests are checked IN MEMORY: each isolate loads them with
+ * one query at most once a minute, so a flood of refused fake tokens costs
+ * one D1 read a minute rather than one per token; a yes or a refusal this
+ * isolate hears updates its set at once. The hourly cron deletes rows older
+ * than KNOWN_TOKEN_MS (sweepKnownTokens), so job_state does not keep every
+ * token ever used.
  */
 
 import { json, ClientError, readJson } from "./http.js";
@@ -214,11 +223,24 @@ async function identifyToken(token) {
     console.error(`fulfillment: GitHub refused the identity check (${res.status})`);
     return { status: 503, login: "", scopes: [] };
   }
+  /* GitHub answers a CLASSIC token (gho_, ghp_) with an X-OAuth-Scopes
+     header on every response -- present and empty when the token has no
+     scopes. Absent, the 200 came from something other than GitHub's normal
+     answer (a proxy, a cache, an outage page), and reading it as "no
+     scopes" refused the owner for five minutes and forgot her remembered
+     token (red team, 2026-10-09): 503, never cached. A fine-grained token
+     (github_pat_) has no scopes and never gets the header, so it is not
+     asked for one -- probeContentsWrite() decides for it. */
+  const scopesHeader = res.headers.get("X-OAuth-Scopes");
+  if (scopesHeader === null && !token.startsWith(FINE_GRAINED_PREFIX)) {
+    console.error("fulfillment: GitHub's identity check answered without X-OAuth-Scopes");
+    return { status: 503, login: "", scopes: [] };
+  }
   const body = await res.json().catch(() => null);
   return {
     status: 200,
     login: (body && typeof body.login === "string" && body.login) || "",
-    scopes: parseScopes(res.headers.get("X-OAuth-Scopes"))
+    scopes: parseScopes(scopesHeader)
   };
 }
 
@@ -244,11 +266,20 @@ async function identifyAppToken(token, clientId, clientSecret) {
     return { status: 503, login: "", scopes: [] };
   }
   const body = await res.json().catch(() => null);
-  const user = body && body.user;
+  /* GitHub's answer always carries the token's `scopes` list (empty when it
+     has none). A 200 that is not JSON, or has no such list, is GitHub -- or
+     something between -- failing to answer, not a token without scopes: as
+     a 403 it was cached as a five-minute refusal and the owner's remembered
+     token was forgotten (red team, 2026-10-09). 503, never cached. */
+  if (!body || !Array.isArray(body.scopes)) {
+    console.error("fulfillment: GitHub's OAuth app token check answered without a scopes list");
+    return { status: 503, login: "", scopes: [] };
+  }
+  const user = body.user;
   return {
     status: 200,
     login: (user && typeof user.login === "string" && user.login) || "",
-    scopes: body && Array.isArray(body.scopes) ? body.scopes.map(String) : []
+    scopes: body.scopes.map(String)
   };
 }
 
@@ -312,15 +343,28 @@ async function verifyGitHubPush(token, env) {
 }
 
 /**
- * May this fine-grained token write the repository's contents? GitHub has no
- * endpoint that says, and `permissions` on the repository describes the
- * account, so it is asked with a write that cannot succeed: create
- * PROBE_REF pointing at ZERO_SHA. GitHub checks a fine-grained token's
- * permission for the endpoint before it reads the request, so a token without
- * Contents write is refused (403, "Resource not accessible by personal access
- * token") while one with it gets as far as validating the SHA (422, "Object
- * does not exist"). Nothing is created either way. Only the 422 counts as
- * yes: every other answer is a no (403/404) or a failure to ask (503).
+ * May this token write the repository's contents? GitHub has no endpoint
+ * that says, and `permissions` on the repository describes the account, so
+ * it is asked with a write that cannot succeed: create PROBE_REF pointing at
+ * ZERO_SHA. Nothing is created either way. Only a 422 counts as yes: every
+ * other answer is a no (403/404) or a failure to ask (503).
+ *
+ * THE ASSUMPTION THIS RESTS ON -- UNVERIFIED. Reading a 422 as "may write"
+ * assumes GitHub refuses a token WITHOUT write access (403 "Resource not
+ * accessible by personal access token" / "...by integration", or 404)
+ * BEFORE it validates the request body, so that only a token WITH write
+ * access gets as far as rejecting the all-zero SHA (422 "Object does not
+ * exist"). That is how GitHub's permission checks generally behave, but it
+ * has NOT been confirmed with live tokens for this endpoint: confirming it
+ * takes real tokens and real (doomed) write attempts, which no test here
+ * makes. If GitHub ever validated the SHA first, a read-only token would get
+ * the 422 too and pass, leaving the account's push bit (check 3) as the only
+ * gate. To check by hand, with throwaway tokens against a scratch
+ * repository, create a ref at the all-zero SHA using (a) a fine-grained
+ * token with Contents read-only, (b) one with Contents read and write, and
+ * (c) a classic public_repo token from an OAuth app the organisation has not
+ * approved; (a) and (c) must answer 403 or 404 and only (b) 422. Re-check
+ * whenever the X-GitHub-Api-Version below is bumped.
  *
  * @returns {Promise<number>} 200 when the token may write, 401 when GitHub
  *   refuses the token, 403 when it may not write, 503 when GitHub could not
@@ -408,23 +452,79 @@ async function verifyAdminAuth(request, env, now = Date.now()) {
 }
 
 /**
+ * The remembered digests, per isolate: digest -> when GitHub last said yes.
+ * Read from D1 by ONE query at most once per KNOWN_TOKEN_RELOAD_MS. During
+ * a flood the global bucket is full, so every refused fake token asks
+ * isKnownToken() -- and that used to be one D1 SELECT per fake token (red
+ * team, 2026-10-09). Now a flood costs this isolate one SELECT a minute,
+ * whatever its size. The price: a yes another isolate remembered reaches
+ * this one at the next reload, up to a minute later. A yes THIS isolate
+ * hears goes in at once (rememberToken), and a refusal comes out at once
+ * (forgetToken).
+ */
+const KNOWN_TOKEN_RELOAD_MS = 60 * 1000;
+let knownTokens = null;
+let knownTokensLoadedAt = 0;
+
+/** job_state keys run `admin-known:<hex>`; this bounds the range above them. */
+const KNOWN_TOKEN_JOB_END = KNOWN_TOKEN_JOB.slice(0, -1) + ";";
+
+/**
+ * Test seam: forgets this isolate's verdict cache (`"verdicts"`), its
+ * remembered-token set (`"known"`), or both (no argument) -- standing in for
+ * a cold isolate, or for the minute until the set's next reload.
+ */
+export function resetAuthMemo(which) {
+  if (!which || which === "verdicts") tokenCache.clear();
+  if (!which || which === "known") {
+    knownTokens = null;
+    knownTokensLoadedAt = 0;
+  }
+}
+
+/**
+ * The remembered set, reloaded when it is older than KNOWN_TOKEN_RELOAD_MS.
+ * A failed read keeps whatever the isolate already had (empty at worst) and
+ * still waits a minute before asking again, so a broken D1 is not asked once
+ * per fake token either.
+ */
+async function loadKnownTokens(env, now) {
+  if (knownTokens && now - knownTokensLoadedAt < KNOWN_TOKEN_RELOAD_MS) return knownTokens;
+  // Claim the reload before the query: a request that arrives while it runs
+  // keeps using the set this isolate already holds.
+  knownTokensLoadedAt = now;
+  const db = env && env.STATE_DB;
+  if (db) {
+    try {
+      // A key range, not LIKE: `job` is the primary key, so this is an index
+      // scan. Every remembered row comes back -- the hourly sweep keeps them
+      // to KNOWN_TOKEN_MS -- and isKnownToken() judges each one's age.
+      const res = await db
+        .prepare("SELECT job, updated_at FROM job_state WHERE job > ? AND job < ?")
+        .bind(KNOWN_TOKEN_JOB, KNOWN_TOKEN_JOB_END)
+        .all();
+      const fresh = new Map();
+      for (const row of (res && res.results) || []) {
+        fresh.set(String(row.job).slice(KNOWN_TOKEN_JOB.length), Number(row.updated_at));
+      }
+      knownTokens = fresh;
+    } catch (err) {
+      console.error("fulfillment: could not read the known-token list:", err && err.message);
+    }
+  }
+  if (!knownTokens) knownTokens = new Map();
+  return knownTokens;
+}
+
+/**
  * True when GitHub said yes to this token digest within KNOWN_TOKEN_MS.
  * A database that cannot be read answers no: the token is then simply
  * counted in the global bucket, as it was before this existed.
  */
 async function isKnownToken(env, key, now) {
-  const db = env && env.STATE_DB;
-  if (!db) return false;
-  try {
-    const row = await db
-      .prepare("SELECT updated_at FROM job_state WHERE job = ?")
-      .bind(KNOWN_TOKEN_JOB + key)
-      .first();
-    return Boolean(row) && now - Number(row.updated_at) < KNOWN_TOKEN_MS;
-  } catch (err) {
-    console.error("fulfillment: could not read the known-token list:", err && err.message);
-    return false;
-  }
+  const known = await loadKnownTokens(env, now);
+  const at = known.get(key);
+  return at !== undefined && now - at < KNOWN_TOKEN_MS;
 }
 
 /** Remember (or renew) a yes. Best-effort: a failed write costs the fallback only. */
@@ -442,10 +542,15 @@ async function rememberToken(env, key, now) {
   } catch (err) {
     console.error("fulfillment: could not remember the token:", err && err.message);
   }
+  // In this isolate's set at once, whatever D1 said: it is GitHub's yes.
+  if (knownTokens) {
+    knownTokens.set(key, now);
+  }
 }
 
 /** A token GitHub now refuses loses its own bucket straight away. */
 async function forgetToken(env, key) {
+  if (knownTokens) knownTokens.delete(key);
   const db = env && env.STATE_DB;
   if (!db) return;
   try {
@@ -456,6 +561,25 @@ async function forgetToken(env, key) {
   } catch (err) {
     console.error("fulfillment: could not forget the token:", err && err.message);
   }
+}
+
+/**
+ * The hourly cron (workers/checkout.js `scheduled`): deletes remembered
+ * tokens older than KNOWN_TOKEN_MS. The 90 days used to be applied only when
+ * a row was read, so a token used once stayed in job_state forever (red
+ * team, 2026-10-09). Only `admin-known:` rows; every other job's row is left
+ * alone.
+ *
+ * @returns {Promise<number>} rows deleted
+ */
+export async function sweepKnownTokens(db, now = Date.now()) {
+  if (!db) return 0;
+  const cutoff = now - KNOWN_TOKEN_MS;
+  const res = await db
+    .prepare("DELETE FROM job_state WHERE job > ? AND job < ? AND updated_at < ?")
+    .bind(KNOWN_TOKEN_JOB, KNOWN_TOKEN_JOB_END, cutoff)
+    .run();
+  return Number((res && res.meta && res.meta.changes) || 0);
 }
 
 /** What each refusal says; anything else from verifyAdminAuth() is a 401. */

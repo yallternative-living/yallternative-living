@@ -122,6 +122,25 @@ const siteCatalog = {
   ]
 };
 
+/* The calendar: one workshop selling 12 tickets on the site (its ledger
+   row is TICKET_ID), dated far ahead so the suite does not expire. */
+const siteEvents = {
+  upcoming: [],
+  past: [],
+  workshops: [
+    {
+      id: "candle-night-2099-11-06",
+      name: "Candle Night",
+      date: "2099-11-06",
+      dateLabel: "November 6, 2099",
+      location: "Landrum, SC",
+      price: 40,
+      spots: 12
+    }
+  ]
+};
+const TICKET_ID = "ticket-candle-night-2099-11-06";
+
 const squareItems = {
   I_BALM: "Last Three Balm",
   I_TEE: "Single Tee",
@@ -208,7 +227,8 @@ function makeSquare({
     // header the site serves products.json with (its "age").
     squareCounts: {},
     balmStock: null,
-    siteDate: null
+    siteDate: null,
+    eventsDown: false
   };
   const originalFetch = global.fetch;
   global.fetch = async (url, opts = {}) => {
@@ -232,11 +252,13 @@ function makeSquare({
       if (u.endsWith("/assets/data/events.json")) {
         // The calendar /api/inventory reads workshop tickets from; served with
         // the same age as products.json so the reseed guard sees one date.
+        // A REAL workshop selling on the site, so every Square path below
+        // runs with a ticket row in the ledger -- with `workshops: []` no
+        // Square test could ever see a ticket erased (red team, 2026-10-09).
+        // `eventsDown` is the calendar alone failing.
+        if (state.eventsDown) return new Response("bad gateway", { status: 502 });
         const headers = state.siteDate ? { date: new Date(state.siteDate).toUTCString() } : {};
-        return new Response(JSON.stringify({ upcoming: [], past: [], workshops: [] }), {
-          status: 200,
-          headers
-        });
+        return new Response(JSON.stringify(siteEvents), { status: 200, headers });
       }
       if (u.endsWith("/assets/data/content.json")) {
         return new Response(
@@ -1695,6 +1717,123 @@ async function run() {
     );
     square.state.balmStock = null;
     square.state.siteDate = null;
+    await ctx.settle();
+    square.restore();
+  }
+
+  /* ------------------------------------------------------------------ 11 */
+  /* Red team, 2026-10-09: seedLedger checked only that products.json had
+     loaded and ignored `ticketsUnavailable`, so a calendar blip during ANY
+     Square path -- the hourly tick, a register sale, a full refund, the
+     push after every paid online order -- synced a ticket-less list into
+     the ledger and the next sync sold the sold seats again. Every one of
+     those paths now goes through syncFromCatalog, which refuses. */
+  console.log("\n11. red team: events.json down during every Square path");
+  {
+    const inv = await import("../workers/state/inventory.js");
+    const square = makeSquare({
+      orders: {
+        OX: order("OX", [["V_BALM", 1]], { total_money: { amount: 1000, currency: "USD" } })
+      },
+      payments: { PX: payment("PX", "OX", 1000) }
+    });
+    const ctx = makeCtx();
+    const env = await makeEnv();
+    const ticketRow = async () =>
+      (await inv.inventoryRows(env.STATE_DB)).find((r) => r.product_id === TICKET_ID) || null;
+    const synced = async (id) =>
+      ((await inv.inventoryRows(env.STATE_DB)).find((r) => r.product_id === id) || {}).synced_at;
+    const getInventory = async (ip) =>
+      worker.fetch(
+        new Request(`${SITE}/api/inventory`, { headers: { "CF-Connecting-IP": ip } }),
+        env,
+        ctx
+      );
+
+    const first = await (await getInventory("10.11.0.1")).json();
+    eq(
+      first.products[TICKET_ID],
+      { available: 12, tracked: true },
+      "the workshop's ticket is seeded at 12 spots"
+    );
+    await inv.reserveInventory(env.STATE_DB, "cs_seven", [{ productId: TICKET_ID, qty: 7 }]);
+    await inv.commitInventory(env.STATE_DB, "cs_seven");
+    eq((await available(env.STATE_DB, [TICKET_ID]))[TICKET_ID], 5, "7 of 12 tickets sold online");
+    const balmSyncedBefore = await synced("last-three-balm");
+    assert(Number.isFinite(balmSyncedBefore), "the balm's row exists to compare against");
+
+    square.state.eventsDown = true;
+    const steps = [
+      ["the hourly reconcile", () => route.runSquareReconcile(env, ctx, Date.now() + 1000)],
+      [
+        "a register sale",
+        () => post(env, ctx, squareEvent("payment.updated", { payment: square.state.payments.PX }))
+      ],
+      [
+        "the push after a paid online order",
+        () => route.pushCountsForProducts(env, ctx, ["last-three-balm"])
+      ],
+      [
+        "a full refund of the register sale",
+        () =>
+          post(
+            env,
+            ctx,
+            squareEvent("refund.updated", {
+              refund: {
+                id: "RX",
+                payment_id: "PX",
+                order_id: "OX",
+                status: "COMPLETED",
+                amount_money: { amount: 1000, currency: "USD" }
+              }
+            })
+          )
+      ]
+    ];
+    for (const [label, step] of steps) {
+      inv.resetInventoryMemo();
+      let lines;
+      const out = await (async () => {
+        let result;
+        lines = await capture(async () => {
+          result = await step();
+          await ctx.settle();
+        });
+        return result;
+      })();
+      assert(out !== undefined, `events.json down: ${label} ran`);
+      const row = await ticketRow();
+      eq(
+        row && [row.on_hand, row.seed_stock],
+        [5, 12],
+        `events.json down: ${label} leaves the ticket row untouched`
+      );
+      assert(
+        lines.some((l) => l.includes("[SQUARE] events.json unreachable")),
+        `events.json down: ${label} says it did not re-sync`
+      );
+      eq(
+        await synced("last-three-balm"),
+        balmSyncedBefore,
+        `events.json down: ${label} synced nothing at all (refused, not partial)`
+      );
+    }
+    // The register sale and its refund still moved the shelf they read.
+    eq(
+      (await sync.getSquareSale(env.STATE_DB, "OX")).state,
+      "restocked",
+      "the register sale was counted and then refunded during the blip"
+    );
+
+    square.state.eventsDown = false;
+    inv.resetInventoryMemo();
+    const after = await (await getInventory("10.11.0.2")).json();
+    eq(
+      after.products[TICKET_ID],
+      { available: 5, tracked: true },
+      "calendar back: 5 of 12 on sale -- the 7 sold were not sold again"
+    );
     await ctx.settle();
     square.restore();
   }

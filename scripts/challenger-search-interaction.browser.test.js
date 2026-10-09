@@ -12,57 +12,16 @@
  * 7. Multi-page search trigger & modal lifecycle integrity.
  */
 
-const http = require("http");
-const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 function createTestServer() {
-  const root = path.resolve(__dirname, "..");
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    let filePath = path.join(root, reqPath);
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(root, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html",
-      ".js": "text/javascript",
-      ".css": "text/css",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".avif": "image/avif",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml",
-      ".ico": "image/x-icon",
-      ".webmanifest": "application/manifest+json"
-    };
-
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-      } else {
-        res.writeHead(200, { "Content-Type": contentType });
-        res.end(data);
-      }
-    });
-  });
-
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const port = server.address().port;
-      resolve({ server, port });
-    });
-  });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(path.resolve(__dirname, ".."));
+  return listenLoopback(server, 0).then(() => ({ server, port: server.address().port }));
 }
 
 function sleep(ms) {

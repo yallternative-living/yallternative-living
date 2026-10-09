@@ -30,29 +30,13 @@
 
 /* global document, window, navigator, getComputedStyle, scrollY */
 
-const http = require("http");
-const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const PORT = 8087;
 const ROOT = path.resolve(__dirname, "..");
 const BASE = `http://127.0.0.1:${PORT}`;
-
-const MIME = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".webmanifest": "application/manifest+json"
-};
 
 /* Pages whose above-the-fold content is server-rendered .reveal markup.
    about.html is the original offender and the reason this file exists. */
@@ -72,28 +56,10 @@ function check(name, ok, detail) {
 }
 
 function createStaticServer() {
-  const server = http.createServer((req, res) => {
-    let reqPath = decodeURIComponent(req.url.split("?")[0]);
-    if (reqPath === "/") reqPath = "/index.html";
-    const filePath = path.join(ROOT, reqPath);
-    if (
-      !filePath.startsWith(ROOT) ||
-      !fs.existsSync(filePath) ||
-      fs.statSync(filePath).isDirectory()
-    ) {
-      res.writeHead(404);
-      res.end("Not found");
-      return;
-    }
-    res.writeHead(200, {
-      "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream"
-    });
-    fs.createReadStream(filePath).pipe(res);
-  });
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    server.listen(PORT, "127.0.0.1", () => resolve(server));
-  });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  return listenLoopback(createSiteServer(ROOT), PORT);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -419,13 +419,22 @@
 }
 
 /* ---- Footer (upsell + shipping meter + checkout) ---- */
+/* Two regions (cart.js render()): `.yl-cart-foot-scroll` carries everything
+   a shopper scrolls to, `.yl-cart-foot-dock` only the estimated total and
+   Checkout. The dock once held the whole breakdown, Share Cart and the fine
+   print as well -- ~289px pinned inside this 62dvh cap -- and the scroll area
+   came out 12px tall on a landscape phone, 49px on an iPhone SE, so pick-up,
+   the gift note and both code fields could not be reached (red team,
+   2026-10-09). Docking two lines keeps the dock near 110px, and the scroll
+   area has a floor: if the floor and the dock ever outgrow the cap together,
+   the footer itself scrolls and the sticky dock rides along at its bottom. */
 .yl-cart-foot {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   max-height: min(62dvh, 560px);
-  --yl-cart-foot-pad-b: calc(16px + env(safe-area-inset-bottom, 0px));
+  --yl-cart-foot-pad-b: calc(14px + env(safe-area-inset-bottom, 0px));
   padding: 0;
   border-top: 1px solid var(--hide);
   background: var(--ink-2);
@@ -433,8 +442,9 @@
 .yl-cart-foot-scroll {
   flex: 1 1 auto;
   overflow-y: auto;
-  min-height: 0;
-  padding: 16px 20px 8px;
+  overscroll-behavior: contain;
+  min-height: min(9rem, 40dvh);
+  padding: 16px 20px 12px;
 }
 .yl-cart-foot-scroll:empty {
   display: none;
@@ -445,27 +455,75 @@
   bottom: 0;
   z-index: 6;
   background: var(--ink-2);
-  padding: 8px 20px var(--yl-cart-foot-pad-b);
+  padding: 10px 20px var(--yl-cart-foot-pad-b);
   border-top: 1px solid color-mix(in srgb, var(--hide) 60%, transparent);
   box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.35);
+}
+.yl-cart-foot-dock .yl-cart-storage-notice {
+  margin: 0 0 8px;
+}
+.yl-cart-foot-dock .yl-cart-total-due {
+  margin: 0 0 8px;
+}
+.yl-cart-breakdown {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hide);
 }
 .yl-cart-foot::after {
   display: none;
 }
 
-/* Landscape phones and short windows: claw back the footer's own padding
-   before anything else has to give. */
-@media (max-height: 480px) {
+/* Landscape phones and short windows: no split at all. Two scrollers plus a
+   dock cannot share 375px -- the item list got 32px and the footer 12px --
+   so the whole drawer becomes ONE scroller: the header pins to the top, the
+   dock (estimated total + Checkout) pins to the bottom, and the lines and
+   every footer control scroll between them. `display: contents` lifts the
+   footer's two regions into the drawer's own flex column, which is what lets
+   the dock stick to the drawer's scrollport at any scroll position rather
+   than only once the footer itself has scrolled into view. */
+@media (max-height: 500px) {
+  /* The scroll padding keeps keyboard focus and scrollIntoView() from parking
+     a control underneath the pinned header or dock. */
+  .yl-cart-drawer {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-padding-top: 64px;
+    scroll-padding-bottom: 128px;
+  }
+  .yl-cart-head {
+    position: sticky;
+    top: 0;
+    z-index: 7;
+    background: var(--ink-2);
+    padding: 6px 16px;
+  }
+  .yl-cart-seasonal-notice,
+  .yl-cart-dispatch-banner {
+    padding: 8px 16px 0;
+  }
+  .yl-cart-items {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding: 4px 16px;
+  }
   .yl-cart-foot {
-    max-height: min(70dvh, 560px);
+    display: contents;
     --yl-cart-foot-pad-b: calc(8px + env(safe-area-inset-bottom, 0px));
-    padding: 0;
   }
   .yl-cart-foot-scroll {
-    padding: 8px 16px 4px;
+    flex: 0 0 auto;
+    overflow: visible;
+    min-height: 0;
+    border-top: 1px solid var(--hide);
+    padding: 8px 16px 8px;
   }
   .yl-cart-foot-dock {
+    margin-top: auto;
     padding: 6px 16px var(--yl-cart-foot-pad-b);
+  }
+  .yl-cart-foot-dock .yl-cart-total-due {
+    margin-bottom: 6px;
   }
 }
 .yl-cart-upsell {

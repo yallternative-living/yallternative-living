@@ -9,62 +9,25 @@
  * hosted page, which this local static-server test harness can't exercise).
  */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
-const { resolveRequestPath } = require("./serve.js");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 /**
- * Creates and starts a lightweight local static HTTP server for test execution.
+ * Starts serve.js's static server on 127.0.0.1 for test execution -- the
+ * same containment, dot-file/node_modules/symlink rules and Host check as
+ * `node scripts/serve.js`. The copy that lived here resolved the path but
+ * never checked where a symlink really pointed, and answered a missing link
+ * with 404.html and a 200, so the broken-link crawl below could not see one
+ * (red team, 2026-10-09). A taken port moves to a free one: the suite never
+ * tests whatever server already holds 8082.
  * @param {number} [port=8082] Port number to listen on.
  * @return {Promise<http.Server>} Resolves with the running HTTP server instance.
  */
 function createStaticServer(port = 8082) {
-  const root = path.resolve(__dirname, "..");
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-    // serve.js's resolver, not path.join: a raw join served anything the
-    // process could read (/../../etc/passwd, /.git/, /.env) while the suite
-    // ran (red team, 2026-10-08). Outside or hidden reads as missing.
-    let filePath = resolveRequestPath(root, reqPath);
-
-    if (!filePath || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(root, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html",
-      ".js": "text/javascript",
-      ".css": "text/css",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".avif": "image/avif",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml",
-      ".ico": "image/x-icon",
-      ".webmanifest": "application/manifest+json"
-    };
-
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-      } else {
-        res.writeHead(200, { "Content-Type": contentType });
-        res.end(data);
-      }
-    });
-  });
-
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    server.listen(port, "127.0.0.1", () => resolve(server));
+  return listenLoopback(createSiteServer(path.resolve(__dirname, "..")), port, {
+    fallbackToEphemeral: true
   });
 }
 
@@ -73,20 +36,12 @@ function createStaticServer(port = 8082) {
   let exitCode = 0;
   let browser;
   let localServer;
-  const port = 8082;
-  const url = `http://127.0.0.1:${port}`;
+  let url;
 
   try {
-    try {
-      localServer = await createStaticServer(port);
-      console.log(`Started local static server on ${url}`);
-    } catch (e) {
-      if (e.code === "EADDRINUSE") {
-        console.log(`Using existing server running on ${url}`);
-      } else {
-        throw e;
-      }
-    }
+    localServer = await createStaticServer(8082);
+    url = `http://127.0.0.1:${localServer.address().port}`;
+    console.log(`Started local static server on ${url}`);
 
     browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
     const page = await browser.newPage();
@@ -1671,6 +1626,339 @@ function createStaticServer(port = 8082) {
     if (toggledTheme !== initialTheme) {
       await page.click("#mobileThemeToggle");
     }
+
+    /* eslint-disable no-undef -- the evaluate() callbacks below run in the page */
+
+    // 11.5 The drawer's language select is 16px, so iOS Safari does not zoom on focus
+    {
+      const fontPx = await page.evaluate(() => {
+        const sel = document.getElementById("mobileLangSelect");
+        return sel ? parseFloat(getComputedStyle(sel).fontSize) : null;
+      });
+      if (typeof fontPx === "number" && fontPx >= 16) {
+        console.log(`✅ Drawer language select is ${fontPx}px at 375px (no iOS focus zoom).`);
+      } else {
+        console.log(
+          `❌ Drawer language select computes to ${fontPx}px at 375px -- iOS Safari zooms under 16px.`
+        );
+        exitCode = 1;
+      }
+    }
+
+    // 11.6 The select follows the language actually in effect when a dictionary fails to load
+    {
+      const failPage = await browser.newPage();
+      try {
+        await failPage.setViewport({ width: 375, height: 667 });
+        await failPage.setBypassServiceWorker(true);
+        await failPage.evaluateOnNewDocument(() => {
+          try {
+            localStorage.removeItem("yl-lang");
+          } catch {
+            /* ignore */
+          }
+        });
+        await failPage.setRequestInterception(true);
+        let jaBlocked = 0;
+        failPage.on("request", (req) => {
+          if (/\/assets\/js\/locales\/ja\.js/.test(req.url())) {
+            jaBlocked++;
+            req.abort("internetdisconnected").catch(() => {});
+            return;
+          }
+          req.continue().catch(() => {});
+        });
+        await failPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+        await failPage.click(".nav-toggle");
+        await failPage.waitForSelector("#mobileLangSelect", { visible: true, timeout: 3000 });
+        await failPage.select("#mobileLangSelect", "ja");
+        await failPage
+          .waitForFunction(() => document.getElementById("mobileLangSelect").value === "en", {
+            timeout: 5000
+          })
+          .catch(() => {});
+        const st = await failPage.evaluate(() => ({
+          select: document.getElementById("mobileLangSelect").value,
+          translator: window.YL_TRANSLATOR && window.YL_TRANSLATOR.getCurrentLanguage(),
+          jaMarked: document.querySelectorAll('[lang="ja"]').length
+        }));
+        if (jaBlocked > 0 && st.translator === "en" && st.select === "en" && st.jaMarked === 0) {
+          console.log(
+            "✅ Drawer language select falls back to English when the ja dictionary cannot load."
+          );
+        } else {
+          console.log(
+            "❌ Drawer language select disagrees with the page after a failed dictionary load:",
+            { jaBlocked, ...st }
+          );
+          exitCode = 1;
+        }
+      } catch (e) {
+        console.log("❌ Drawer language fallback check errored:", e.message);
+        exitCode = 1;
+      } finally {
+        await failPage.close();
+      }
+    }
+
+    // 11.7 The drawer's own labels are translated with the rest of the page
+    {
+      const ja = JSON.parse(
+        fs.readFileSync(path.join(__dirname, "..", "assets", "data", "locales", "ja.json"), "utf8")
+      ).phrases;
+      const en = JSON.parse(
+        fs.readFileSync(path.join(__dirname, "..", "assets", "data", "locales", "en.json"), "utf8")
+      ).phrases;
+      const wanted = ["nav.more", "nav.preferences", "nav.appearance", "nav.language"];
+      const jaPage = await browser.newPage();
+      try {
+        await jaPage.setViewport({ width: 375, height: 667 });
+        await jaPage.evaluateOnNewDocument(() => {
+          try {
+            localStorage.setItem("yl-lang", "ja");
+          } catch {
+            /* ignore */
+          }
+        });
+        await jaPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+        await jaPage.waitForFunction(() => document.querySelector('[lang="ja"]') !== null, {
+          timeout: 5000
+        });
+        await jaPage.click(".nav-toggle");
+        await jaPage.waitForSelector(".nav-mobile-prefs", { visible: true, timeout: 3000 });
+        const shown = await jaPage.evaluate(() =>
+          Array.from(
+            document.querySelectorAll(
+              ".nav-links .nav-secondary-heading, .nav-links .nav-mobile-pref-label"
+            )
+          ).map((el) => el.textContent.trim())
+        );
+        const bad = wanted.filter(
+          (k) => !ja[k] || !en[k] || ja[k] === en[k] || shown.indexOf(ja[k]) === -1
+        );
+        if (shown.length === wanted.length && bad.length === 0) {
+          console.log(`✅ Drawer headings and labels render in Japanese: ${shown.join(" / ")}`);
+        } else {
+          console.log("❌ Drawer labels not translated under ja:", { shown, missing: bad });
+          exitCode = 1;
+        }
+      } catch (e) {
+        console.log("❌ Drawer label translation check errored:", e.message);
+        exitCode = 1;
+      } finally {
+        await jaPage.close();
+      }
+    }
+
+    // 12. PDP photo lightbox: the bundle copy carries no duplicate ids, and its labels drive its own boxes
+    console.log("--- Testing PDP photo lightbox ritual bundle (ids & labels) ---");
+    {
+      const pdp = await browser.newPage();
+      try {
+        await pdp.setViewport({ width: 1200, height: 900 });
+        await pdp.goto(`${url}/products/bug-spray.html`, { waitUntil: "networkidle2" });
+        const hasSubjects = await pdp.evaluate(
+          () =>
+            !!document.getElementById("pdpRitualSection") &&
+            !!document.getElementById("pdpGalleryOpen")
+        );
+        if (!hasSubjects) throw new Error("bug-spray.html has no ritual section or gallery button");
+        await pdp.click("#pdpGalleryOpen");
+        await pdp.waitForSelector("#lightboxRitualWrap #modalRitualSection .pdp-ritual-checkbox", {
+          visible: true,
+          timeout: 5000
+        });
+        const ids = await pdp.evaluate(() => {
+          const seen = {};
+          document.querySelectorAll("[id]").forEach((el) => {
+            seen[el.id] = (seen[el.id] || 0) + 1;
+          });
+          return {
+            total: Object.keys(seen).length,
+            dups: Object.keys(seen).filter((k) => seen[k] > 1)
+          };
+        });
+        if (ids.total > 50 && ids.dups.length === 0) {
+          console.log(`✅ No duplicate ids with the lightbox open (${ids.total} ids checked).`);
+        } else {
+          console.log("❌ Duplicate ids with the lightbox open:", ids);
+          exitCode = 1;
+        }
+        const click = await pdp.evaluate(async () => {
+          const modal = document.querySelector("#lightboxRitualWrap #modalRitualSection");
+          const page = document.getElementById("pdpRitualSection");
+          const labels = modal.querySelectorAll("label.pdp-ritual-item");
+          const label = Array.from(labels).find((l) => {
+            const cb = l.querySelector(".pdp-ritual-checkbox");
+            return cb && !cb.disabled;
+          });
+          if (!label) return { missing: true };
+          const own = label.querySelector(".pdp-ritual-checkbox");
+          const pid = label.getAttribute("data-product-id");
+          const pageRow = page.querySelector('.pdp-ritual-item[data-product-id="' + pid + '"]');
+          const pageBox = pageRow && pageRow.querySelector(".pdp-ritual-checkbox");
+          const total = () => modal.querySelector(".pdp-ritual-total-price").textContent.trim();
+          const before = { own: own.checked, page: pageBox && pageBox.checked, total: total() };
+          (label.querySelector(".pdp-ritual-item-name") || label).click();
+          await new Promise((r) => setTimeout(r, 200));
+          return {
+            pid,
+            before,
+            after: { own: own.checked, page: pageBox && pageBox.checked, total: total() },
+            pageBoxFound: !!pageBox
+          };
+        });
+        if (
+          !click.missing &&
+          click.pageBoxFound &&
+          click.before.own === true &&
+          click.after.own === false &&
+          click.after.page === click.before.page &&
+          click.after.total !== click.before.total
+        ) {
+          console.log(
+            `✅ Lightbox label toggles its own ${click.pid} box (total ${click.before.total} -> ${click.after.total}); the page's box is untouched.`
+          );
+        } else {
+          console.log("❌ Lightbox ritual label toggled the wrong checkbox:", click);
+          exitCode = 1;
+        }
+      } catch (e) {
+        console.log("❌ PDP lightbox ritual check errored:", e.message);
+        exitCode = 1;
+      } finally {
+        await pdp.close();
+      }
+    }
+
+    // 13. Card rows: flex rows stretch their cards to one height, grids keep equal rows
+    console.log("--- Testing card row heights (flex rows stretch, grids stay even) ---");
+    {
+      const cardPage = await browser.newPage();
+      try {
+        for (const width of [1200, 375]) {
+          await cardPage.setViewport({ width, height: 900 });
+          await cardPage.goto(`${url}/events.html`, { waitUntil: "networkidle2" });
+          const rows = await cardPage.evaluate(() => {
+            const heights = (els) => els.map((c) => Math.round(c.getBoundingClientRect().height));
+            /* A fixture first, so the rule is tested whatever events.json
+               holds: two cards of very different length in a plain flex row. */
+            const row = document.createElement("div");
+            row.style.cssText = "display:flex;gap:16px;width:600px";
+            row.innerHTML =
+              '<article class="card"><div class="card-body"><p>Short.</p></div></article>' +
+              '<article class="card"><div class="card-body">' +
+              "<p>A much longer card body that wraps over several lines so that its natural height is well past the short one.</p>".repeat(
+                3
+              ) +
+              "</div></article>";
+            document.querySelector("main").appendChild(row);
+            const fixture = heights(Array.from(row.children));
+            row.remove();
+            const carousel = document.querySelector(".events-carousel-inner");
+            const slides = carousel ? Array.from(carousel.querySelectorAll(":scope > .card")) : [];
+            return { fixture, carousel: heights(slides) };
+          });
+          const even = (hs) => hs.length >= 2 && Math.max(...hs) - Math.min(...hs) <= 1;
+          if (even(rows.fixture) && even(rows.carousel)) {
+            console.log(
+              `✅ ${width}px: flex-row cards share one height (fixture ${rows.fixture.join("/")}, past-events carousel ${rows.carousel.join("/")}).`
+            );
+          } else {
+            console.log(
+              `❌ ${width}px: cards in a flex row are not stretched to one height:`,
+              rows
+            );
+            exitCode = 1;
+          }
+        }
+        await cardPage.setViewport({ width: 1200, height: 900 });
+        await cardPage.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+        const grid = await cardPage.evaluate(() => {
+          const byRow = {};
+          document.querySelectorAll("#shopGrid > .card").forEach((c) => {
+            const r = c.getBoundingClientRect();
+            if (!r.height) return;
+            const key = Math.round(r.top + scrollY);
+            (byRow[key] = byRow[key] || []).push(Math.round(r.height));
+          });
+          return Object.keys(byRow).map((k) => byRow[k]);
+        });
+        const fullRows = grid.filter((hs) => hs.length >= 2);
+        const uneven = fullRows.filter((hs) => Math.max(...hs) - Math.min(...hs) > 1);
+        if (fullRows.length >= 2 && uneven.length === 0) {
+          console.log(`✅ shop.html grid: ${fullRows.length} rows, every row one height.`);
+        } else {
+          console.log("❌ shop.html grid rows are uneven or missing:", grid);
+          exitCode = 1;
+        }
+      } catch (e) {
+        console.log("❌ Card row check errored:", e.message);
+        exitCode = 1;
+      } finally {
+        await cardPage.close();
+      }
+    }
+
+    // 14. Shop search: Enter filters in place instead of reloading the page
+    console.log("--- Testing shop search Enter key (no reload) ---");
+    {
+      const searchPage = await browser.newPage();
+      try {
+        await searchPage.setViewport({ width: 1200, height: 900 });
+        await searchPage.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+        await searchPage.waitForSelector("#shopSearchForm #shopSearch", { timeout: 5000 });
+        const before = await searchPage.evaluate(() => {
+          window.__ylNoReload = "still-here";
+          return document.querySelectorAll("#shopGrid > .card").length;
+        });
+        /* A reload is a new DOCUMENT request for the main frame. The shop
+           also rewrites its own URL with history.replaceState() as filters
+           change, so a URL or framenavigated check would cry wolf; a
+           document request (or the marker vanishing) cannot. */
+        let documentRequests = 0;
+        searchPage.on("request", (req) => {
+          if (req.isNavigationRequest() && req.frame() === searchPage.mainFrame()) {
+            documentRequests++;
+          }
+        });
+        await searchPage.click("#shopSearch");
+        await searchPage.keyboard.type("salve");
+        await searchPage.keyboard.press("Enter");
+        await new Promise((r) => setTimeout(r, 1000));
+        const after = await searchPage.evaluate(() => ({
+          marker: window.__ylNoReload,
+          value: document.getElementById("shopSearch").value,
+          cards: document.querySelectorAll("#shopGrid > .card").length
+        }));
+        if (
+          documentRequests === 0 &&
+          after.marker === "still-here" &&
+          after.value === "salve" &&
+          before > 0 &&
+          after.cards > 0 &&
+          after.cards < before
+        ) {
+          console.log(
+            `✅ Enter in shop search filtered in place (${before} -> ${after.cards} cards, no reload).`
+          );
+        } else {
+          console.log("❌ Enter in shop search reloaded or did not filter:", {
+            documentRequests,
+            before,
+            ...after
+          });
+          exitCode = 1;
+        }
+      } catch (e) {
+        console.log("❌ Shop search Enter check errored:", e.message);
+        exitCode = 1;
+      } finally {
+        await searchPage.close();
+      }
+    }
+
+    /* eslint-enable no-undef */
   } catch (e) {
     console.error("❌ Unexpected error in Puppeteer tests:", e);
     exitCode = 1;

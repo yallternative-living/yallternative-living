@@ -1440,16 +1440,30 @@ function assignEventIds(events) {
   const upcoming = events && Array.isArray(events.upcoming) ? events.upcoming : [];
   const past = events && Array.isArray(events.past) ? events.past : [];
   const used = new Set();
+  const holder = new Map(); // id -> the name of the upcoming entry holding it
   upcoming.forEach(function (evt) {
     if (!evt || !evt.id) return;
     if (used.has(evt.id)) {
+      /* The cause is the ID field, not the names: an entry copied in the CMS
+         keeps the ID of the one it was copied from, and the field is
+         read-only there -- so "rename one of them", which this used to say,
+         could not fix it (red team, 2026-10-09). */
       throw new Error(
-        'Two upcoming events in assets/data/events.json have the id "' +
-          evt.id +
-          '" (a market and a workshop with the same name and date?). Rename one of them.'
+        "Two upcoming events in assets/data/events.json have the same ID, " +
+          JSON.stringify(evt.id) +
+          ": " +
+          JSON.stringify(holder.get(evt.id)) +
+          " and " +
+          JSON.stringify(evt.name || "(no name)") +
+          ". The ID field causes this, not the names: an event or workshop copied in the " +
+          "CMS keeps the ID of the one it was copied from, and the CMS shows that field " +
+          "read-only, so renaming will not fix it. Run `node scripts/stamp-workshop-ids.js` " +
+          "(the CMS publish runs it before every build), which gives the copy an ID of its " +
+          'own -- or, editing the file by hand, delete the copy\'s "id" line.'
       );
     }
     used.add(evt.id);
+    holder.set(evt.id, evt.name || "(no name)");
   });
   past.forEach(function (evt) {
     if (!evt || !evt.id) return;
@@ -1475,9 +1489,21 @@ function assignEventIds(events) {
    ticket link. */
 const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/* "Tickets available" was actually filled in: a number, or a string with
+   something in it. A blank CMS number field saves as null or "", and
+   Number(null) / Number("") are 0 -- so a workshop whose spots were not
+   typed yet sold out on the card and in checkout while the warning below
+   said "Tickets coming soon" (red team, 2026-10-09). Mirror of
+   workers/state/tickets.js spotsGiven(). */
+function workshopSpotsGiven(value) {
+  if (typeof value === "number") return true;
+  return typeof value === "string" && value.trim() !== "";
+}
+
 function workshopSellsOnSite(w) {
   if (!w || typeof w !== "object") return false;
   if (typeof w.ticketUrl === "string" && w.ticketUrl.trim()) return false;
+  if (!workshopSpotsGiven(w.spots)) return false;
   const price = Number(w.price);
   const spots = Number(w.spots);
   return Number.isFinite(price) && price > 0 && Number.isInteger(spots) && spots >= 0;
@@ -1491,11 +1517,49 @@ function workshopSellsOnSite(w) {
    same one, so it has to be the bare slug -- never a "-2" suffix) and, when
    tickets sell on the site, the cart line id `ticketId`. Mutates and returns
    `events`; `workshops` is removed so nothing reads them twice. */
+/* An upcoming market or a workshop that ends before it starts is refused,
+   naming the event. Built anyway, a market dated 2026-12-12 with an end date
+   of 2026-12-11 shipped a zero-length calendar (.ics) entry -- DTSTART =
+   DTEND -- and was archived to "Where We've Been" on its own opening day,
+   because the archive judges by endDate (red team, 2026-10-09). Compared
+   only when both are written YYYY-MM-DD; a workshop's dates are held to
+   that format below, and a market's free-form dates are not this check's
+   business. Past entries are a record and are left alone. */
+function assertEventDateRanges(events) {
+  const check = function (evt, kind) {
+    if (!evt || typeof evt !== "object") return;
+    const start = String(evt.date || "");
+    const end = String(evt.endDate || "");
+    if (!ISO_DAY_RE.test(start) || !ISO_DAY_RE.test(end) || end >= start) return;
+    throw new Error(
+      "The " +
+        kind +
+        ' "' +
+        (evt.name || evt.id || "(no name)") +
+        '" in assets/data/events.json ends before it starts: its End date (' +
+        end +
+        ") is earlier than its Date (" +
+        start +
+        "). Fix the End date in the CMS (Markets & Pop-Ups) -- the same day as the Date " +
+        "for a one-day " +
+        kind +
+        ", or a later one -- or clear it."
+    );
+  };
+  (Array.isArray(events.upcoming) ? events.upcoming : []).forEach(function (evt) {
+    check(evt, evt && evt.kind === "workshop" ? "workshop" : "event");
+  });
+  (Array.isArray(events.workshops) ? events.workshops : []).forEach(function (w) {
+    check(w, "workshop");
+  });
+}
+
 function mergeWorkshopsIntoUpcoming(events) {
   if (!events || typeof events !== "object") return events;
+  assertEventDateRanges(events);
   const workshops = Array.isArray(events.workshops) ? events.workshops : [];
   if (!Array.isArray(events.upcoming)) events.upcoming = [];
-  const seen = new Set();
+  const seen = new Map(); // id -> the name of the workshop holding it
   workshops.forEach(function (w) {
     if (!w || typeof w !== "object") return;
     const id =
@@ -1534,20 +1598,32 @@ function mergeWorkshopsIntoUpcoming(events) {
       );
     }
     if (seen.has(id)) {
+      /* Name the ID as the cause, and a fix that works: a copied workshop
+         keeps the Workshop ID of the one it was copied from, and that field
+         is read-only in the CMS -- "give one of them a different name",
+         which this used to say, could not fix it (red team, 2026-10-09). */
       throw new Error(
-        'Two workshops in assets/data/events.json come out as "' +
-          id +
-          '" (same name and date). Give one of them a different name.'
+        "Two workshops in assets/data/events.json have the same Workshop ID, " +
+          JSON.stringify(id) +
+          ": " +
+          JSON.stringify(seen.get(id)) +
+          " and " +
+          JSON.stringify(w.name) +
+          ". Either one was copied from the other (a copy keeps the Workshop ID, which the " +
+          "CMS shows read-only, so renaming will not fix it), or two have the same name and " +
+          "date and no ID yet. Run `node scripts/stamp-workshop-ids.js` (the CMS publish " +
+          "runs it before every build), which gives the copy an ID of its own -- or, editing " +
+          'the file by hand, delete the copy\'s "id" line.'
       );
     }
-    seen.add(id);
+    seen.set(id, w.name);
     const merged = Object.assign({}, w, { id: id, kind: "workshop" });
     if (workshopSellsOnSite(w)) merged.ticketId = "ticket-" + id;
     /* Half set up is not an error -- the card says "Tickets coming soon" --
        but say so, so it isn't a mystery why there is no Buy button. */
     const hasOutside = typeof w.ticketUrl === "string" && w.ticketUrl.trim();
     const hasPrice = Number(w.price) > 0;
-    const hasSpots = Number.isInteger(Number(w.spots)) && w.spots !== "" && w.spots != null;
+    const hasSpots = workshopSpotsGiven(w.spots) && Number.isInteger(Number(w.spots));
     if (!hasOutside && hasPrice !== hasSpots) {
       console.warn(
         '[workshops] "' +
@@ -1885,6 +1961,50 @@ function renderSocialRowHtml(social) {
   });
 
   return '<div class="social-row">\n' + links.join("\n") + "\n        </div>";
+}
+
+/* schema.org availability for a workshop's ticket Offer, from the CMS's
+   "Tickets available" count -- the same number the ticket card reads (a
+   count of 0 is sold out; see workshopTicketHTML in main.js). A blank count
+   makes no claim at all: tickets are not on sale yet, or are sold somewhere
+   whose stock this site cannot see. Without this a sold-out workshop went on
+   advertising an open Offer to search engines (red team, 2026-10-09). There
+   is no on-sale date in the CMS, so the Offer carries no validFrom either. */
+function workshopOfferAvailability(ev) {
+  const raw = ev ? ev.spots : undefined;
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === "string" && !raw.trim()) return null;
+  const spots = Number(raw);
+  if (!Number.isInteger(spots) || spots < 0) return null;
+  return spots === 0 ? "https://schema.org/SoldOut" : "https://schema.org/InStock";
+}
+
+/* Writes the CMS's social URLs into the LocalBusiness block's "sameAs" array
+   on every page that has one. The URLs only have to pass safeUrl()'s scheme
+   check, so they are untrusted text going into a <script> block. Two ways
+   that went wrong (red team, 2026-10-09):
+     - raw JSON.stringify output: a URL holding `</SCRIPT><meta
+       http-equiv=refresh ...>` closed the block and redirected the page.
+       escapeJsonForScript() writes every <, > and & as a \u escape -- the
+       same JSON, never markup;
+     - a plain-string replacement: String.replace() expands `$'`, `` $` ``
+       and `$&` in a replacement STRING, so a URL carrying one pasted the rest
+       of the page into the block (39.5KB -> 80.5KB, and the damage outlived
+       restoring the URL). A function's return value is inserted literally;
+       .eslintrc.json now refuses any other kind of replacement in this file.
+   SAME_AS_RE matches the array by its JSON strings, so a `]` inside a URL
+   cannot end the match early on the next build. */
+const SAME_AS_RE = /"sameAs":\s*\[(?:\s*"(?:[^"\\]|\\.)*"\s*,?)*\s*\]/;
+function injectSameAs(html, urls) {
+  const sameAsJson = escapeJsonForScript(
+    JSON.stringify(Array.isArray(urls) ? urls : [], null, 2)
+      .split("\n")
+      .map((line, idx) => (idx === 0 ? line : "  " + line))
+      .join("\n")
+  );
+  return String(html).replace(SAME_AS_RE, function () {
+    return '"sameAs": ' + sameAsJson;
+  });
 }
 
 function getActiveSocialUrls(social) {
@@ -4011,10 +4131,9 @@ function buildSiteData() {
       .join("|");
     const optionsPlaceholderRe = /data-item-custom1-options="Preset \$10\[\+0\.00\][^"]*"/;
     if (optionsPlaceholderRe.test(shopHtml)) {
-      shopHtml = shopHtml.replace(
-        optionsPlaceholderRe,
-        'data-item-custom1-options="' + giftCardOptionsStr + '"'
-      );
+      shopHtml = shopHtml.replace(optionsPlaceholderRe, function () {
+        return 'data-item-custom1-options="' + giftCardOptionsStr + '"';
+      });
     }
   }
 
@@ -4046,23 +4165,25 @@ function buildSiteData() {
   }).length;
   const productCountWord = NUMBER_WORDS[productCount] || String(productCount);
 
-  shopHtml = shopHtml.replace(
-    /Shop \d+ handmade goods/,
-    "Shop " + productCount + " handmade goods"
-  );
-  shopHtml = shopHtml.replace(
-    /\b\d+ handmade goods across/g,
-    productCount + " handmade goods across"
-  );
+  shopHtml = shopHtml.replace(/Shop \d+ handmade goods/, function () {
+    return "Shop " + productCount + " handmade goods";
+  });
+  shopHtml = shopHtml.replace(/\b\d+ handmade goods across/g, function () {
+    return productCount + " handmade goods across";
+  });
 
   const countMarkerRe = /(<!--YL:productCount-->)\d+(<!--\/YL:productCount-->)/;
   if (countMarkerRe.test(shopHtml)) {
-    shopHtml = shopHtml.replace(countMarkerRe, "$1" + productCount + "$2");
+    shopHtml = shopHtml.replace(countMarkerRe, function (m, open, close) {
+      return open + productCount + close;
+    });
   }
 
   const wordMarkerRe = /(<!--YL:productCountWord-->)[A-Za-z]+(<!--\/YL:productCountWord-->)/;
   if (wordMarkerRe.test(shopHtml)) {
-    shopHtml = shopHtml.replace(wordMarkerRe, "$1" + productCountWord + "$2");
+    shopHtml = shopHtml.replace(wordMarkerRe, function (m, open, close) {
+      return open + productCountWord + close;
+    });
   }
 
   const shopBlockRe =
@@ -4324,6 +4445,8 @@ function buildSiteData() {
           priceCurrency: "USD",
           url: ticketHref
         };
+        const availability = workshopOfferAvailability(ev);
+        if (availability) ld.offers.availability = availability;
       }
     }
     return ld;
@@ -4794,10 +4917,11 @@ function buildSiteData() {
 
     const re = /<!--YL:home\.testimonials-->[\s\S]*?<!--\/YL:home\.testimonials-->/;
     if (re.test(html)) {
-      html = html.replace(
-        re,
-        "<!--YL:home.testimonials-->\n      " + cardsHtml + "\n      <!--/YL:home.testimonials-->"
-      );
+      html = html.replace(re, function () {
+        return (
+          "<!--YL:home.testimonials-->\n      " + cardsHtml + "\n      <!--/YL:home.testimonials-->"
+        );
+      });
       writeFile("index.html", html);
     }
   }
@@ -5075,16 +5199,12 @@ function buildSiteData() {
       return match;
     });
 
-    // Dynamic Schema.org sameAs injection
-    const activeSocialList = getActiveSocialUrls(CONTENT.site && CONTENT.site.social);
-    const sameAsJson = JSON.stringify(activeSocialList, null, 2)
-      .split("\n")
-      .map((line, idx) => (idx === 0 ? line : "  " + line))
-      .join("\n");
+    // Dynamic Schema.org sameAs injection (see injectSameAs).
+    html = injectSameAs(html, getActiveSocialUrls(CONTENT.site && CONTENT.site.social));
 
-    html = html.replace(/"sameAs":\s*\[[\s\S]*?\]/, '"sameAs": ' + sameAsJson);
-
-    const updated = html.replace(FOOTER_RE, FOOTER_BLOCK);
+    const updated = html.replace(FOOTER_RE, function () {
+      return FOOTER_BLOCK;
+    });
     if (updated !== html) writeFile(page, updated);
   });
 
@@ -5843,9 +5963,13 @@ function buildSiteData() {
       // (editable in /admin); the markers wrap the static chips in every page.
       updated = updated.replace(
         /<!--YL:search\.chipsTitle-->[\s\S]*?<!--\/YL:search\.chipsTitle-->/g,
-        "<!--YL:search.chipsTitle-->" +
-          escapeHtml(SEARCH_CONFIG.chipsTitle) +
-          "<!--/YL:search.chipsTitle-->"
+        function () {
+          return (
+            "<!--YL:search.chipsTitle-->" +
+            escapeHtml(SEARCH_CONFIG.chipsTitle) +
+            "<!--/YL:search.chipsTitle-->"
+          );
+        }
       );
       updated = updated.replace(
         /<!--YL:search\.chips-->[\s\S]*?<!--\/YL:search\.chips-->/g,
@@ -6185,7 +6309,9 @@ function buildSiteData() {
     const versionString = hash.digest("hex").slice(0, 12);
     swContent = swContent.replace(
       /const CACHE_NAME\s*=\s*['"]yallternative-cache-v[^'"]*['"];/,
-      'const CACHE_NAME = "yallternative-cache-v' + versionString + '";'
+      function () {
+        return 'const CACHE_NAME = "yallternative-cache-v' + versionString + '";';
+      }
     );
     fs.writeFileSync(swPath, swContent, "utf8");
     console.log(
@@ -9255,6 +9381,8 @@ if (typeof module !== "undefined" && module.exports) {
     buildQuizFlowHtml: buildQuizFlowHtml,
     renderSocialRowHtml: renderSocialRowHtml,
     getActiveSocialUrls: getActiveSocialUrls,
+    injectSameAs: injectSameAs,
+    workshopOfferAvailability: workshopOfferAvailability,
     renderRitualSectionHtml: renderRitualSectionHtml,
     renderStickyBarHtml: renderStickyBarHtml,
     renderProductPdpHtml: renderProductPdpHtml,

@@ -5,10 +5,10 @@
  */
 /* global window, document, localStorage */
 
-const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 /**
  * The path of the synthetic page this harness serves to prove the CSP it is
@@ -61,62 +61,28 @@ function readSiteCsp() {
 }
 
 function createStaticServer(port = 8083) {
-  const root = path.resolve(__dirname, "..");
   const cspHeader = readSiteCsp();
-
-  const server = http.createServer((req, res) => {
-    let reqPath = req.url.split("?")[0];
-    if (reqPath === "/") reqPath = "/index.html";
-
-    if (reqPath === CSP_CONTROL_PATH) {
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(path.resolve(__dirname, ".."), {
+    // The positive control: a page carrying the site's own policy.
+    onRequest(req, res, ctx) {
+      if (ctx.pathname !== CSP_CONTROL_PATH) return false;
       res.writeHead(200, {
         "Content-Type": "text/html",
         "Content-Security-Policy": cspHeader
       });
       res.end(CSP_CONTROL_HTML);
-      return;
-    }
-
-    let filePath = path.join(root, reqPath);
-
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(root, "404.html");
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      ".html": "text/html",
-      ".js": "text/javascript",
-      ".css": "text/css",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".avif": "image/avif",
-      ".webp": "image/webp",
-      ".svg": "image/svg+xml"
-    };
-
-    const contentType = mimeTypes[ext] || "application/octet-stream";
-    const resHeaders = { "Content-Type": contentType };
-    if (cspHeader && ext === ".html") {
-      resHeaders["Content-Security-Policy"] = cspHeader;
-    }
-
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-      } else {
-        res.writeHead(200, resHeaders);
-        res.end(data);
-      }
-    });
+      return true;
+    },
+    // Every HTML response -- the 404 page included -- carries the site's CSP.
+    headers: (info) =>
+      info.filePath && path.extname(info.filePath).toLowerCase() === ".html"
+        ? { "Content-Security-Policy": cspHeader }
+        : {}
   });
-
-  return new Promise((resolve, reject) => {
-    server.on("error", reject);
-    server.listen(port, "127.0.0.1", () => resolve(server));
-  });
+  return listenLoopback(server, port);
 }
 
 (async () => {

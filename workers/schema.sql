@@ -380,7 +380,10 @@ CREATE INDEX IF NOT EXISTS order_emails_created_at ON order_emails (created_at);
 --   active     reserved at checkout, waiting on the Stripe session
 --   committed  checkout.session.completed (paid): on_hand -= qty, reserved -= qty
 --   released   checkout.session.expired / async_payment_failed / a hold that
---              outlived its 24h session: reserved -= qty
+--              outlived its session (35 minutes after it was taken, or 14
+--              days for a session that completed with a delayed payment
+--              still clearing -- created_at is moved forward for that, see
+--              workers/state/inventory.js awaitDelayedPayment): reserved -= qty
 --   restocked  charge.refunded in full: on_hand += qty
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS inventory (

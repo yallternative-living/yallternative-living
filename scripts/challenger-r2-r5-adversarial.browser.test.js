@@ -13,8 +13,8 @@ const path = require("path");
 const PRODUCT_COUNT = JSON.parse(
   fs.readFileSync(path.join(__dirname, "..", "assets", "data", "products.json"), "utf8")
 ).products.length;
-const http = require("http");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -36,21 +36,6 @@ function assert(condition, message) {
     failures.push(message);
   }
 }
-
-const MIME = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".webmanifest": "application/manifest+json"
-};
 
 /* Every PDP and shop.html carry the Tawk.to chat loader, armed on the first
    pointerdown, keydown, scroll or touchstart -- the checkbox and button
@@ -122,48 +107,23 @@ async function waitForDrawerClosed(page) {
 }
 
 function startServer() {
-  return new Promise((resolve, reject) => {
-    server = http.createServer((req, res) => {
-      let reqPath = decodeURIComponent(req.url.split("?")[0]);
-      if (reqPath === "/") reqPath = "/index.html";
-      const filePath = path.join(ROOT, reqPath);
-      if (
-        !filePath.startsWith(ROOT) ||
-        !fs.existsSync(filePath) ||
-        fs.statSync(filePath).isDirectory()
-      ) {
-        res.writeHead(404, { "Content-Type": "text/plain" });
-        res.end("Not found: " + reqPath);
-        return;
-      }
-      const contentType = MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-      fs.readFile(filePath, (err, data) => {
-        if (err) {
-          res.writeHead(500);
-          res.end("Server error");
-          return;
-        }
-        res.writeHead(200, { "Content-Type": contentType });
-        if (reqPath.startsWith("/products/") && reqPath.endsWith(".html")) {
-          let str = data.toString("utf8");
-          // Disable client-side inline redirect so PDP DOM and interactions can be tested directly
-          str = str.replace(
-            /window\.location\.replace\(.*?\);/g,
-            "/* redirect neutralized for test */;"
-          );
-          res.end(Buffer.from(str, "utf8"));
-        } else {
-          res.end(data);
-        }
-      });
-    });
-    server.on("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      serverPort = server.address().port;
-      BASE = `http://127.0.0.1:${serverPort}`;
-      console.log(`Test server running at ${BASE}`);
-      resolve();
-    });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  server = createSiteServer(ROOT, {
+    // A PDP redirects to the shop grid on load; neutralise it so the PDP
+    // DOM and its interactions can be driven directly.
+    transform: (body, info) =>
+      info.pathname.startsWith("/products/") && info.pathname.endsWith(".html")
+        ? body
+            .toString("utf8")
+            .replace(/window\.location\.replace\(.*?\);/g, "/* redirect neutralized for test */;")
+        : body
+  });
+  return listenLoopback(server, 0).then(() => {
+    serverPort = server.address().port;
+    BASE = `http://127.0.0.1:${serverPort}`;
+    console.log(`Test server running at ${BASE}`);
   });
 }
 
@@ -637,7 +597,7 @@ async function testRitualInteractivity() {
       `Modal ritual section renders 3 checkboxes (found ${modalCheckboxes.length})`
     );
 
-    const modalPrice = await page.$eval("#lightboxRitualWrap #pdpRitualTotalPrice", (el) =>
+    const modalPrice = await page.$eval("#lightboxRitualWrap .pdp-ritual-total-price", (el) =>
       el.textContent.trim()
     );
     assert(modalPrice === "$40", `Modal ritual bundle initial total is $40 (got ${modalPrice})`);
@@ -646,7 +606,7 @@ async function testRitualInteractivity() {
     await modalCheckboxes[2].click();
     await new Promise((r) => setTimeout(r, 100));
 
-    const modalRecalcPrice = await page.$eval("#lightboxRitualWrap #pdpRitualTotalPrice", (el) =>
+    const modalRecalcPrice = await page.$eval("#lightboxRitualWrap .pdp-ritual-total-price", (el) =>
       el.textContent.trim()
     );
     assert(
@@ -655,7 +615,7 @@ async function testRitualInteractivity() {
     );
 
     // Add selected from modal
-    await page.click("#lightboxRitualWrap #pdpRitualAddBtn");
+    await page.click("#lightboxRitualWrap .pdp-ritual-add-btn");
     await new Promise((r) => setTimeout(r, 300));
 
     const modalCartCount = await page.evaluate(() => (window.YLCart ? window.YLCart.count() : 0));

@@ -16,8 +16,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const http = require("http");
 const puppeteer = require("puppeteer");
+const { createStaticServer: createSiteServer, listenLoopback } = require("./serve.js");
 // Required unguarded on purpose. This used to sit in a try/catch that set
 // `playwright = null`, and Dimension 6 then logged "skipping" and passed --
 // so the three-engine gate quietly reported green on any machine where the
@@ -129,23 +129,6 @@ function assert(condition, label, detail = "") {
   }
 }
 
-const MIME = {
-  ".html": "text/html",
-  ".js": "text/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".avif": "image/avif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".webmanifest": "application/manifest+json",
-  ".xml": "application/xml"
-};
-
 /* The Apothecary Journal is a content switch (content.json site.enableJournal).
    With it off, the build emits zero posts into journal-data.js and journal.html
    renders a "coming soon" notice -- so every dimension of this suite, which
@@ -192,41 +175,19 @@ function journalFixture(reqPath) {
 }
 
 function createStaticServer(port) {
-  const server = http.createServer((req, res) => {
-    let reqPath = decodeURIComponent(req.url.split("?")[0]);
-    if (reqPath === "/") reqPath = "/index.html";
-
-    const fixture = journalFixture(reqPath);
-    if (fixture !== null) {
-      res.writeHead(200, {
-        "Content-Type": "text/javascript",
-        "Cache-Control": "no-store"
-      });
+  // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
+  // lived here served /../../etc/passwd, /.git and node_modules and had no
+  // symlink or Host check (red team, 2026-10-09).
+  const server = createSiteServer(ROOT, {
+    onRequest(req, res, ctx) {
+      const fixture = journalFixture(ctx.pathname === "/" ? "/index.html" : ctx.pathname);
+      if (fixture === null) return false;
+      res.writeHead(200, { "Content-Type": "text/javascript", "Cache-Control": "no-store" });
       res.end(fixture);
-      return;
+      return true;
     }
-
-    let filePath = path.join(ROOT, reqPath);
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      filePath = path.join(ROOT, "404.html");
-    }
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        res.end("Server error");
-        return;
-      }
-      res.writeHead(200, {
-        "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream",
-        "Cache-Control": "no-store"
-      });
-      res.end(data);
-    });
   });
-  return new Promise((resolve, reject) => {
-    server.listen(port, "127.0.0.1", () => resolve(server));
-    server.on("error", reject);
-  });
+  return listenLoopback(server, port);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -54,6 +54,20 @@
     },
     {
       "files": [
+        "scripts/build-site-data.js"
+      ],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "CallExpression[callee.property.name=/^replace(All)?$/][arguments.length>1] > .arguments:nth-child(2):not(Literal, FunctionExpression, ArrowFunctionExpression, TemplateLiteral[expressions.length=0])",
+            "message": "build-site-data.js writes CMS/JSON data into pages: pass .replace() a function (`function () { return x; }`), never a built-up string. A replacement STRING expands $&, $' and $` -- a social URL carrying one pasted half the page into its own JSON-LD block (red team, 2026-10-09)."
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         "netlify/functions/**/*.js"
       ],
       "env": {

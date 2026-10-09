@@ -242,10 +242,38 @@
       "verify": ["Your Cart"]
     },
     {
+      "key": "nav.appearance",
+      "text": "Appearance",
+      "source": "assets/js/main.js",
+      "verify": ["themeLabel.textContent = \"Appearance\""],
+      "note": "label of the theme switch in the mobile drawer's Preferences group"
+    },
+    {
+      "key": "nav.language",
+      "text": "Language",
+      "source": "assets/js/main.js",
+      "verify": ["langLabel.textContent = \"Language\""],
+      "note": "label of the language select in the mobile drawer's Preferences group"
+    },
+    {
+      "key": "nav.preferences",
+      "text": "Preferences",
+      "source": "assets/js/main.js",
+      "verify": ["prefHeading.textContent = \"Preferences\""],
+      "note": "heading of the mobile drawer's Preferences group"
+    },
+    {
       "key": "nav.savedItems",
       "text": "Open your saved items",
       "source": "assets/js/main.js",
       "verify": ["Open your saved items"]
+    },
+    {
+      "key": "nav.selectLanguage",
+      "text": "Select language",
+      "source": "assets/js/main.js",
+      "verify": ["langSelect.setAttribute(\"aria-label\", \"Select language\")"],
+      "note": "aria-label of the language select in the mobile drawer"
     },
     {
       "key": "pdp.allergyNote",

@@ -162,6 +162,15 @@ function installGitHubStub(state) {
       if (auth !== expected) return ghResponse(401, { message: "Bad credentials" });
       const info = TOKENS[JSON.parse(options.body).access_token];
       if (!info || !info.app) return ghResponse(404, { message: "Not Found" });
+      // A 200 that is not GitHub's answer: an HTML page, or JSON with no
+      // scopes list (red team, 2026-10-09).
+      if (state.appNotJson) {
+        return new Response("<html>upstream error</html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" }
+        });
+      }
+      if (state.appNoScopes) return ghResponse(200, { user: { login: info.login } });
       return ghResponse(200, {
         scopes: info.scopes
           .split(",")
@@ -173,7 +182,11 @@ function installGitHubStub(state) {
 
     const info = TOKENS[auth.replace(/^Bearer /, "")];
     if (!info) return ghResponse(401, { message: "Bad credentials" });
-    if (route === "/user") return ghResponse(200, { login: info.login }, info.scopes);
+    if (route === "/user") {
+      // `dropScopesHeader`: a 200 with no X-OAuth-Scopes header at all --
+      // what a fine-grained token always gets, and a classic one never does.
+      return ghResponse(200, { login: info.login }, state.dropScopesHeader ? null : info.scopes);
+    }
     if (route.endsWith("/git/refs") && options.method === "POST") {
       // The write check. GitHub refuses a token without Contents write before
       // it reads the body; one with it fails on the all-zero SHA instead.
@@ -196,6 +209,38 @@ function installGitHubStub(state) {
             }
           }
         );
+      }
+      /* Each rate-limit signal ON ITS OWN, so dropping any one of the three
+         from probeContentsWrite() is caught: the two cases above always
+         send two at once. */
+      const neutral = { message: "Forbidden" };
+      if (state.probeFail === "remaining-only") {
+        return new Response(JSON.stringify(neutral), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "X-RateLimit-Remaining": "0" }
+        });
+      }
+      if (state.probeFail === "retry-after-only") {
+        return new Response(JSON.stringify(neutral), {
+          status: 403,
+          headers: {
+            "Content-Type": "application/json",
+            "X-RateLimit-Remaining": "4321",
+            "Retry-After": "30"
+          }
+        });
+      }
+      if (state.probeFail === "message-only") {
+        return new Response(JSON.stringify({ message: "API rate limit exceeded for user" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "X-RateLimit-Remaining": "4321" }
+        });
+      }
+      if (state.probeFail === "plain-403") {
+        return new Response(JSON.stringify(neutral), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "X-RateLimit-Remaining": "4321" }
+        });
       }
       if (state.probeFail) return ghResponse(state.probeFail, {});
       // A classic token writes when its account may push (the scopes were
@@ -234,7 +279,10 @@ async function main() {
     handleUnfulfilledOrders,
     handleFulfillOrder,
     ADMIN_AUTH_RATE_LIMIT,
-    FULFILLMENT_STATUSES
+    FULFILLMENT_STATUSES,
+    KNOWN_TOKEN_MS,
+    resetAuthMemo,
+    sweepKnownTokens
   } = await import("file://" + process.cwd() + "/workers/routes/fulfillment.js");
   const { SHIPPED_STATUSES } = await import(
     "file://" + process.cwd() + "/workers/routes/ship-notice.js"
@@ -675,11 +723,15 @@ async function main() {
     };
     const floodedEnv = { ...env, RATE_LIMITER: floodedLimiter };
 
-    // Verified in another isolate: the row is there, this isolate's cache is not.
+    // Verified in another isolate: the row is there, this isolate's cache is
+    // not. This isolate sees another's yes when it next reloads its set of
+    // remembered tokens -- at most a minute later; the reset stands in for
+    // that minute.
     const remembered = freshOwnerToken();
     await env.STATE_DB.prepare("INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?)")
       .bind("admin-known:" + digest(remembered), Date.now())
       .run();
+    resetAuthMemo("known");
     const owner = await handleUnfulfilledOrders(request(bearer(remembered)), floodedEnv, ORIGIN);
     assert(
       owner.status === 200,
@@ -703,6 +755,7 @@ async function main() {
     await env.STATE_DB.prepare("INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?)")
       .bind("admin-known:" + digest(stale), Date.now() - 91 * 24 * 60 * 60 * 1000)
       .run();
+    resetAuthMemo("known");
     const staleRes = await handleUnfulfilledOrders(request(bearer(stale)), floodedEnv, ORIGIN);
     assert(staleRes.status === 429, "a yes older than KNOWN_TOKEN_MS is not honoured");
 
@@ -723,6 +776,7 @@ async function main() {
     await env.STATE_DB.prepare("INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?)")
       .bind("admin-known:" + digest(revoked), Date.now())
       .run();
+    resetAuthMemo("known");
     delete TOKENS[revoked];
     const revokedRes = await handleUnfulfilledOrders(request(bearer(revoked)), floodedEnv, ORIGIN);
     assert(revokedRes.status === 401, "a remembered token GitHub refuses is still refused");
@@ -730,6 +784,297 @@ async function main() {
       .bind("admin-known:" + digest(revoked))
       .first();
     assert(gone === null, "a refused token loses its remembered row");
+  }
+  /* ==================================================================
+     Red team, 2026-10-09: the remembered-token path, assertion by
+     assertion -- each of these was a change to fulfillment.js the suite
+     above let through (mutation testing), plus findings A7, A9 and A10.
+     ================================================================== */
+  {
+    const crypto = require("crypto");
+    const digest = (t) => crypto.createHash("sha256").update(t).digest("hex");
+    const rowOf = (t) =>
+      env.STATE_DB.prepare("SELECT job, value, updated_at FROM job_state WHERE job = ?")
+        .bind("admin-known:" + digest(t))
+        .first();
+    const remember = async (t, at = Date.now()) => {
+      await env.STATE_DB.prepare(
+        "INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?) " +
+          "ON CONFLICT(job) DO UPDATE SET updated_at = excluded.updated_at"
+      )
+        .bind("admin-known:" + digest(t), at)
+        .run();
+      resetAuthMemo("known"); // another isolate's yes, seen after this one's next reload
+    };
+    /** Global bucket full; each remembered token's own bucket per `ownOk`. */
+    const flooded = (ownOk = () => true) => {
+      const calls = [];
+      return {
+        calls,
+        env: {
+          ...env,
+          RATE_LIMITER: {
+            async limit({ key }) {
+              calls.push(key);
+              return { success: key === "admin-auth" ? false : ownOk(key) };
+            }
+          }
+        }
+      };
+    };
+
+    /* A8: a remembered token GitHub now answers 403 (the account lost push)
+       is forgotten like a 401 -- and so loses its own bucket. */
+    {
+      const t = freshOwnerToken();
+      await remember(t);
+      TOKENS[t] = { ...TOKENS[t], push: false };
+      const f = flooded();
+      const res = await handleUnfulfilledOrders(request(bearer(t)), f.env, ORIGIN);
+      assert(res.status === 403, "a remembered token that lost push is refused (403)");
+      assert((await rowOf(t)) === null, "...and a 403 forgets the remembered row, like a 401");
+      resetAuthMemo("verdicts");
+      const again = await handleUnfulfilledOrders(request(bearer(t)), f.env, ORIGIN);
+      assert(again.status === 429, "...so in the next flood it waits like any unknown token");
+    }
+
+    /* A8: the remembered token's OWN bucket is enforced. */
+    {
+      const t = freshOwnerToken();
+      await remember(t);
+      gh.calls.length = 0;
+      const f = flooded(() => false);
+      const res = await handleUnfulfilledOrders(request(bearer(t)), f.env, ORIGIN);
+      assert(res.status === 429, "a remembered token whose own bucket is full gets 429");
+      assert(
+        f.calls.length === 2 && f.calls[1] === "admin-auth-known:" + digest(t),
+        "...after asking its own bucket"
+      );
+      assert(gh.calls.length === 0, "...and GitHub is never asked");
+    }
+
+    /* A8: every use renews the remembered row (ON CONFLICT ... DO UPDATE). */
+    {
+      const t = freshOwnerToken();
+      const old = Date.now() - 80 * 24 * 60 * 60 * 1000;
+      await remember(t, old);
+      const before = Date.now();
+      const res = await handleUnfulfilledOrders(request(bearer(t)), env, ORIGIN);
+      assert(res.status === 200, "an 80-day-old remembered token verifies again");
+      const row = await rowOf(t);
+      assert(
+        row && Number(row.updated_at) >= before,
+        "...and the yes renews its remembered row (updated_at moves to now)"
+      );
+    }
+
+    /* A8: a 503 is about GitHub, not the token: never remembered. */
+    {
+      const t = freshOwnerToken();
+      gh.fail = 500;
+      const res = await handleUnfulfilledOrders(request(bearer(t)), env, ORIGIN);
+      gh.fail = 0;
+      assert(res.status === 503, "GitHub down: 503");
+      assert((await rowOf(t)) === null, "...and a 503 is never remembered as a yes");
+    }
+
+    /* A8: each rate-limit signal on its own makes the write check a 503;
+       none of them is a refusal of the token. */
+    for (const [fail, label] of [
+      ["remaining-only", "X-RateLimit-Remaining: 0 alone"],
+      ["retry-after-only", "Retry-After alone"],
+      ["message-only", "a 'rate limit' message alone"]
+    ]) {
+      gh.probeFail = fail;
+      const fg = "github_pat_" + freshOwnerToken().slice(4);
+      TOKENS[fg] = { login: "shop-owner", scopes: null, push: true, contentsWrite: true };
+      const res = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      gh.probeFail = 0;
+      assert(res.status === 503, `write check, ${label}: 503, not a refusal`);
+      const again = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      assert(again.status === 200, `write check, ${label}: not cached`);
+    }
+    {
+      gh.probeFail = "plain-403";
+      const fg = "github_pat_" + freshOwnerToken().slice(4);
+      TOKENS[fg] = { login: "shop-owner", scopes: null, push: true, contentsWrite: true };
+      const res = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      gh.probeFail = 0;
+      assert(res.status === 403, "write check, a 403 with none of the signals: a refusal (403)");
+    }
+
+    /* A8: the token itself is in NO column of job_state. */
+    {
+      const t = freshOwnerToken();
+      const res = await handleUnfulfilledOrders(request(bearer(t)), env, ORIGIN);
+      assert(res.status === 200, "a fresh token verifies");
+      const all = await env.STATE_DB.prepare("SELECT * FROM job_state").all();
+      const dump = JSON.stringify(all.results);
+      assert(all.results.length > 0 && dump.includes(digest(t)), "...and is remembered");
+      assert(!dump.includes(t), "...by digest only: the raw token is in no column of job_state");
+    }
+
+    /* A7: a classic token's /user 200 without X-OAuth-Scopes is GitHub not
+       answering properly: 503, not cached, and not a reason to forget. */
+    {
+      const t = freshOwnerToken();
+      await remember(t);
+      gh.dropScopesHeader = true;
+      const res = await handleUnfulfilledOrders(request(bearer(t)), env, ORIGIN);
+      gh.dropScopesHeader = false;
+      assert(res.status === 503, "/user without X-OAuth-Scopes for a classic token: 503, not 403");
+      assert((await rowOf(t)) !== null, "...the remembered row is kept");
+      const again = await handleUnfulfilledOrders(request(bearer(t)), env, ORIGIN);
+      assert(again.status === 200, "...and nothing was cached: the next request gets in");
+
+      const fg = "github_pat_" + freshOwnerToken().slice(4);
+      TOKENS[fg] = { login: "shop-owner", scopes: null, push: true, contentsWrite: true };
+      gh.dropScopesHeader = true;
+      const fgRes = await handleUnfulfilledOrders(request(bearer(fg)), env, ORIGIN);
+      gh.dropScopesHeader = false;
+      assert(fgRes.status === 200, "...while a fine-grained token, which never gets one, is fine");
+    }
+
+    /* A7: the pinned app check answering 200 without GitHub's JSON. */
+    {
+      gh.clientId = "Iv1.cmsapp";
+      gh.clientSecret = "s3cret";
+      const pinned = { ...env, GITHUB_CLIENT_ID: "Iv1.cmsapp", GITHUB_CLIENT_SECRET: "s3cret" };
+      for (const [knob, label] of [
+        ["appNotJson", "a non-JSON 200"],
+        ["appNoScopes", "a 200 with no scopes list"]
+      ]) {
+        const t = freshOwnerToken();
+        await remember(t);
+        gh[knob] = true;
+        const res = await handleUnfulfilledOrders(request(bearer(t)), pinned, ORIGIN);
+        gh[knob] = false;
+        assert(res.status === 503, `pinned: ${label} from the app check is a 503, not a 403`);
+        assert((await rowOf(t)) !== null, `pinned: ${label} does not forget the remembered row`);
+        const again = await handleUnfulfilledOrders(request(bearer(t)), pinned, ORIGIN);
+        assert(again.status === 200, `pinned: ${label} is not cached as a refusal`);
+      }
+    }
+
+    /* A9: during a flood, refused fake tokens cost ONE D1 read a minute,
+       not one each; this isolate's own yes and no take effect at once. */
+    {
+      resetAuthMemo();
+      const reads = [];
+      const counting = {
+        prepare(sql) {
+          if (/^\s*SELECT/i.test(sql) && /job_state/.test(sql)) reads.push(sql);
+          return env.STATE_DB.prepare(sql);
+        }
+      };
+      const f = flooded();
+      const floodEnv = { ...f.env, STATE_DB: counting };
+      const owner = freshOwnerToken();
+      await remember(owner);
+      let refused = 0;
+      for (let i = 0; i < 40; i++) {
+        const res = await handleUnfulfilledOrders(
+          request(bearer(unknownToken(2000 + i))),
+          floodEnv,
+          ORIGIN
+        );
+        if (res.status === 429) refused++;
+      }
+      assert(refused === 40, "a flood of 40 fake tokens is refused (429)");
+      assert(reads.length === 1, `...for ONE read of the remembered tokens (got ${reads.length})`);
+      const ownerRes = await handleUnfulfilledOrders(request(bearer(owner)), floodEnv, ORIGIN);
+      assert(ownerRes.status === 200, "...and the remembered owner still gets in");
+      assert(reads.length === 1, "...from memory, with no further read");
+
+      // A yes heard in THIS isolate counts at once, before any reload.
+      const fresh = freshOwnerToken();
+      const ok = await handleUnfulfilledOrders(
+        request(bearer(fresh)),
+        { ...env, STATE_DB: counting },
+        ORIGIN
+      );
+      assert(ok.status === 200, "a new sign-in verifies outside the flood");
+      resetAuthMemo("verdicts");
+      const known = await handleUnfulfilledOrders(request(bearer(fresh)), floodEnv, ORIGIN);
+      assert(known.status === 200, "...and is known in the flood straight away");
+      assert(reads.length === 1, "...without reloading the set");
+
+      // A refusal heard in THIS isolate takes the token out at once.
+      TOKENS[fresh] = { ...TOKENS[fresh], push: false };
+      resetAuthMemo("verdicts");
+      const lost = await handleUnfulfilledOrders(request(bearer(fresh)), floodEnv, ORIGIN);
+      assert(lost.status === 403, "the same token, now without push, is refused");
+      resetAuthMemo("verdicts");
+      gh.calls.length = 0;
+      const out = await handleUnfulfilledOrders(request(bearer(fresh)), floodEnv, ORIGIN);
+      assert(out.status === 429, "...and is out of the set at once: the flood refuses it");
+      assert(gh.calls.length === 0 && reads.length === 1, "...with no GitHub call and no read");
+      resetAuthMemo();
+    }
+
+    /* A10: rows older than KNOWN_TOKEN_MS are deleted, by the sweep and by
+       the hourly cron that runs it; nothing else in job_state is. */
+    {
+      assert(typeof sweepKnownTokens === "function", "sweepKnownTokens is exported");
+      const now = Date.now();
+      const { makeD1: makeEmulatedD1 } = require("./lib/d1-emulator.js");
+      const { applyMigrations, resetSchemaMemo } = await import(
+        "file://" + process.cwd() + "/workers/state/migrations.js"
+      );
+      resetSchemaMemo();
+      const db = makeEmulatedD1(new DatabaseSync(":memory:"));
+      await applyMigrations(db);
+      const put = (job, at) =>
+        db
+          .prepare("INSERT INTO job_state (job, value, updated_at) VALUES (?, '1', ?)")
+          .bind(job, at)
+          .run();
+      const seed = async () => {
+        await put("admin-known:" + "a".repeat(64), now - KNOWN_TOKEN_MS - 1000);
+        await put("admin-known:" + "b".repeat(64), now - 24 * 60 * 60 * 1000);
+        await put("ship-notice:cursor", now - 400 * 24 * 60 * 60 * 1000);
+      };
+      const jobs = async () =>
+        (await db.prepare("SELECT job FROM job_state ORDER BY job").all()).results.map(
+          (r) => r.job
+        );
+      await seed();
+      assert(
+        (await sweepKnownTokens(db, now)) === 1,
+        "the sweep deletes the one expired remembered row"
+      );
+      const kept = JSON.stringify(["admin-known:" + "b".repeat(64), "ship-notice:cursor"]);
+      assert(
+        JSON.stringify(await jobs()) === kept,
+        "...keeping the fresh one and every other job's row, however old"
+      );
+
+      await db.prepare("DELETE FROM job_state").run();
+      await seed();
+      const workerModule = await import("file://" + path.join(ROOT, "workers/checkout.js"));
+      const worker = workerModule.default || workerModule;
+      const pending = [];
+      const realFetch = global.fetch;
+      const quiet = { log: console.log, warn: console.warn, error: console.error };
+      global.fetch = async () => new Response("{}", { status: 404 });
+      console.log = console.warn = console.error = () => {};
+      try {
+        await worker.scheduled(
+          { scheduledTime: now },
+          { STATE_DB: db },
+          { waitUntil: (p) => pending.push(p) }
+        );
+        await Promise.all(pending);
+      } finally {
+        global.fetch = realFetch;
+        Object.assign(console, quiet);
+      }
+      assert(pending.length > 0, "the hourly cron ran");
+      assert(
+        JSON.stringify(await jobs()) === kept,
+        "...and its known-token sweep deleted the expired remembered row"
+      );
+    }
   }
   {
     // The bucket must not be pickable by the caller: on the workers.dev
