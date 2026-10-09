@@ -434,7 +434,9 @@ Your own ticketed nights (like Potions & Pour Decisions) live in their own list,
 Good to know:
 - Tickets go through the same checkout as the shop. There's no shipping and no sales tax on a ticket. Each order shows up in your order emails and the fulfillment dashboard like any other.
 - Leave the price or the number of tickets blank and the card says "Tickets coming soon" — handy for announcing a night before tickets open.
-- Renaming a workshop or moving its date is safe, even after tickets have sold: the **Workshop ID** fills itself in the first time you save and never changes, so the count and any shared links carry on.
+- Renaming a workshop is safe, even after tickets have sold: the **Workshop ID** fills itself in the first time you save and never changes, so the count and any shared links carry on.
+- **Moving the date of a workshop that hasn't happened yet** (a postponement) keeps its tickets: the people who bought still have their spots, the count left carries on, and shared links still work. Move it by the end of the night it was meant to happen — from the next day on, a new date counts as a brand-new workshop (below).
+- **Giving a past workshop a new date** — say, reusing last month's Potions & Pour Decisions for next month — starts a fresh workshop: it gets a new Workshop ID when it's published, and its ticket count starts again from **Tickets available**, so check that number is right for the new night. Links people shared to the past night stay with the past night, which stays in "Where We've Been".
 - The day after the workshop it moves itself to "Where We've Been" and ticket sales close.
 
 #### B. Publishing Customer Reviews (Customer Reviews)

@@ -16,9 +16,11 @@
  * The CMS's "Workshop ID" field is read-only, so the owner never types one;
  * this script fills a blank one with exactly the slug the build and the
  * Worker were already using, so stamping changes nothing that is live. From
- * then on Sveltia keeps the stored value on every save, and a rename or a new
- * date keeps the id. .github/workflows/cms-publish.yml runs it on every
- * publish, before the build, and commits the result with the build output.
+ * then on Sveltia keeps the stored value on every save, and a rename, or a new
+ * date for a workshop that has not happened yet, keeps the id (a past night
+ * given a new date is a new workshop -- see A PAST NIGHT REUSED below).
+ * .github/workflows/cms-publish.yml runs it on every publish, before the
+ * build, and commits the result with the build output.
  *
  * Two more jobs (red team, 2026-10-09):
  *
@@ -37,6 +39,13 @@
  *   id-less workshop takes the id of the one it was -- matched
  *   conservatively, and NEVER guessed: a match that is not unique fails with
  *   a message the owner can act on.
+ *
+ *   A PAST NIGHT REUSED. Past workshops stay in the `workshops` list, so last
+ *   month's entry can be given next month's date. With `--previous`, a
+ *   workshop whose previous last day is already over and whose date changed
+ *   gets a fresh id (a new ledger row, its count from "Tickets available"),
+ *   and the past night is kept in `past` under the old id. Moving the date of
+ *   one that has not happened yet keeps the id: that is a postponement.
  *
  * Only `workshops` are stamped when blank: markets sell nothing, and their
  * ids are assigned by the build (ensureEventId) where a "-2" suffix is
@@ -100,6 +109,33 @@ function describe(e) {
   return `"${(e && e.name) || "(no name)"}" (${(e && e.date) || "no date"})`;
 }
 
+/**
+ * The "Past appearances" record of a workshop night that is over, in the
+ * shape the CMS's past list and the build's own archive use -- kept under the
+ * night's old id when the entry is reused for a new night.
+ */
+function pastRecordOf(night, id) {
+  const record = { id: id };
+  for (const key of [
+    "date",
+    "endDate",
+    "dateLabel",
+    "name",
+    "location",
+    "zip",
+    "venue",
+    "address",
+    "emoji",
+    "note"
+  ]) {
+    if (night[key] !== undefined && night[key] !== null && night[key] !== "") {
+      record[key] = night[key];
+    }
+  }
+  record.type = "Workshop";
+  return record;
+}
+
 /** Writes `id` as the entry's first key (where Sveltia shows it), in place in `list`. */
 function writeId(list, index, id) {
   list[index] = Object.assign({ id: id }, list[index], { id: id });
@@ -112,7 +148,8 @@ function writeId(list, index, id) {
  * @param {{previous?: object, today?: string}} [options] `previous`: the
  *   events.json from before this publish's merge; `today`: YYYY-MM-DD.
  * @return {{stamped: string[], carried: Array<{id: string, name: string}>,
- *   restamped: Array<{from: string, to: string, name: string}>, written: string[]}}
+ *   restamped: Array<{from: string, to: string, name: string}>,
+ *   renewed: Array<{from: string, to: string, name: string}>, written: string[]}}
  * @throws {StampError} when an id-less workshop matches more than one
  *   workshop published before, or two of them match the same one.
  */
@@ -120,10 +157,9 @@ function stampEventIds(events, options = {}) {
   const today = options.today || easternToday();
   const workshops = events && Array.isArray(events.workshops) ? events.workshops : [];
   const markets = events && Array.isArray(events.upcoming) ? events.upcoming : [];
-  const past = events && Array.isArray(events.past) ? events.past : [];
   const previous =
     options.previous && typeof options.previous === "object" ? options.previous : null;
-  const report = { stamped: [], carried: [], restamped: [], written: [] };
+  const report = { stamped: [], carried: [], restamped: [], renewed: [], written: [] };
   // Ids stored before this run: the strongest claim to an id in a duplicate.
   const heldBefore = new Set(workshops.concat(markets).filter((e) => storedId(e)));
 
@@ -206,6 +242,58 @@ function stampEventIds(events, options = {}) {
     report.written.push(id);
   });
 
+  /* ---- A past workshop given a new date: a new night, with a fresh id ----
+     Past workshops stay in `workshops` (the build archives only its own
+     output), so the owner can reuse last month's entry for next month's
+     night by changing the date. The stored id never changes and the ledger
+     never forgets a ticket row, so that new night resumed the OLD night's
+     count -- 0 left, "Sold out" the moment it was published (red team,
+     2026-10-09). A workshop whose previous last day is already over and
+     whose date has changed is therefore a new workshop: its own unique slug,
+     so its own ledger row seeded from "Tickets available"; and the past
+     night is kept in `past` under its old id, so links shared to it still
+     land on it. Moving the date of a workshop that has NOT happened yet (or
+     on its day) is a postponement and keeps the id and the count. */
+  if (previous && events) {
+    const prevById = new Map();
+    for (const p of Array.isArray(previous.workshops) ? previous.workshops : []) {
+      if (isEntry(p) && effectiveId(p) && !prevById.has(effectiveId(p))) {
+        prevById.set(effectiveId(p), p);
+      }
+    }
+    const taken = new Set(
+      workshops
+        .concat(markets, events && Array.isArray(events.past) ? events.past : [])
+        .map(storedId)
+        .concat(
+          []
+            .concat(previous.workshops || [], previous.upcoming || [], previous.past || [])
+            .map(effectiveId)
+        )
+        .filter(Boolean)
+    );
+    workshops.forEach((w, i) => {
+      if (!heldBefore.has(w)) return; // only an id stored before this run
+      const id = storedId(w);
+      const before = prevById.get(id);
+      if (!before) return;
+      const lastDay = String(before.endDate || before.date || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDay) || lastDay >= today) return; // not over: postponed
+      if (String(w.date || "") === String(before.date || "")) return; // the same night
+      const base = slugOf(w) || "workshop";
+      let next = base;
+      for (let n = 2; taken.has(next); n++) next = `${base}-${n}`;
+      taken.add(next);
+      writeId(workshops, i, next);
+      if (!Array.isArray(events.past)) events.past = [];
+      if (!events.past.some((e) => storedId(e) === id)) {
+        events.past.unshift(pastRecordOf(before, id));
+      }
+      report.renewed.push({ from: id, to: next, name: String(w.name || "") });
+      report.written.push(next);
+    });
+  }
+
   /* ---- Duplicates among upcoming entries (what the build refuses) ---- */
   const entries = [];
   workshops.forEach((e, i) => {
@@ -220,7 +308,12 @@ function stampEventIds(events, options = {}) {
     if (!groups.has(id)) groups.set(id, []);
     groups.get(id).push(ref);
   }
-  const taken = new Set(workshops.concat(markets, past).map(storedId).filter(Boolean));
+  const taken = new Set(
+    workshops
+      .concat(markets, events && Array.isArray(events.past) ? events.past : [])
+      .map(storedId)
+      .filter(Boolean)
+  );
   const prevHolder = new Map();
   if (previous) {
     for (const p of [].concat(previous.workshops || [], previous.upcoming || [])) {
@@ -296,6 +389,13 @@ if (require.main === module) {
     if (report.stamped.length) console.log("Stamped workshop id(s): " + report.stamped.join(", "));
     for (const c of report.carried) {
       console.log(`Kept the published id "${c.id}" for the workshop "${c.name}".`);
+    }
+    for (const r of report.renewed) {
+      console.log(
+        `"${r.name}" was over and has a new date, so it is a new workshop: ID "${r.to}", ` +
+          `ticket count starting from "Tickets available". The past night stays in ` +
+          `"Past appearances" as "${r.from}".`
+      );
     }
     for (const r of report.restamped) {
       console.log(`Gave the copy "${r.name}" its own id "${r.to}" (it shared "${r.from}").`);

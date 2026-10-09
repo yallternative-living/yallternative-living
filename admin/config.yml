@@ -1142,7 +1142,7 @@ singletons:
               format: "YYYY-MM-DD",
               date_format: "MM/DD/YYYY",
               time_format: false,
-              hint: "Ticket sales close the day after."
+              hint: "Ticket sales close the day after. Moving the date before then keeps the tickets already sold; giving a workshop that is already over a new date starts a fresh one, with its count back at Tickets available."
             }
           - {
               name: dateLabel,
@@ -1243,7 +1243,7 @@ singletons:
               widget: string,
               required: false,
               readonly: true,
-              hint: "Filled in by itself from the name and date the first time you save, then never changes -- so renaming the workshop or moving its date later keeps its ticket count and any links people have shared. A workshop you copy gets an ID of its own when it's published."
+              hint: "Filled in by itself from the name and date the first time you save. Renaming the workshop, or moving the date of one that hasn't happened yet, keeps this ID -- and with it the tickets sold and any links people have shared. Give a past workshop a new date and it becomes a new workshop with a new ID: its count starts again from Tickets available, and old links stay with the past night. A workshop you copy also gets an ID of its own when it's published."
             }
       - name: past
         label: "Past appearances"
