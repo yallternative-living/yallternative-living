@@ -565,9 +565,37 @@
         if (l.code === activeLang) opt.selected = true;
         langSelect.appendChild(opt);
       });
+      /* setLanguage() resolves to the language actually IN EFFECT, which is
+         not always the one asked for: when a dictionary cannot load
+         (offline, a 404 after a bad deploy) it keeps the page as it is and
+         fires no yl-language-changed. The select used to ignore that answer,
+         so it sat on 日本語 over an English page -- and picking 日本語 again
+         fired no change event at all (red team, 2026-10-09). Follow the
+         answer. `langRequest` drops a stale answer when the shopper has
+         already picked again. */
+      var langRequest = 0;
       langSelect.addEventListener("change", function () {
+        var select = this;
         if (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.setLanguage === "function") {
-          window.YL_TRANSLATOR.setLanguage(this.value);
+          var mine = ++langRequest;
+          var settle = function (lang) {
+            if (mine !== langRequest) return;
+            var current =
+              typeof window.YL_TRANSLATOR.getCurrentLanguage === "function"
+                ? window.YL_TRANSLATOR.getCurrentLanguage()
+                : null;
+            var resolved = typeof lang === "string" && lang ? lang : current;
+            if (resolved && select.value !== resolved) select.value = resolved;
+          };
+          var result;
+          try {
+            result = window.YL_TRANSLATOR.setLanguage(select.value);
+          } catch {
+            result = null;
+          }
+          Promise.resolve(result).then(settle, function () {
+            settle(null);
+          });
         } else {
           try {
             localStorage.setItem("yl-lang", this.value);
@@ -12916,15 +12944,20 @@
       )
       .join(",");
 
+    /* No ids and no `for` in here. This markup is rendered into the photo
+       lightbox ON TOP OF a product page whose own ritual section already
+       carries id="ritual-item-<id>" (and pdpRitualTotalPrice and friends):
+       the copies duplicated every id, and a lightbox label's `for` resolved
+       to the FIRST match -- the hidden page checkbox -- so tapping an item in
+       the lightbox toggled the page's box and left the lightbox total wrong
+       (red team, 2026-10-09). Each <input> sits inside its <label>, which
+       labels it without an id, and initPdpRitualSection() finds the total,
+       badge and button by class within the section it is given. */
     var itemsHtml =
-      '<label class="pdp-ritual-item is-checked" for="ritual-item-' +
-      attrEsc(product.id) +
-      '" data-product-id="' +
+      '<label class="pdp-ritual-item is-checked" data-product-id="' +
       attrEsc(product.id) +
       '">' +
-      '<input type="checkbox" id="ritual-item-' +
-      attrEsc(product.id) +
-      '" name="ritual_item_' +
+      '<input type="checkbox" name="ritual_item_' +
       attrEsc(product.id) +
       '" class="pdp-ritual-checkbox" checked disabled aria-label="Include ' +
       attrEsc(product.name) +
@@ -12958,14 +12991,10 @@
     pairedItems.forEach(function (p, idx) {
       itemsHtml +=
         '<span class="pdp-ritual-plus" aria-hidden="true">+</span>' +
-        '<label class="pdp-ritual-item is-checked" for="ritual-item-' +
-        attrEsc(p.id) +
-        '" data-product-id="' +
+        '<label class="pdp-ritual-item is-checked" data-product-id="' +
         attrEsc(p.id) +
         '">' +
-        '<input type="checkbox" id="ritual-item-' +
-        attrEsc(p.id) +
-        '" name="ritual_item_' +
+        '<input type="checkbox" name="ritual_item_' +
         attrEsc(p.id) +
         '" class="pdp-ritual-checkbox" checked aria-label="Include ' +
         attrEsc(p.name) +
@@ -13026,14 +13055,14 @@
       '<div class="pdp-ritual-footer">' +
       '<div class="pdp-ritual-total-wrap">' +
       '<span class="pdp-ritual-total-label">Bundle:</span>' +
-      '<span class="pdp-ritual-total-price" id="pdpRitualTotalPrice">' +
+      '<span class="pdp-ritual-total-price">' +
       formatMoney(total) +
       "</span>" +
-      '<span class="pdp-ritual-shipping-badge" id="pdpRitualShippingBadge"' +
+      '<span class="pdp-ritual-shipping-badge"' +
       (unlocksFreeShipping ? "" : ' hidden=""') +
       ">✓ Unlocks Free Tracked Shipping!</span>" +
       "</div>" +
-      '<button type="button" class="btn btn-primary btn-sm pdp-ritual-add-btn" id="pdpRitualAddBtn" data-ritual-ids="' +
+      '<button type="button" class="btn btn-primary btn-sm pdp-ritual-add-btn" data-ritual-ids="' +
       attrEsc(allIds) +
       '">' +
       '<svg class="yl-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>' +

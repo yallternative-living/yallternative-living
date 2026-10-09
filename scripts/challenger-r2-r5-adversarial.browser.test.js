@@ -637,7 +637,7 @@ async function testRitualInteractivity() {
       `Modal ritual section renders 3 checkboxes (found ${modalCheckboxes.length})`
     );
 
-    const modalPrice = await page.$eval("#lightboxRitualWrap #pdpRitualTotalPrice", (el) =>
+    const modalPrice = await page.$eval("#lightboxRitualWrap .pdp-ritual-total-price", (el) =>
       el.textContent.trim()
     );
     assert(modalPrice === "$40", `Modal ritual bundle initial total is $40 (got ${modalPrice})`);
@@ -646,7 +646,7 @@ async function testRitualInteractivity() {
     await modalCheckboxes[2].click();
     await new Promise((r) => setTimeout(r, 100));
 
-    const modalRecalcPrice = await page.$eval("#lightboxRitualWrap #pdpRitualTotalPrice", (el) =>
+    const modalRecalcPrice = await page.$eval("#lightboxRitualWrap .pdp-ritual-total-price", (el) =>
       el.textContent.trim()
     );
     assert(
@@ -655,7 +655,7 @@ async function testRitualInteractivity() {
     );
 
     // Add selected from modal
-    await page.click("#lightboxRitualWrap #pdpRitualAddBtn");
+    await page.click("#lightboxRitualWrap .pdp-ritual-add-btn");
     await new Promise((r) => setTimeout(r, 300));
 
     const modalCartCount = await page.evaluate(() => (window.YLCart ? window.YLCart.count() : 0));

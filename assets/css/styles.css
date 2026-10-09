@@ -914,7 +914,10 @@ section {
   border: 1px solid var(--hide);
   border-radius: var(--radius, 6px);
   padding: 6px 12px;
-  font-size: 0.9rem;
+  /* 16px, not 0.9rem: iOS Safari zooms the page into any form control
+     under 16px the moment it takes focus, and this select only exists in
+     the phone/tablet drawer (14.4px at 375px, red team 2026-10-09). */
+  font-size: max(16px, 1rem);
   font-family: inherit;
   cursor: pointer;
 }
