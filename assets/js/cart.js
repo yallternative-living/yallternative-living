@@ -2144,6 +2144,41 @@
     }
   }
 
+  /* render() rebuilds the footer with innerHTML, and the element that
+     scrolls -- `.yl-cart-foot-scroll` -- is one of the nodes it replaces, so
+     every re-render started the new one at scrollTop 0. Ticking "pick up at
+     a market" or "this is a gift" re-renders, so the checkbox the shopper had
+     just scrolled to jumped out of view along with the market picker or gift
+     note it had revealed (red team, 2026-10-09: scroll to 120, tick pick-up,
+     scrollTop 0). Read the offsets before the rebuild and put them back
+     after. The footer box and the drawer itself are included: on a short
+     screen cart.css makes the whole drawer the one scroller. */
+  function scrollTopOf(el) {
+    return el && typeof el.scrollTop === "number" ? el.scrollTop : 0;
+  }
+  function captureFootScroll() {
+    if (!footEl) return null;
+    var region =
+      typeof footEl.querySelector === "function"
+        ? footEl.querySelector(".yl-cart-foot-scroll")
+        : null;
+    return {
+      region: scrollTopOf(region),
+      foot: scrollTopOf(footEl),
+      drawer: scrollTopOf(drawer)
+    };
+  }
+  function restoreFootScroll(saved) {
+    if (!saved || !footEl) return;
+    var region =
+      typeof footEl.querySelector === "function"
+        ? footEl.querySelector(".yl-cart-foot-scroll")
+        : null;
+    if (region && saved.region) region.scrollTop = saved.region;
+    if (saved.foot) footEl.scrollTop = saved.foot;
+    if (drawer && saved.drawer) drawer.scrollTop = saved.drawer;
+  }
+
   function nextFrame(fn) {
     if (typeof root.requestAnimationFrame === "function") {
       root.requestAnimationFrame(fn);
@@ -2444,9 +2479,11 @@
          live 2026-09-02 after the H1 fix shipped: two-line carts could undo,
          one-line carts could not). */
       footEl.innerHTML = state.undoItem
-        ? '<p class="yl-cart-storage-notice yl-cart-undo-notice">Removed ' +
+        ? '<div class="yl-cart-foot-scroll">' +
+          '<p class="yl-cart-storage-notice yl-cart-undo-notice">Removed ' +
           escapeHtml(state.undoItem.item.name || "item") +
-          '. <button type="button" class="yl-cart-undo-btn" data-cart-action="undo">Undo</button></p>'
+          '. <button type="button" class="yl-cart-undo-btn" data-cart-action="undo">Undo</button></p>' +
+          "</div>"
         : "";
       updateBadges();
       return;
@@ -2939,7 +2976,10 @@
     var promoHTML = enablePromoCodes ? promoSectionHTML(siteCfg, promoDiscount) : "";
     var codesHTML = '<div class="yl-cart-codes">' + giftCardHTML + promoHTML + "</div>";
 
-    var totalsHTML =
+    /* The line-by-line breakdown scrolls with the rest of the footer; only
+       the estimated total and Checkout are docked (see footEl below). */
+    var breakdownHTML =
+      '<div class="yl-cart-breakdown">' +
       '<div class="yl-cart-subtotal"><span>Subtotal</span><strong>' +
       money(sub) +
       "</strong></div>" +
@@ -2966,9 +3006,11 @@
           money(promoDiscount) +
           "</strong></div>"
         : "") +
-      /* "Total Due" promised a final number this page cannot know: sales tax
-         is calculated by Stripe against the address collected at checkout. */
-      '<div class="yl-cart-subtotal yl-cart-total-due" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 6px; padding-top: 6px;"><span>Estimated total (before tax)</span><strong>' +
+      "</div>";
+    /* "Total Due" promised a final number this page cannot know: sales tax
+       is calculated by Stripe against the address collected at checkout. */
+    var estimatedTotalHTML =
+      '<div class="yl-cart-subtotal yl-cart-total-due"><span>Estimated total (before tax)</span><strong>' +
       money(estimatedTotal) +
       "</strong></div>";
 
@@ -2991,6 +3033,18 @@
           '. <button type="button" class="yl-cart-undo-btn" data-cart-action="undo">Undo</button></p>'
         : "";
 
+    /* Two regions. `.yl-cart-foot-scroll` holds everything a shopper scrolls
+       to -- upsells, gift note, pick-up, shipping meter, codes, the line
+       breakdown, Share Cart, the fine print. `.yl-cart-foot-dock` holds only
+       what must never scroll away: the estimated total and Checkout (plus a
+       transient storage/undo notice). The dock used to carry the whole
+       breakdown, Share Cart and the note too -- ~289px pinned inside a footer
+       capped at 62dvh -- which left the scroll area 12px tall on a landscape
+       phone and 49px on an iPhone SE, so pick-up, the gift note and both code
+       fields were effectively unreachable (red team, 2026-10-09). cart.css
+       gives the scroll area a floor, and below 500px of height drops the
+       split entirely for one drawer-wide scroller with the dock pinned. */
+    var savedFootScroll = captureFootScroll();
     footEl.innerHTML =
       '<div class="yl-cart-foot-scroll">' +
       upsellHTML() +
@@ -3000,18 +3054,20 @@
       (hasPhysical ? pickupHTML : "") +
       shipHTML +
       codesHTML +
+      breakdownHTML +
+      shareCartHTML +
+      '<p class="yl-cart-note">Promo codes, gift cards &amp; taxes applied at checkout.</p>' +
       "</div>" +
       '<div class="yl-cart-foot-dock">' +
-      totalsHTML +
+      storageNoticeHTML +
+      estimatedTotalHTML +
       '<button type="button" class="btn btn-primary btn-block yl-cart-checkout"' +
       (checkoutInFlight ? " disabled" : "") +
       ">" +
       (checkoutInFlight ? "Redirecting…" : "Checkout") +
       "</button>" +
-      shareCartHTML +
-      storageNoticeHTML +
-      '<p class="yl-cart-note">Promo codes, gift cards &amp; taxes applied at checkout.</p>' +
       "</div>";
+    restoreFootScroll(savedFootScroll);
 
     var checkoutBtn = footEl.querySelector(".yl-cart-checkout");
     if (checkoutBtn) {
@@ -3761,8 +3817,10 @@
       existing = document.createElement("p");
       existing.className = "yl-cart-error";
       existing.setAttribute("role", "alert");
-      var note = footEl.querySelector(".yl-cart-note");
-      if (note && note.parentNode) note.parentNode.insertBefore(existing, note);
+      /* In the dock, under Checkout: the refusal belongs where the click
+         was, and the dock is the one part of the footer always on screen. */
+      var dock = footEl.querySelector(".yl-cart-foot-dock");
+      if (dock && typeof dock.appendChild === "function") dock.appendChild(existing);
       else footEl.appendChild(existing);
     }
     existing.textContent = msg;
