@@ -2675,6 +2675,13 @@ export default {
             async () =>
               (await import("./state/analytics-sends.js")).sweepAnalyticsSends(env.STATE_DB)
           ],
+          /* The fulfilment dashboard's remembered GitHub sign-ins, by digest
+             (routes/fulfillment.js): a row older than 90 days grants nothing,
+             and without this sweep every token ever used stayed forever. */
+          [
+            "known-token sweep",
+            async () => (await import("./routes/fulfillment.js")).sweepKnownTokens(env.STATE_DB)
+          ],
           /* One row per order that has been told it shipped, kept 90 days so a
              late edit to the fulfilment metadata cannot send the notice twice.
              Same reason as the row above: without a sweeper it grows forever. */
