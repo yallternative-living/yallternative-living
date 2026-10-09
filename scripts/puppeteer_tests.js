@@ -1876,6 +1876,133 @@ function createStaticServer(port = 8082) {
       }
     }
 
+    // 13. Card rows: flex rows stretch their cards to one height, grids keep equal rows
+    console.log("--- Testing card row heights (flex rows stretch, grids stay even) ---");
+    {
+      const cardPage = await browser.newPage();
+      try {
+        for (const width of [1200, 375]) {
+          await cardPage.setViewport({ width, height: 900 });
+          await cardPage.goto(`${url}/events.html`, { waitUntil: "networkidle2" });
+          const rows = await cardPage.evaluate(() => {
+            const heights = (els) => els.map((c) => Math.round(c.getBoundingClientRect().height));
+            /* A fixture first, so the rule is tested whatever events.json
+               holds: two cards of very different length in a plain flex row. */
+            const row = document.createElement("div");
+            row.style.cssText = "display:flex;gap:16px;width:600px";
+            row.innerHTML =
+              '<article class="card"><div class="card-body"><p>Short.</p></div></article>' +
+              '<article class="card"><div class="card-body">' +
+              "<p>A much longer card body that wraps over several lines so that its natural height is well past the short one.</p>".repeat(
+                3
+              ) +
+              "</div></article>";
+            document.querySelector("main").appendChild(row);
+            const fixture = heights(Array.from(row.children));
+            row.remove();
+            const carousel = document.querySelector(".events-carousel-inner");
+            const slides = carousel ? Array.from(carousel.querySelectorAll(":scope > .card")) : [];
+            return { fixture, carousel: heights(slides) };
+          });
+          const even = (hs) => hs.length >= 2 && Math.max(...hs) - Math.min(...hs) <= 1;
+          if (even(rows.fixture) && even(rows.carousel)) {
+            console.log(
+              `✅ ${width}px: flex-row cards share one height (fixture ${rows.fixture.join("/")}, past-events carousel ${rows.carousel.join("/")}).`
+            );
+          } else {
+            console.log(
+              `❌ ${width}px: cards in a flex row are not stretched to one height:`,
+              rows
+            );
+            exitCode = 1;
+          }
+        }
+        await cardPage.setViewport({ width: 1200, height: 900 });
+        await cardPage.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+        const grid = await cardPage.evaluate(() => {
+          const byRow = {};
+          document.querySelectorAll("#shopGrid > .card").forEach((c) => {
+            const r = c.getBoundingClientRect();
+            if (!r.height) return;
+            const key = Math.round(r.top + scrollY);
+            (byRow[key] = byRow[key] || []).push(Math.round(r.height));
+          });
+          return Object.keys(byRow).map((k) => byRow[k]);
+        });
+        const fullRows = grid.filter((hs) => hs.length >= 2);
+        const uneven = fullRows.filter((hs) => Math.max(...hs) - Math.min(...hs) > 1);
+        if (fullRows.length >= 2 && uneven.length === 0) {
+          console.log(`✅ shop.html grid: ${fullRows.length} rows, every row one height.`);
+        } else {
+          console.log("❌ shop.html grid rows are uneven or missing:", grid);
+          exitCode = 1;
+        }
+      } catch (e) {
+        console.log("❌ Card row check errored:", e.message);
+        exitCode = 1;
+      } finally {
+        await cardPage.close();
+      }
+    }
+
+    // 14. Shop search: Enter filters in place instead of reloading the page
+    console.log("--- Testing shop search Enter key (no reload) ---");
+    {
+      const searchPage = await browser.newPage();
+      try {
+        await searchPage.setViewport({ width: 1200, height: 900 });
+        await searchPage.goto(`${url}/shop.html`, { waitUntil: "networkidle2" });
+        await searchPage.waitForSelector("#shopSearchForm #shopSearch", { timeout: 5000 });
+        const before = await searchPage.evaluate(() => {
+          window.__ylNoReload = "still-here";
+          return document.querySelectorAll("#shopGrid > .card").length;
+        });
+        /* A reload is a new DOCUMENT request for the main frame. The shop
+           also rewrites its own URL with history.replaceState() as filters
+           change, so a URL or framenavigated check would cry wolf; a
+           document request (or the marker vanishing) cannot. */
+        let documentRequests = 0;
+        searchPage.on("request", (req) => {
+          if (req.isNavigationRequest() && req.frame() === searchPage.mainFrame()) {
+            documentRequests++;
+          }
+        });
+        await searchPage.click("#shopSearch");
+        await searchPage.keyboard.type("salve");
+        await searchPage.keyboard.press("Enter");
+        await new Promise((r) => setTimeout(r, 1000));
+        const after = await searchPage.evaluate(() => ({
+          marker: window.__ylNoReload,
+          value: document.getElementById("shopSearch").value,
+          cards: document.querySelectorAll("#shopGrid > .card").length
+        }));
+        if (
+          documentRequests === 0 &&
+          after.marker === "still-here" &&
+          after.value === "salve" &&
+          before > 0 &&
+          after.cards > 0 &&
+          after.cards < before
+        ) {
+          console.log(
+            `✅ Enter in shop search filtered in place (${before} -> ${after.cards} cards, no reload).`
+          );
+        } else {
+          console.log("❌ Enter in shop search reloaded or did not filter:", {
+            documentRequests,
+            before,
+            ...after
+          });
+          exitCode = 1;
+        }
+      } catch (e) {
+        console.log("❌ Shop search Enter check errored:", e.message);
+        exitCode = 1;
+      } finally {
+        await searchPage.close();
+      }
+    }
+
     /* eslint-enable no-undef */
   } catch (e) {
     console.error("❌ Unexpected error in Puppeteer tests:", e);

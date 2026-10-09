@@ -8432,10 +8432,19 @@
         state.query = searchInput.value;
         render();
       });
-      var searchForm = document.getElementById("shopSearch");
+      /* The FORM, not the input. This used to look up "shopSearch" -- the
+         <input> -- and listen for `submit` on it; inputs never receive
+         submit, so preventDefault() never ran and Enter reloaded shop.html
+         as ?q=..., throwing away every other filter (and the WebMCP
+         agentInvoked branch below was dead). Red team, 2026-10-09. */
+      var searchForm = document.getElementById("shopSearchForm") || searchInput.form;
       if (searchForm) {
         searchForm.addEventListener("submit", function (e) {
           e.preventDefault();
+          // Enter filters now rather than waiting out the input debounce.
+          clearTimeout(debounceTimer);
+          state.query = searchInput.value;
+          render();
           // For WebMCP agents: respond immediately with the filtered state
           if (e.agentInvoked && typeof e.respondWith === "function") {
             e.respondWith(
