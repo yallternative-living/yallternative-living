@@ -304,8 +304,19 @@ async function run() {
     dupErr = e;
   }
   assert(
-    dupErr && /have the id "same"/.test(dupErr.message),
+    dupErr && /have the same ID, "same"/.test(dupErr.message),
     "two upcoming events with one id fail the build"
+  );
+  /* ...and the message names the ID field as the cause and a fix that works:
+     the field is read-only in the CMS, so "rename one of them" (what it used
+     to say) could not fix a copied entry (red team, 2026-10-09). */
+  assert(
+    dupErr &&
+      /"A" and "B"/.test(dupErr.message) &&
+      /ID field causes this/.test(dupErr.message) &&
+      /renaming will not fix it/.test(dupErr.message) &&
+      /stamp-workshop-ids\.js/.test(dupErr.message),
+    "...naming both events, the ID field as the cause, and the stamp script as the fix"
   );
 
   /* ---- The ticket image is a site path, or the logo ---- */
@@ -347,6 +358,26 @@ async function run() {
   assert(
     threw && /same name and date/.test(threw.message),
     "the build refuses two workshops with the same name and date"
+  );
+  let copied = null;
+  try {
+    build.mergeWorkshopsIntoUpcoming({
+      upcoming: [],
+      workshops: [
+        { id: "candle-night-2099-11-06", name: "Candle Night", date: "2099-11-06" },
+        { id: "candle-night-2099-11-06", name: "Candle Night II", date: "2099-12-04" }
+      ]
+    });
+  } catch (e) {
+    copied = e;
+  }
+  assert(
+    copied &&
+      /same Workshop ID, "candle-night-2099-11-06"/.test(copied.message) &&
+      /"Candle Night" and "Candle Night II"/.test(copied.message) &&
+      /renaming will not fix it/.test(copied.message) &&
+      /stamp-workshop-ids\.js/.test(copied.message),
+    "a copied workshop's shared id fails the build naming the Workshop ID field and the fix"
   );
 
   console.log(`\nworker-tickets.test.js: ${passed} passed, ${failed} failed`);

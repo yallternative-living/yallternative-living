@@ -1440,16 +1440,30 @@ function assignEventIds(events) {
   const upcoming = events && Array.isArray(events.upcoming) ? events.upcoming : [];
   const past = events && Array.isArray(events.past) ? events.past : [];
   const used = new Set();
+  const holder = new Map(); // id -> the name of the upcoming entry holding it
   upcoming.forEach(function (evt) {
     if (!evt || !evt.id) return;
     if (used.has(evt.id)) {
+      /* The cause is the ID field, not the names: an entry copied in the CMS
+         keeps the ID of the one it was copied from, and the field is
+         read-only there -- so "rename one of them", which this used to say,
+         could not fix it (red team, 2026-10-09). */
       throw new Error(
-        'Two upcoming events in assets/data/events.json have the id "' +
-          evt.id +
-          '" (a market and a workshop with the same name and date?). Rename one of them.'
+        "Two upcoming events in assets/data/events.json have the same ID, " +
+          JSON.stringify(evt.id) +
+          ": " +
+          JSON.stringify(holder.get(evt.id)) +
+          " and " +
+          JSON.stringify(evt.name || "(no name)") +
+          ". The ID field causes this, not the names: an event or workshop copied in the " +
+          "CMS keeps the ID of the one it was copied from, and the CMS shows that field " +
+          "read-only, so renaming will not fix it. Run `node scripts/stamp-workshop-ids.js` " +
+          "(the CMS publish runs it before every build), which gives the copy an ID of its " +
+          'own -- or, editing the file by hand, delete the copy\'s "id" line.'
       );
     }
     used.add(evt.id);
+    holder.set(evt.id, evt.name || "(no name)");
   });
   past.forEach(function (evt) {
     if (!evt || !evt.id) return;
@@ -1507,7 +1521,7 @@ function mergeWorkshopsIntoUpcoming(events) {
   if (!events || typeof events !== "object") return events;
   const workshops = Array.isArray(events.workshops) ? events.workshops : [];
   if (!Array.isArray(events.upcoming)) events.upcoming = [];
-  const seen = new Set();
+  const seen = new Map(); // id -> the name of the workshop holding it
   workshops.forEach(function (w) {
     if (!w || typeof w !== "object") return;
     const id =
@@ -1546,13 +1560,25 @@ function mergeWorkshopsIntoUpcoming(events) {
       );
     }
     if (seen.has(id)) {
+      /* Name the ID as the cause, and a fix that works: a copied workshop
+         keeps the Workshop ID of the one it was copied from, and that field
+         is read-only in the CMS -- "give one of them a different name",
+         which this used to say, could not fix it (red team, 2026-10-09). */
       throw new Error(
-        'Two workshops in assets/data/events.json come out as "' +
-          id +
-          '" (same name and date). Give one of them a different name.'
+        "Two workshops in assets/data/events.json have the same Workshop ID, " +
+          JSON.stringify(id) +
+          ": " +
+          JSON.stringify(seen.get(id)) +
+          " and " +
+          JSON.stringify(w.name) +
+          ". Either one was copied from the other (a copy keeps the Workshop ID, which the " +
+          "CMS shows read-only, so renaming will not fix it), or two have the same name and " +
+          "date and no ID yet. Run `node scripts/stamp-workshop-ids.js` (the CMS publish " +
+          "runs it before every build), which gives the copy an ID of its own -- or, editing " +
+          'the file by hand, delete the copy\'s "id" line.'
       );
     }
-    seen.add(id);
+    seen.set(id, w.name);
     const merged = Object.assign({}, w, { id: id, kind: "workshop" });
     if (workshopSellsOnSite(w)) merged.ticketId = "ticket-" + id;
     /* Half set up is not an error -- the card says "Tickets coming soon" --
