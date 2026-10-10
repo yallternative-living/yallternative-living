@@ -854,7 +854,8 @@
     "auto.craftShow.a76ec3": "Feria artesanal",
     "auto.handsOnNightsWhere.b360f5": "Noches prácticas donde preparas tus propios productos de autocuidado y te los llevas a casa. Consigue tu boleto justo aquí.",
     "auto.workshopsClasses.446555": "Talleres y clases",
-    "auto.includeFeralButFresh.d240b2": "Incluir Feral but FRESH Cream Deodorant"
+    "auto.includeFeralButFresh.d240b2": "Incluir Feral but FRESH Cream Deodorant",
+    "auto.english.649df0": "Inglés"
   }
 };
 

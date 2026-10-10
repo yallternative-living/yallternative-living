@@ -854,7 +854,8 @@
     "auto.craftShow.a76ec3": "Hội chợ thủ công",
     "auto.handsOnNightsWhere.b360f5": "Những buổi tối thực hành để bạn tự tay làm mấy món chăm sóc bản thân rồi đem về nhà. Mua vé ngay tại đây.",
     "auto.workshopsClasses.446555": "Workshop & Lớp học",
-    "auto.includeFeralButFresh.d240b2": "Bao gồm Feral but FRESH Cream Deodorant"
+    "auto.includeFeralButFresh.d240b2": "Bao gồm Feral but FRESH Cream Deodorant",
+    "auto.english.649df0": "Tiếng Anh"
   }
 };
 

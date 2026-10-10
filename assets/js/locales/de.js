@@ -854,7 +854,8 @@
     "auto.craftShow.a76ec3": "Kunsthandwerksmarkt",
     "auto.handsOnNightsWhere.b360f5": "Mitmach-Abende, an denen du deine eigenen Self-Care-Goodies herstellst und mit nach Hause nimmst. Schnapp dir dein Ticket direkt hier.",
     "auto.workshopsClasses.446555": "Workshops & Kurse",
-    "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant einbeziehen"
+    "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant einbeziehen",
+    "auto.english.649df0": "Englisch"
   }
 };
 

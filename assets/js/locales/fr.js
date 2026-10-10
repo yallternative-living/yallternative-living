@@ -854,7 +854,8 @@
     "auto.craftShow.a76ec3": "Marché artisanal",
     "auto.handsOnNightsWhere.b360f5": "Des soirées pratiques où tu fabriques tes propres pépites pour prendre soin de toi avant de repartir avec. Prends ta place juste ici.",
     "auto.workshopsClasses.446555": "Ateliers & cours",
-    "auto.includeFeralButFresh.d240b2": "Inclure Feral but FRESH Cream Deodorant"
+    "auto.includeFeralButFresh.d240b2": "Inclure Feral but FRESH Cream Deodorant",
+    "auto.english.649df0": "Anglais"
   }
 };
 

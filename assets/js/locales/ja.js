@@ -854,7 +854,8 @@
     "auto.craftShow.a76ec3": "クラフトショー",
     "auto.handsOnNightsWhere.b360f5": "自分だけのセルフケアアイテムを手作りしてお持ち帰りいただける体験型の夜。チケットはこちらからどうぞ。",
     "auto.workshopsClasses.446555": "ワークショップ＆クラス",
-    "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorantを含める"
+    "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorantを含める",
+    "auto.english.649df0": "英語"
   }
 };
 

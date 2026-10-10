@@ -854,7 +854,8 @@
     "auto.craftShow.a76ec3": "크래프트 쇼",
     "auto.handsOnNightsWhere.b360f5": "나만의 셀프케어 아이템을 직접 만들어 챙겨가는 체험의 밤이에요. 티켓은 바로 여기서 예매하세요.",
     "auto.workshopsClasses.446555": "워크숍 & 클래스",
-    "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant 포함"
+    "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant 포함",
+    "auto.english.649df0": "영어"
   }
 };
 

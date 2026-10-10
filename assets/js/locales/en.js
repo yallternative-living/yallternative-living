@@ -854,7 +854,8 @@
     "auto.craftShow.a76ec3": "Craft Show",
     "auto.handsOnNightsWhere.b360f5": "Hands-on nights where you make your own self-care goodies and take them home. Grab your ticket right here.",
     "auto.workshopsClasses.446555": "Workshops & Classes",
-    "auto.includeFeralButFresh.d240b2": "Include Feral but FRESH Cream Deodorant"
+    "auto.includeFeralButFresh.d240b2": "Include Feral but FRESH Cream Deodorant",
+    "auto.english.649df0": "English"
   }
 };
 
