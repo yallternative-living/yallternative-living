@@ -1971,8 +1971,9 @@
         /* fallback below */
       }
     }
-    // Safe fallback for non-secure contexts / environments lacking Web Crypto
-    return "gc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+    // Math.random() is not cryptographically secure and could lead to ID guessing.
+    // If Web Crypto is unavailable, fail securely rather than generating a weak ID.
+    throw new Error("Secure random number generation is not supported by this browser.");
   }
 
   /* ---------------- Drawer UI ---------------- */
