@@ -216,6 +216,80 @@ assert(
 
 console.log("✓ Built PDPs and search data reflect automatic category headings");
 
+// 5. Test resolveCmsViewState and mobile CMS / Fulfillment CSS invariants
+console.log("--- 5. Testing resolveCmsViewState & mobile CMS CSS invariants ---");
+
+const { resolveCmsViewState } = cmsLabels;
+
+assert.strictEqual(resolveCmsViewState(""), "home", "Empty hash must resolve to 'home'");
+assert.strictEqual(resolveCmsViewState("#"), "home", "'#' hash must resolve to 'home'");
+assert.strictEqual(resolveCmsViewState("#/"), "home", "'#/' hash must resolve to 'home'");
+assert.strictEqual(
+  resolveCmsViewState("#/collections"),
+  "home",
+  "'#/collections' must resolve to 'home'"
+);
+assert.strictEqual(
+  resolveCmsViewState("#/collections/"),
+  "home",
+  "'#/collections/' must resolve to 'home'"
+);
+assert.strictEqual(
+  resolveCmsViewState("#/collections/products"),
+  "collection-list",
+  "'#/collections/products' must resolve to 'collection-list'"
+);
+assert.strictEqual(
+  resolveCmsViewState("#/collections/journal"),
+  "collection-list",
+  "'#/collections/journal' must resolve to 'collection-list'"
+);
+assert.strictEqual(
+  resolveCmsViewState("#/collections/products/entries/cleansing-spray"),
+  "editor",
+  "Product entry editor route must resolve to 'editor'"
+);
+assert.strictEqual(
+  resolveCmsViewState("#/collections/products/new"),
+  "editor",
+  "New product route must resolve to 'editor'"
+);
+assert.strictEqual(
+  resolveCmsViewState("#/collections/_singletons/entries/events"),
+  "editor",
+  "Singleton editor route must resolve to 'editor'"
+);
+assert.strictEqual(
+  resolveCmsViewState("#/assets"),
+  "editor",
+  "Secondary full-screen routes must resolve to 'editor'"
+);
+
+const adminCss = fs.readFileSync(path.join(ROOT, "admin/admin.css"), "utf8");
+assert(
+  adminCss.includes(
+    'button[aria-controls][aria-label="Expand"]:not(.combobox button):not(.select button)'
+  ),
+  "admin/admin.css must scope Expand button styling to [aria-controls] and exclude .combobox/.select"
+);
+assert(
+  adminCss.includes('.fulfillment-link[data-cms-view="editor"]'),
+  "admin/admin.css must hide .fulfillment-link inside entry editors"
+);
+assert(
+  adminCss.includes('.fulfillment-link[data-cms-view="collection-list"]'),
+  "admin/admin.css must hide .fulfillment-link on mobile collection lists"
+);
+
+const fulfillmentHtml = fs.readFileSync(path.join(ROOT, "admin/fulfillment.html"), "utf8");
+assert(
+  fulfillmentHtml.includes("@media (max-width: 600px)") &&
+    fulfillmentHtml.includes("overflow-wrap: anywhere"),
+  "admin/fulfillment.html must include mobile media query and overflow-wrap rules"
+);
+
+console.log("✓ resolveCmsViewState and mobile CMS CSS invariants verified");
+
 console.log("==================================================");
 console.log("CMS Labels & Category Resolution: All tests passed.");
 console.log("==================================================");

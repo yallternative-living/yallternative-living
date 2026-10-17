@@ -7,6 +7,32 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
+      "id": "rejects-market-2026-10-17",
+      "date": "2026-10-17",
+      "dateLabel": "October 17, 2026 · Saturday, 11am–5pm",
+      "name": "Rejects Market",
+      "type": "Alt Market",
+      "location": "Greer, SC",
+      "zip": "29651",
+      "venue": "The Venue at Locust Hill",
+      "address": "2309 Locust Hill Rd",
+      "emoji": "🦇",
+      "note": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill — come find our table."
+    },
+    {
+      "id": "foothills-fantasy-festival-2026-10-24",
+      "date": "2026-10-24",
+      "dateLabel": "October 24, 2026 · Saturday, 11am–8pm",
+      "name": "Foothills Fantasy Festival",
+      "type": "Fantasy Festival",
+      "location": "Tryon, NC",
+      "zip": "28782",
+      "venue": "Rogers Park",
+      "address": "55 W Howard St",
+      "emoji": "✨",
+      "note": "Full-day fantasy festival in downtown Tryon with potions, bath soaks, salves & magic."
+    },
+    {
       "id": "potions-pour-decisions-2026-11-06",
       "name": "Potions & Pour Decisions",
       "date": "2026-11-06",
@@ -32,6 +58,30 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "id": "gothic-punk-night-2026-10-16",
+      "date": "2026-10-16",
+      "dateLabel": "October 16, 2026 · Friday, 6:30pm–9pm",
+      "name": "Gothic Punk Night",
+      "type": "Night Market",
+      "location": "Charlotte, NC",
+      "zip": "28206",
+      "venue": "NoDa Brewing Co",
+      "address": "150 W 32nd St",
+      "note": "Friday night gothic & punk market at NoDa Brewing Co."
+    },
+    {
+      "id": "whimsy-wellness-2026-10-10",
+      "date": "2026-10-10",
+      "dateLabel": "October 10, 2026 · Saturday, 10am–5pm",
+      "name": "Whimsy & Wellness",
+      "type": "Wellness Market",
+      "location": "Forest City, NC",
+      "zip": "28043",
+      "venue": "Renewal Wellness",
+      "address": "612 Oak St",
+      "note": "Botanical self-care, bath soaks & handmade salves at Renewal Wellness."
+    },
     {
       "id": "fall-family-festival-market-2026-09-26",
       "date": "2026-09-26",

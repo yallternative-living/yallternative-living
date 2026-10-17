@@ -268,6 +268,8 @@ collections:
         widget: list
         label_singular: Photo
         required: false
+        collapsed: true
+        minimize_collapsed: true
         field: { name: photo, label: Photo, widget: image, choose_url: false, accept: "image/jpeg,image/png" }
       - name: blurb
         label: "Product description"
@@ -1027,7 +1029,7 @@ singletons:
         widget: list
         label_singular: Event
         required: false
-        collapsed: true
+        collapsed: false
         summary: "{{fields.dateLabel}} — {{fields.name}} ({{fields.location}})"
         hint: "Confirmed dates only — customers may show up in person."
         # Was `description:` on the section, where Sveltia renders it nowhere.
@@ -1129,7 +1131,7 @@ singletons:
         widget: list
         label_singular: Workshop
         required: false
-        collapsed: true
+        collapsed: false
         summary: "{{fields.dateLabel}} — {{fields.name}}"
         hint: "Your own ticketed nights. Fill in a price and the number of spots and people can buy tickets right on the website — no Square link needed."
         comment: "To sell tickets on the site: fill in the name, date, date & time, price and Tickets available, and leave 'Outside ticket link' blank. Save and it's live in a few minutes with a Buy Tickets button. Tickets go through the shop's checkout with no sales tax and no shipping, and the spots count down on their own. Once the date passes it moves to 'Where We've Been'."
@@ -1428,15 +1430,94 @@ singletons:
         # collapsed Sveltia object reads like a text field showing one value
         # rather than a drawer (2026-09-03).
         collapsed: false
-        summary: "on/off switches first, then banners, logos and connection codes"
-        hint: "The on/off switches for site features come first. Below them: banners, logos, newsletter wording, social links, and the connection codes for your newsletter, forms, chat and stats -- those are set once and rarely touched."
+        summary: "announcement & seasonal banners first, then feature switches, logos and social links"
+        hint: "Your top announcement bar and seasonal notice come first. Below them: feature on/off switches, logos, newsletter wording, social links, and the connection codes for your newsletter, forms, chat and stats -- those are set once and rarely touched."
         # Was `description:` on the section, where Sveltia renders it nowhere.
         comment: "Wording and photos across your pages (homepage, About, Contact, logos), plus the on/off switches for site features. Open a section, edit, then Save. Start with 'Site Settings'."
         fields:
-          # Switches first: this is the part of the form Savanna opens most
-          # often and used to be ~200 lines down, under the logos, banners,
-          # newsletter copy and social links. Everything below the switches
-          # is set once and rarely touched again.
+          # --- Banners --------------------------------------------------
+          - name: announcement
+            label: "Announcement banner"
+            widget: object
+            collapsed: true
+            hint: "The bar across the very top of every page."
+            fields:
+              - {
+                  name: enabled,
+                  label: "Show the banner",
+                  widget: boolean,
+                  default: true
+                }
+              - {
+                  name: text,
+                  label: "Banner wording",
+                  widget: string,
+                  default: "Free shipping on orders of $40 or more",
+                  hint: "Storewide announcement (e.g. Free shipping on orders of $40 or more)."
+                }
+              - {
+                  name: link,
+                  label: "Banner link",
+                  widget: string,
+                  required: false,
+                  hint: "Optional link URL (e.g. shop.html)."
+                }
+              - name: accent
+                label: "Banner color"
+                widget: select
+                hint: "Sets the announcement banner's background color."
+                options:
+                  - { label: "Default Dark (Plum/Charcoal)", value: "default" }
+                  - { label: "Warm Whiskey Amber", value: "whiskey" }
+                  - { label: "Appalachian Moss Green", value: "moss" }
+                  - { label: "Smoky Lavender", value: "lavender" }
+                  - { label: "Rust & Terracotta", value: "rust" }
+                default: "default"
+
+          - name: seasonalNotice
+            label: "Seasonal Hiatus & Shipping Delay Notice (Turn on/off)"
+            widget: object
+            collapsed: true
+            hint: "Off and hidden by default. Turn on only when announcing a foraging break, holiday hiatus, or shipping delay. When off, the notice is completely removed from both the header banner and the cart drawer."
+            fields:
+              - {
+                  name: enabled,
+                  label: "Turn on seasonal notice",
+                  widget: boolean,
+                  default: false,
+                  hint: "Off by default. When off, the notice is completely removed from both the top banner and the cart — you do not need to delete your wording below."
+                }
+              - {
+                  name: text,
+                  label: "Notice message",
+                  widget: string,
+                  required: false,
+                  default: "🌿 Autumn Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
+                  hint: "What the notice says (e.g. Orders placed after Oct 15 will ship Nov 1)."
+                }
+              - {
+                  name: link,
+                  label: "Notice link (optional)",
+                  widget: string,
+                  required: false,
+                  default: "events.html",
+                  hint: "Optional page to link to (e.g. events.html)."
+                }
+              - {
+                  name: showInCart,
+                  label: "Show in cart drawer",
+                  widget: boolean,
+                  default: true,
+                  hint: "Displays an alert banner inside the cart drawer when enabled."
+                }
+              - {
+                  name: showInHeader,
+                  label: "Show banner at top of site",
+                  widget: boolean,
+                  default: false,
+                  hint: "Displays an alert banner across the header of every page when enabled."
+                }
+
           # --- Feature switches -----------------------------------------
           # Sveltia cannot draw sub-headings inside an object, so the group
           # rides in the label ("Shop ·", "Site ·", "Emails to me ·") and the
@@ -1746,88 +1827,6 @@ singletons:
               accept: "image/jpeg,image/png",
               hint: "The picture that shows when someone shares your site's link (Facebook, texts, iMessage)."
             }
-          # --- Banners --------------------------------------------------
-          - name: announcement
-            label: "Announcement banner"
-            widget: object
-            collapsed: true
-            hint: "The bar across the very top of every page."
-            fields:
-              - {
-                  name: enabled,
-                  label: "Show the banner",
-                  widget: boolean,
-                  default: true
-                }
-              - {
-                  name: text,
-                  label: "Banner wording",
-                  widget: string,
-                  default: "Free shipping on orders of $40 or more",
-                  hint: "Storewide announcement (e.g. Free shipping on orders of $40 or more)."
-                }
-              - {
-                  name: link,
-                  label: "Banner link",
-                  widget: string,
-                  required: false,
-                  hint: "Optional link URL (e.g. shop.html)."
-                }
-              - name: accent
-                label: "Banner color"
-                widget: select
-                hint: "Sets the announcement banner's background color."
-                options:
-                  - { label: "Default Dark (Plum/Charcoal)", value: "default" }
-                  - { label: "Warm Whiskey Amber", value: "whiskey" }
-                  - { label: "Appalachian Moss Green", value: "moss" }
-                  - { label: "Smoky Lavender", value: "lavender" }
-                  - { label: "Rust & Terracotta", value: "rust" }
-                default: "default"
-
-          - name: seasonalNotice
-            label: "Seasonal Hiatus & Shipping Delay Notice (Turn on/off)"
-            widget: object
-            collapsed: true
-            hint: "Off and hidden by default. Turn on only when announcing a foraging break, holiday hiatus, or shipping delay. When off, the notice is completely removed from both the header banner and the cart drawer."
-            fields:
-              - {
-                  name: enabled,
-                  label: "Turn on seasonal notice",
-                  widget: boolean,
-                  default: false,
-                  hint: "Off by default. When off, the notice is completely removed from both the top banner and the cart — you do not need to delete your wording below."
-                }
-              - {
-                  name: text,
-                  label: "Notice message",
-                  widget: string,
-                  required: false,
-                  default: "🌿 Autumn Foraging Hiatus: Orders placed after Oct 15 will ship Nov 1.",
-                  hint: "What the notice says (e.g. Orders placed after Oct 15 will ship Nov 1)."
-                }
-              - {
-                  name: link,
-                  label: "Notice link (optional)",
-                  widget: string,
-                  required: false,
-                  default: "events.html",
-                  hint: "Optional page to link to (e.g. events.html)."
-                }
-              - {
-                  name: showInCart,
-                  label: "Show in cart drawer",
-                  widget: boolean,
-                  default: true,
-                  hint: "Displays an alert banner inside the cart drawer when enabled."
-                }
-              - {
-                  name: showInHeader,
-                  label: "Show banner at top of site",
-                  widget: boolean,
-                  default: false,
-                  hint: "Displays an alert banner across the header of every page when enabled."
-                }
 
           # --- Footer, newsletter & birthday club wording ---------------
           - { name: footerTagline, label: "Footer message", widget: text, required: false }

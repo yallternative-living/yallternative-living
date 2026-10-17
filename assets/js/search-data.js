@@ -1520,6 +1520,36 @@ window.YL_SEARCH_INDEX = {
   ],
   "events": [
     {
+      "id": "rejects-market-2026-10-17",
+      "name": "Rejects Market",
+      "title": "Rejects Market",
+      "date": "2026-10-17",
+      "dateLabel": "October 17, 2026 · Saturday, 11am–5pm",
+      "endDate": null,
+      "type": "Alt Market",
+      "location": "Greer, SC",
+      "zip": "29651",
+      "note": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill — come find our table.",
+      "description": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill — come find our table.",
+      "isUpcoming": true,
+      "url": "events.html#rejects-market-2026-10-17"
+    },
+    {
+      "id": "foothills-fantasy-festival-2026-10-24",
+      "name": "Foothills Fantasy Festival",
+      "title": "Foothills Fantasy Festival",
+      "date": "2026-10-24",
+      "dateLabel": "October 24, 2026 · Saturday, 11am–8pm",
+      "endDate": null,
+      "type": "Fantasy Festival",
+      "location": "Tryon, NC",
+      "zip": "28782",
+      "note": "Full-day fantasy festival in downtown Tryon with potions, bath soaks, salves & magic.",
+      "description": "Full-day fantasy festival in downtown Tryon with potions, bath soaks, salves & magic.",
+      "isUpcoming": true,
+      "url": "events.html#foothills-fantasy-festival-2026-10-24"
+    },
+    {
       "id": "potions-pour-decisions-2026-11-06",
       "name": "Potions & Pour Decisions",
       "title": "Potions & Pour Decisions",
@@ -1533,6 +1563,36 @@ window.YL_SEARCH_INDEX = {
       "description": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
       "isUpcoming": true,
       "url": "events.html#potions-pour-decisions-2026-11-06"
+    },
+    {
+      "id": "gothic-punk-night-2026-10-16",
+      "name": "Gothic Punk Night",
+      "title": "Gothic Punk Night",
+      "date": "2026-10-16",
+      "dateLabel": "October 16, 2026 · Friday, 6:30pm–9pm",
+      "endDate": null,
+      "type": "Night Market",
+      "location": "Charlotte, NC",
+      "zip": "28206",
+      "note": "Friday night gothic & punk market at NoDa Brewing Co.",
+      "description": "Friday night gothic & punk market at NoDa Brewing Co.",
+      "isUpcoming": false,
+      "url": "events.html#gothic-punk-night-2026-10-16"
+    },
+    {
+      "id": "whimsy-wellness-2026-10-10",
+      "name": "Whimsy & Wellness",
+      "title": "Whimsy & Wellness",
+      "date": "2026-10-10",
+      "dateLabel": "October 10, 2026 · Saturday, 10am–5pm",
+      "endDate": null,
+      "type": "Wellness Market",
+      "location": "Forest City, NC",
+      "zip": "28043",
+      "note": "Botanical self-care, bath soaks & handmade salves at Renewal Wellness.",
+      "description": "Botanical self-care, bath soaks & handmade salves at Renewal Wellness.",
+      "isUpcoming": false,
+      "url": "events.html#whimsy-wellness-2026-10-10"
     },
     {
       "id": "fall-family-festival-market-2026-09-26",

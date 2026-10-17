@@ -5654,11 +5654,23 @@
         : sortedUpcoming;
       if (workshopsEl) renderWorkshops(workshopsEl, workshopList);
       if (marketList.length) {
-        upcomingEl.innerHTML = marketList.map(eventCardHTML).join("");
+        upcomingEl.hidden = false;
+        /* No `reveal` on above-the-fold upcoming market cards: #upcomingEvents
+           already shows a loading skeleton until main.js runs, so arming a fade
+           from opacity 0 here blinks the newly-rendered cards out on arrival
+           (same rule as renderWorkshops and .event-empty below; caught by
+           scripts/reveal-check.js). */
+        upcomingEl.innerHTML = marketList
+          .map(function (ev) {
+            return eventCardHTML(ev, { noReveal: true });
+          })
+          .join("");
         wireEventShare(upcomingEl, marketList);
       } else if (workshopList.length) {
+        upcomingEl.hidden = true;
         upcomingEl.innerHTML = "";
       } else {
+        upcomingEl.hidden = false;
         /* No `reveal` here: this block only exists once main.js has run,
            and it lands on screen, so a fade-in from opacity 0 read as blank
            space for as long as the script took (scripts/reveal-check.js,

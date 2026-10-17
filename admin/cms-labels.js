@@ -65,9 +65,7 @@
     if (clean === "The slug cannot be empty.") {
       return rawText.replace("The slug cannot be empty.", "The web address cannot be empty.");
     }
-    if (
-      clean === "The slug cannot contain special characters, including slashes and spaces."
-    ) {
+    if (clean === "The slug cannot contain special characters, including slashes and spaces.") {
       return rawText.replace(
         "The slug cannot contain special characters, including slashes and spaces.",
         "The web address cannot contain special characters, including slashes and spaces."
@@ -152,7 +150,8 @@
       })
       .then(function (data) {
         var site = data && data.site;
-        journalEnabled = site && typeof site.enableJournal === "boolean" ? site.enableJournal : null;
+        journalEnabled =
+          site && typeof site.enableJournal === "boolean" ? site.enableJournal : null;
       })
       .catch(function () {
         journalEnabled = null;
@@ -182,7 +181,45 @@
     return m && labels[m[1]] ? labels[m[1]] : null;
   }
 
+  /**
+   * Classify the active Sveltia CMS hash route so `admin.css` can keep the
+   * floating `.fulfillment-link` visible on the login screen and top-level
+   * sections list while hiding it inside entry editors and mobile item lists.
+   *
+   * - `"home"`: login screen or top-level Contents/Sections view (`""`, `"#"`,
+   *   `"#/"`, `"#/collections"`). Safe on both desktop and mobile.
+   * - `"collection-list"`: a folder collection's item list
+   *   (`"#/collections/products"`, `"#/collections/journal"`). On desktop the
+   *   left sidebar stays open with empty space at the bottom-left; on mobile
+   *   the item list fills the viewport so CSS hides the pill.
+   * - `"editor"`: any entry editor (`#/collections/.../entries/...`,
+   *   `#/collections/.../new`) or secondary full-screen page (`#/assets`,
+   *   `#/workflow`, `#/search`, etc.). Hidden on both desktop and mobile so it
+   *   never covers form fields or list rows.
+   */
+  function resolveCmsViewState(hash) {
+    var h = typeof hash === "string" ? hash.trim() : "";
+    if (!h || h === "#" || h === "#/" || /^#\/collections\/?$/.test(h)) {
+      return "home";
+    }
+    if (/^#\/collections\/[\w-]+\/?$/.test(h)) {
+      return "collection-list";
+    }
+    return "editor";
+  }
+
+  function syncFulfillmentLink() {
+    if (typeof document === "undefined" || typeof location === "undefined") return;
+    var link = document.querySelector(".fulfillment-link");
+    if (!link) return;
+    var state = resolveCmsViewState(location.hash);
+    if (link.getAttribute("data-cms-view") !== state) {
+      link.setAttribute("data-cms-view", state);
+    }
+  }
+
   function rename() {
+    syncFulfillmentLink();
     hideJournalWhenOff();
     renameJargon();
     if (typeof document === "undefined") return;
@@ -235,6 +272,8 @@
   }
 
   if (typeof document !== "undefined") {
+    syncFulfillmentLink();
+    window.addEventListener("hashchange", syncFulfillmentLink);
     Promise.all([loadLabels(), loadJournalSwitch()]).then(function () {
       rename();
       new MutationObserver(schedule).observe(document.body, {
@@ -250,6 +289,7 @@
     module.exports = {
       replaceJargonInText: replaceJargonInText,
       renameJargon: renameJargon,
+      resolveCmsViewState: resolveCmsViewState,
       GROUP_LABEL: GROUP_LABEL
     };
   }

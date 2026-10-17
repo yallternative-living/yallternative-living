@@ -18,12 +18,13 @@
    buttons -- forcing 100% there squeezed "20 Products" onto two lines, and
    leaving it at 50px wrapped the label onto three. So: size to the label,
    never wrap it, never shrink. */
-button[aria-label="Expand"],
-button[aria-label="Collapse"] {
-  min-height: 34px;
+button[aria-controls][aria-label="Expand"]:not(.combobox button):not(.select button),
+button[aria-controls][aria-label="Collapse"]:not(.combobox button):not(.select button) {
+  min-height: 32px;
   white-space: nowrap;
   flex-shrink: 0;
   padding: 0 10px;
+  margin-inline-end: 8px;
   gap: 6px;
   /* !important because Sveltia's own button rules are more specific; the
      height and ::after label below land without it, the paint does not. */
@@ -32,25 +33,34 @@ button[aria-label="Collapse"] {
   background: rgba(127, 127, 127, 0.1) !important;
 }
 
-button[aria-label="Expand"]:hover,
-button[aria-label="Collapse"]:hover {
+button[aria-controls][aria-label="Expand"]:not(.combobox button):not(.select button):hover:not(:disabled),
+button[aria-controls][aria-label="Collapse"]:not(.combobox button):not(.select button):hover:not(:disabled) {
   border-color: rgba(127, 127, 127, 0.75) !important;
   background: rgba(127, 127, 127, 0.2) !important;
 }
 
+/* Sveltia sets .header { height: 28px } on list-item and object cards; let the
+   header bar grow cleanly to hold the 32px toggle button without overflowing. */
+.header:has(> .start > button[aria-controls]) {
+  height: auto !important;
+  min-height: 36px;
+  padding-block: 3px;
+}
+
 /* The label rides in ::after so it is decoration: the button already carries
    an accessible name ("Expand"/"Collapse"), which screen readers announce
-   along with its aria-expanded state. */
-button[aria-label="Expand"]::after {
+   along with its aria-expanded state. Disabled toggles (e.g. a list with 0
+   items) keep their compact icon without saying "Click to open". */
+button[aria-controls][aria-label="Expand"]:not(.combobox button):not(.select button):not(:disabled):not([aria-disabled="true"])::after {
   content: "Click to open";
 }
 
-button[aria-label="Collapse"]::after {
+button[aria-controls][aria-label="Collapse"]:not(.combobox button):not(.select button):not(:disabled):not([aria-disabled="true"])::after {
   content: "Click to close";
 }
 
-button[aria-label="Expand"]::after,
-button[aria-label="Collapse"]::after {
+button[aria-controls][aria-label="Expand"]:not(.combobox button):not(.select button)::after,
+button[aria-controls][aria-label="Collapse"]:not(.combobox button):not(.select button)::after {
   font-size: 0.85em;
   opacity: 0.75;
 }
@@ -74,3 +84,55 @@ button[data-label*="Sign In with"]:focus-visible {
   background-color: var(--sui-button-primary-background-color-focus, var(--sui-primary-accent-color-light, #1a75ff)) !important;
   color: var(--sui-button-primary-foreground-color-focus, var(--sui-primary-accent-color-inverted, #fff)) !important;
 }
+
+/* Keep the Fulfillment Dashboard shortcut anchored in the bottom-left corner
+   of the viewport so it never overlaps Sveltia's top-right Save / Publish
+   toolbar buttons. Styled in warm brand tones rather than stock blue. */
+.fulfillment-link {
+  position: fixed;
+  bottom: 14px;
+  left: 14px;
+  z-index: 10000;
+  background: #231d19;
+  color: #f4ece1;
+  border: 1px solid rgba(214, 155, 92, 0.45);
+  padding: 7px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.fulfillment-link:hover,
+.fulfillment-link:focus-visible {
+  background: #2f2620;
+  border-color: #d69b5c;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Hide the floating shortcut inside entry editors (where the sidebar is hidden
+   and form inputs span the left edge) so it never covers fields or help text. */
+.fulfillment-link[data-cms-view="editor"] {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .fulfillment-link {
+    bottom: 64px;
+    left: 12px;
+  }
+
+  /* On mobile, opening a folder collection (#/collections/products) replaces
+     the section list with a full-screen item list, so hide the floating pill
+     there as well and keep it strictly on the login + main Contents home view. */
+  .fulfillment-link[data-cms-view="collection-list"] {
+    display: none !important;
+  }
+}
+
+

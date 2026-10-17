@@ -190,6 +190,25 @@
      the one call site that did carry a fallback, so nothing changes visually
      where it already worked. */
   --moss: #4a6b5d;
+
+  /* Spacing & typographic scale tokens (design system rhythm) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+  --space-10: 4rem;
+  --space-12: 5.5rem;
+
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-md: 1.125rem;
+  --font-size-lg: 1.35rem;
+  --font-size-xl: clamp(1.75rem, 3vw, 2.5rem);
+  --font-size-2xl: clamp(2.25rem, 4.5vw, 3.5rem);
 }
 
 /* ---------------------------------------------------------
@@ -764,6 +783,7 @@ section {
     color: var(--paper-dim);
     position: relative;
     padding: 6px 0;
+    white-space: nowrap;
 
     &:hover,
     &.active {
@@ -1767,6 +1787,7 @@ section {
    price/Add to Cart button for space on every single card. */
 .card-ingredients {
   &:first-of-type {
+    margin-top: auto;
     border-top: 1px solid var(--hide);
   }
 
@@ -1845,6 +1866,10 @@ section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+
+  .card-ingredients ~ & {
+    margin-top: 0;
+  }
 
   & .card-foot-row {
     margin-top: auto;
@@ -4497,7 +4522,9 @@ hr.rule {
       text-align: center;
       width: 100%;
       max-width: 100%;
-      transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+      transition:
+        opacity 0.4s ease,
+        transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
       box-sizing: border-box;
       padding: 0 0.5rem;
     }
@@ -9683,26 +9710,26 @@ html:has(.announcement-bar) {
     min-height: 167px;
   }
 }
-#upcomingEvents:empty {
+#upcomingEvents:not([hidden]):empty {
   min-height: 391px;
 }
 @media (min-width: 336px) {
-  #upcomingEvents:empty {
+  #upcomingEvents:not([hidden]):empty {
     min-height: 367px;
   }
 }
 @media (min-width: 464px) {
-  #upcomingEvents:empty {
+  #upcomingEvents:not([hidden]):empty {
     min-height: 344px;
   }
 }
 @media (min-width: 608px) {
-  #upcomingEvents:empty {
+  #upcomingEvents:not([hidden]):empty {
     min-height: 393px;
   }
 }
 @media (min-width: 696px) {
-  #upcomingEvents:empty {
+  #upcomingEvents:not([hidden]):empty {
     min-height: 370px;
   }
 }
@@ -9713,7 +9740,7 @@ html:has(.announcement-bar) {
    being :empty. Respects prefers-reduced-motion. */
 #shopGrid:empty::before,
 #featuredGrid:empty::before,
-#upcomingEvents:empty::before,
+#upcomingEvents:not([hidden]):empty::before,
 #reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before,
 #reviewsEmptyState[hidden] ~ #reviewsDistribution:empty::before {
   content: "";
@@ -9742,7 +9769,7 @@ html:has(.announcement-bar) {
 @media (prefers-reduced-motion: reduce) {
   #shopGrid:empty::before,
   #featuredGrid:empty::before,
-  #upcomingEvents:empty::before,
+  #upcomingEvents:not([hidden]):empty::before,
   #reviewsEmptyState[hidden] ~ #reviewsGrid:empty::before,
   #reviewsEmptyState[hidden] ~ #reviewsDistribution:empty::before {
     animation: none;
@@ -10371,4 +10398,49 @@ hr.rule.safety-rule-tight + #reaction-report {
   .nav-cta {
     gap: 2px;
   }
+}
+
+/* events.html: when the calendar holds only workshops, #upcomingEvents is
+   marked [hidden] so the empty markets grid neither reserves 370px of blank
+   skeleton space nor adds a second 88px section gap above #workshopsSection.
+   .grid sets display: grid, so [hidden] needs an explicit display: none. */
+#upcomingEvents[hidden] {
+  display: none;
+}
+section:has(> .container > #upcomingEvents[hidden]) {
+  padding-bottom: 0;
+}
+section:has(> .container > #upcomingEvents[hidden]) .countdown-card {
+  margin-bottom: 0 !important;
+}
+
+/* .countdown-card shares the left alignment axis of the page hero and
+   .event-card below it; .event-location defaults to justify-content: center
+   unless overridden, which left the city pin floating in the middle of the
+   otherwise left-aligned countdown card. */
+.countdown-card {
+  border-left: 3px solid var(--whiskey) !important;
+  box-shadow: var(--shadow);
+}
+.countdown-card .event-location {
+  justify-content: flex-start;
+  text-align: left;
+  gap: 6px;
+  margin-left: 0;
+  margin-right: 0;
+  width: auto;
+}
+.countdown-card .event-location svg,
+.countdown-card .event-timer-clock svg {
+  color: var(--whiskey);
+  flex-shrink: 0;
+}
+
+/* When only a single market or workshop is in its grid, let it span a
+   comfortable reading width rather than squeezing into 1/3 of the desktop
+   container with two empty columns beside it. */
+#upcomingEvents > .event-card:only-child,
+#upcomingWorkshops > .event-card:only-child {
+  grid-column: 1 / -1;
+  max-width: 680px;
 }
