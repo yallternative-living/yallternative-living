@@ -626,7 +626,6 @@
     "auto.rubLittleOntoYour.6e2cf3": "Reib vor dem Schlafengehen ein wenig auf deine Füße oder Schultern und überlass Lavendel, Kamille und Zedernholz den Rest. Magnesium und Arnika in einer 2 oz Dose, gemacht für Grübler und Nachteulen, für die der Tag endlich mal vorbei sein muss.",
     "auto.soldOut.9f7c9b": "S — ausverkauft",
     "auto.sameRainbowStagSame.956b41": "Derselbe Regenbogenhirsch, dieselbe Mondsichel, geschnitten für die heißesten Tage des Jahres. Weiches Triblend-Racerback, gemacht, um ordentlich beansprucht und unkompliziert gewaschen zu werden. Original-Artwork, nichts aus einem Massendruck-Katalog gezogen.",
-    "auto.saturdayNightLights.fb30d0": "Lichter der Samstagnacht",
     "auto.scentProfile.25543d": "Duftprofil",
     "auto.scoopGenerousAmountAnd.841097": "Nimm eine großzügige Menge und massiere sie direkt nach dem Baden oder Duschen in die handtuchfeuchte Haut ein, um tiefe Feuchtigkeit einzuschließen.",
     "auto.scoopNickelSizedAmount.585973": "Nimm eine centgroße Menge auf die feuchten Hände. Mit kreisenden Bewegungen gründlich in Handflächen, Knöchel und Nagelhaut einarbeiten, dann mit warmem Wasser gründlich abspülen.",
@@ -849,13 +848,16 @@
     "auto.copyCode.1589b6": "Code kopieren",
     "auto.materials.2402ea": "Materialien",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living auf Social Media",
-    "auto.freeFamilyFunLive.1f6fec": "Kostenloser Familienspaß & Live-Unterhaltung, gefolgt von Grand-Prix-Springreiten.",
     "auto.thePerfectGiftFor.057d2a": "Das perfekte Geschenk für Black Sheep & Bold Hearts. Wähle einen beliebigen Betrag von $10 bis $500. Kein Ablaufdatum, direkt ins Postfach geliefert.",
     "auto.craftShow.a76ec3": "Kunsthandwerksmarkt",
     "auto.handsOnNightsWhere.b360f5": "Mitmach-Abende, an denen du deine eigenen Self-Care-Goodies herstellst und mit nach Hause nimmst. Schnapp dir dein Ticket direkt hier.",
     "auto.workshopsClasses.446555": "Workshops & Kurse",
     "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant einbeziehen",
-    "auto.english.649df0": "Englisch"
+    "auto.english.649df0": "Englisch",
+    "auto.botanicalSelfCareBath.a6459a": "Pflanzliche Self-Care, Badesalze & handgemachte Salben bei Renewal Wellness.",
+    "auto.fridayNightGothicPunk.e61b6f": "Gothic- & Punk-Markt am Freitagabend bei NoDa Brewing Co.",
+    "auto.nightMarket.eee899": "Nachtmarkt",
+    "auto.wellnessMarket.68e27d": "Wellness-Markt"
   }
 };
 

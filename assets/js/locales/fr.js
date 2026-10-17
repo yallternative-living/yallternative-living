@@ -626,7 +626,6 @@
     "auto.rubLittleOntoYour.6e2cf3": "Masse-z-en un peu sur tes pieds ou tes épaules avant d'aller au lit et laisse la lavande, la camomille et le bois de cèdre faire le reste. Du magnésium et de l'arnica dans une boîte de 2 oz, conçue pour les esprits qui cogitent trop et les oiseaux de nuit qui ont besoin que la journée se termine pour de bon.",
     "auto.soldOut.9f7c9b": "S — épuisé",
     "auto.sameRainbowStagSame.956b41": "Même cerf arc-en-ciel, même croissant de lune, taillé pour les jours les plus chauds de l'année. Un débardeur dos nageur en mélange tri-matière doux, conçu pour être porté sans ménagement et lavé facilement. Une illustration originale, pas un visuel sorti d'un catalogue d'impression de masse.",
-    "auto.saturdayNightLights.fb30d0": "Lumières du samedi soir",
     "auto.scentProfile.25543d": "Profil olfactif",
     "auto.scoopGenerousAmountAnd.841097": "Prends une quantité généreuse et masse directement sur la peau encore humide après la serviette aussitôt après le bain ou la douche pour sceller une hydratation profonde.",
     "auto.scoopNickelSizedAmount.585973": "Prends une noisette sur des mains humides. Masse soigneusement sur les paumes, les articulations et les cuticules par mouvements circulaires, puis rince à l'eau tiède.",
@@ -849,13 +848,16 @@
     "auto.copyCode.1589b6": "Copier le code",
     "auto.materials.2402ea": "Matériaux",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living sur les réseaux",
-    "auto.freeFamilyFunLive.1f6fec": "Du fun gratuit en famille et des spectacles en direct, suivis du Grand Prix de saut d'obstacles.",
     "auto.thePerfectGiftFor.057d2a": "Le cadeau parfait pour les Black Sheep & Bold Hearts. Choisis n'importe quel montant de $10 à $500. Aucune date d'expiration, livré directement dans leur boîte de réception.",
     "auto.craftShow.a76ec3": "Marché artisanal",
     "auto.handsOnNightsWhere.b360f5": "Des soirées pratiques où tu fabriques tes propres pépites pour prendre soin de toi avant de repartir avec. Prends ta place juste ici.",
     "auto.workshopsClasses.446555": "Ateliers & cours",
     "auto.includeFeralButFresh.d240b2": "Inclure Feral but FRESH Cream Deodorant",
-    "auto.english.649df0": "Anglais"
+    "auto.english.649df0": "Anglais",
+    "auto.botanicalSelfCareBath.a6459a": "Soins botaniques, sels de bain et baumes artisanaux chez Renewal Wellness.",
+    "auto.fridayNightGothicPunk.e61b6f": "Marché gothique et punk du vendredi soir chez NoDa Brewing Co.",
+    "auto.nightMarket.eee899": "Marché nocturne",
+    "auto.wellnessMarket.68e27d": "Marché bien-être"
   }
 };
 

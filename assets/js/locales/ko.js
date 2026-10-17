@@ -626,7 +626,6 @@
     "auto.rubLittleOntoYour.6e2cf3": "잠들기 전 발이나 어깨에 소량을 문지르고 라벤더, 카모마일, 시더우드에 맡겨보세요. 하루가 드디어 끝나기를 바라는, 생각이 너무 많은 분들과 올빼미족을 위해 만든 2 oz 틴케이스의 마그네슘과 아르니카예요.",
     "auto.soldOut.9f7c9b": "S — 품절",
     "auto.sameRainbowStagSame.956b41": "일 년 중 가장 더운 날들을 위해 디자인된 똑같은 무지개 수사슴과 초승달이에요. 편하게 자주 입고 쉽게 세탁할 수 있도록 만든 부드러운 트라이블렌드 레이서백이죠. 대량 인쇄 카탈로그에서 대충 긁어온 게 아닌 오리지널 아트워크예요.",
-    "auto.saturdayNightLights.fb30d0": "새터데이 나이트 라이츠",
     "auto.scentProfile.25543d": "향 프로필",
     "auto.scoopGenerousAmountAnd.841097": "목욕이나 샤워 직후 물기가 살짝 남은 피부에 넉넉한 양을 덜어 직접 마사지하듯 발라 깊은 보습감을 채워주세요.",
     "auto.scoopNickelSizedAmount.585973": "물기 있는 손에 동전 크기만큼 덜어냅니다. 원을 그리며 손바닥, 손가락 마디, 큐티클까지 꼼꼼히 문지른 뒤 미온수로 말끔히 헹궈내세요.",
@@ -849,13 +848,16 @@
     "auto.copyCode.1589b6": "코드 복사",
     "auto.materials.2402ea": "소재",
     "auto.yallternativeLivingOnSocial.e86ad9": "소셜 미디어 속 Y'allternative Living",
-    "auto.freeFamilyFunLive.1f6fec": "온 가족이 무료로 즐기는 다채로운 놀거리와 라이브 공연, 그리고 그랑프리 쇼점핑 경기가 이어져요.",
     "auto.thePerfectGiftFor.057d2a": "Black Sheep & Bold Hearts를 위한 완벽한 선물이에요. $10부터 $500까지 원하는 금액을 선택해 보세요. 유효기간 없이 받은편지함으로 바로 전송돼요.",
     "auto.craftShow.a76ec3": "크래프트 쇼",
     "auto.handsOnNightsWhere.b360f5": "나만의 셀프케어 아이템을 직접 만들어 챙겨가는 체험의 밤이에요. 티켓은 바로 여기서 예매하세요.",
     "auto.workshopsClasses.446555": "워크숍 & 클래스",
     "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant 포함",
-    "auto.english.649df0": "영어"
+    "auto.english.649df0": "영어",
+    "auto.botanicalSelfCareBath.a6459a": "Renewal Wellness에서 만나는 보태니컬 셀프케어, 배쓰 소크와 핸드메이드 살브예요.",
+    "auto.fridayNightGothicPunk.e61b6f": "NoDa Brewing Co에서 열리는 금요일 밤의 고딕 & 펑크 마켓이에요.",
+    "auto.nightMarket.eee899": "나이트 마켓",
+    "auto.wellnessMarket.68e27d": "웰니스 마켓"
   }
 };
 
