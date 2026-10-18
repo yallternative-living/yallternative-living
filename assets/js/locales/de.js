@@ -569,7 +569,6 @@
     "auto.essentialOilFreeBut.d2a0fa": "Frei von ätherischen Ölen, aber keine milde Formel: Die schäumende Basis bringt Natriumlaurylsulfat, denaturierten Alkohol und Methylisothiazolinon mit. Wenn deine Haut reaktiv ist oder du bereits weißt, dass MI dir zu schaffen macht, ist diese Dose nichts für dich.",
     "auto.exactSaltHerbBlend.111b07": "Die genaue Salz-/Kräutermischung variiert je nach der oben gewählten Option.",
     "auto.exfoliatingScrubWithPumice.4500d1": "Peeling-Scrub mit Bimsstein und rosa Salz in einer schäumenden Tensidbasis, die Methylisothiazolinon enthält, einen bekannten Auslöser von Kontaktreaktionen. Vor der ersten intensiven Anwendung eine kleine Menge an den Händen testen, ganz weglassen, wenn du weißt, dass du auf MI reagierst, und offene Schnitte meiden.",
-    "auto.fallFamilyFestivalMarket.525e7e": "Herbst-Familienfestival & Markt",
     "auto.farmersMarketsPrideEvents.377246": "Wochenmärkte, Pride-Events und überall sonst, wo Leute ein bisschen Glitzer und Biss brauchen. Unser Klapptisch ist die ganze Saison über unterwegs. Folge @yallternativeliving auf Instagram und TikTok für die Termine, um persönlich vorbeizuschauen.",
     "auto.filterReviewsByStar.aa14fc": "Bewertungen nach Sternen filtern",
     "auto.findUsInThe.fab1d4": "Finde uns in freier Wildbahn",
@@ -849,7 +848,6 @@
     "auto.materials.2402ea": "Materialien",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living auf Social Media",
     "auto.thePerfectGiftFor.057d2a": "Das perfekte Geschenk für Black Sheep & Bold Hearts. Wähle einen beliebigen Betrag von $10 bis $500. Kein Ablaufdatum, direkt ins Postfach geliefert.",
-    "auto.craftShow.a76ec3": "Kunsthandwerksmarkt",
     "auto.handsOnNightsWhere.b360f5": "Mitmach-Abende, an denen du deine eigenen Self-Care-Goodies herstellst und mit nach Hause nimmst. Schnapp dir dein Ticket direkt hier.",
     "auto.workshopsClasses.446555": "Workshops & Kurse",
     "auto.includeFeralButFresh.d240b2": "Feral but FRESH Cream Deodorant einbeziehen",
@@ -857,7 +855,8 @@
     "auto.botanicalSelfCareBath.a6459a": "Pflanzliche Self-Care, Badesalze & handgemachte Salben bei Renewal Wellness.",
     "auto.fridayNightGothicPunk.e61b6f": "Gothic- & Punk-Markt am Freitagabend bei NoDa Brewing Co.",
     "auto.nightMarket.eee899": "Nachtmarkt",
-    "auto.wellnessMarket.68e27d": "Wellness-Markt"
+    "auto.wellnessMarket.68e27d": "Wellness-Markt",
+    "auto.alternativeMakersOdditiesSmall.496e96": "Alternative Kreative, Kuriositäten & Self-Care in Kleinserien bei The Venue at Locust Hill — komm an unserem Tisch vorbei."
   }
 };
 

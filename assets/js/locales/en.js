@@ -569,7 +569,6 @@
     "auto.essentialOilFreeBut.d2a0fa": "Essential-oil free, but not a mild formula: the sudsing base brings sodium lauryl sulfate, denatured alcohol and methylisothiazolinone with it. If your skin is reactive, or you already know MI is one of yours, this is not the tin for you.",
     "auto.exactSaltHerbBlend.111b07": "Exact salt/herb blend varies by the option you choose above.",
     "auto.exfoliatingScrubWithPumice.4500d1": "Exfoliating scrub with pumice and pink salt in a sudsing surfactant base that contains methylisothiazolinone, a known contact allergen. Test a small amount on hands before first heavy use, skip it entirely if you know you react to MI, and avoid open cuts.",
-    "auto.fallFamilyFestivalMarket.525e7e": "Fall Family Festival & Market",
     "auto.farmersMarketsPrideEvents.377246": "Farmers markets, Pride events, and everywhere else folks need a little glitter and grit. We keep our folding table moving through the season. Follow along on Instagram and TikTok @yallternativeliving for the schedule so you can shop in person.",
     "auto.filterReviewsByStar.aa14fc": "Filter reviews by star rating",
     "auto.findUsInThe.fab1d4": "Find Us In The Wild",
@@ -849,7 +848,6 @@
     "auto.materials.2402ea": "Materials",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living On Social",
     "auto.thePerfectGiftFor.057d2a": "The perfect gift for the black sheep & bold hearts. Choose any amount from $10 to $500. No expiration date, delivered straight to their inbox.",
-    "auto.craftShow.a76ec3": "Craft Show",
     "auto.handsOnNightsWhere.b360f5": "Hands-on nights where you make your own self-care goodies and take them home. Grab your ticket right here.",
     "auto.workshopsClasses.446555": "Workshops & Classes",
     "auto.includeFeralButFresh.d240b2": "Include Feral but FRESH Cream Deodorant",
@@ -857,7 +855,8 @@
     "auto.botanicalSelfCareBath.a6459a": "Botanical self-care, bath soaks & handmade salves at Renewal Wellness.",
     "auto.fridayNightGothicPunk.e61b6f": "Friday night gothic & punk market at NoDa Brewing Co.",
     "auto.nightMarket.eee899": "Night Market",
-    "auto.wellnessMarket.68e27d": "Wellness Market"
+    "auto.wellnessMarket.68e27d": "Wellness Market",
+    "auto.alternativeMakersOdditiesSmall.496e96": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill — come find our table."
   }
 };
 

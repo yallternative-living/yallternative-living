@@ -569,7 +569,6 @@
     "auto.essentialOilFreeBut.d2a0fa": "Sem óleos essenciais, mas longe de ser uma fórmula suave: a base espumante traz lauril sulfato de sódio, álcool desnaturado e metilisotiazolinona. Se a sua pele é reativa, ou você já sabe que a MI é uma das suas, esta latinha não é para você.",
     "auto.exactSaltHerbBlend.111b07": "A mistura exata de sal/ervas varia de acordo com a opção que você escolher acima.",
     "auto.exfoliatingScrubWithPumice.4500d1": "Esfoliante com pedra-pomes e sal rosa em uma base surfactante espumante que contém metilisotiazolinona, um sensibilizante de contato conhecido. Teste uma pequena quantidade nas mãos antes do primeiro uso pesado, pule completamente se você sabe que reage à MI e evite cortes abertos.",
-    "auto.fallFamilyFestivalMarket.525e7e": "Festival de Outono da Família & Feira",
     "auto.farmersMarketsPrideEvents.377246": "Feiras de produtores, eventos do Orgulho e em qualquer outro lugar onde o pessoal precise de um pouco de glitter e garra. A nossa mesa dobrável não para quieta durante a temporada. Acompanhe no Instagram e no TikTok @yallternativeliving para ver a programação e poder comprar pessoalmente.",
     "auto.filterReviewsByStar.aa14fc": "Filtrar avaliações por estrelas",
     "auto.findUsInThe.fab1d4": "Encontre a gente por aí",
@@ -849,7 +848,6 @@
     "auto.materials.2402ea": "Materiais",
     "auto.yallternativeLivingOnSocial.e86ad9": "Y'allternative Living nas redes sociais",
     "auto.thePerfectGiftFor.057d2a": "O presente perfeito para as black sheep & bold hearts. Escolha qualquer valor de $10 a $500. Sem data de validade, entregue direto na caixa de entrada.",
-    "auto.craftShow.a76ec3": "Feira de Artesanato",
     "auto.handsOnNightsWhere.b360f5": "Noites práticas onde você faz seus próprios produtinhos de autocuidado e leva para casa. Garanta seu ingresso bem aqui.",
     "auto.workshopsClasses.446555": "Workshops e Aulas",
     "auto.includeFeralButFresh.d240b2": "Incluir Feral but FRESH Cream Deodorant",
@@ -857,7 +855,8 @@
     "auto.botanicalSelfCareBath.a6459a": "Autocuidado botânico, banhos de imersão e pomadas artesanais na Renewal Wellness.",
     "auto.fridayNightGothicPunk.e61b6f": "Mercado gótico e punk de sexta-feira à noite na NoDa Brewing Co.",
     "auto.nightMarket.eee899": "Mercado Noturno",
-    "auto.wellnessMarket.68e27d": "Mercado de Bem-Estar"
+    "auto.wellnessMarket.68e27d": "Mercado de Bem-Estar",
+    "auto.alternativeMakersOdditiesSmall.496e96": "Criadores alternativos, curiosidades e autocuidado em pequenos lotes no The Venue at Locust Hill — venha encontrar nossa mesa."
   }
 };
 

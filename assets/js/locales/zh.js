@@ -569,7 +569,6 @@
     "auto.essentialOilFreeBut.d2a0fa": "不含精油，但也绝非温和配方：其起泡基底含有十二烷基硫酸钠、变性乙醇和甲基异噻唑啉酮。如果你的皮肤容易起反应，或者你早就清楚 MI 是你的雷区，那这罐并不适合你。",
     "auto.exactSaltHerbBlend.111b07": "具体的盐/草本配方因你在上方选择的选项而异。",
     "auto.exfoliatingScrubWithPumice.4500d1": "含有浮石和粉盐的去角质磨砂膏，起泡表面活性剂基底中含有甲基异噻唑啉酮（一种已知的接触性致敏物）。在初次大量使用前，请先在手部少量试用；如果你已知自己对 MI 起反应，请直接不要使用，并避开皮肤破口处。",
-    "auto.fallFamilyFestivalMarket.525e7e": "秋季家庭节与集市",
     "auto.farmersMarketsPrideEvents.377246": "农贸集市、Pride 活动，以及任何大家需要一点闪光与韧劲的地方。这一季我们的折叠桌到处巡回出摊。在 Instagram 和 TikTok 上关注 @yallternativeliving 获取日程安排，这样你就能来现场选购了。",
     "auto.filterReviewsByStar.aa14fc": "按星级筛选评价",
     "auto.findUsInThe.fab1d4": "寻找野生的我们",
@@ -849,7 +848,6 @@
     "auto.materials.2402ea": "材质",
     "auto.yallternativeLivingOnSocial.e86ad9": "社交媒体上的 Y'allternative Living",
     "auto.thePerfectGiftFor.057d2a": "送给特立独行与勇敢之人的完美礼物。从$10到$500自选金额。无有效期限制，直接发送至对方收件箱。",
-    "auto.craftShow.a76ec3": "手工艺市集",
     "auto.handsOnNightsWhere.b360f5": "亲手动手的体验之夜，亲手做属于自己的自我呵护好物带回家。门票就在这里买。",
     "auto.workshopsClasses.446555": "工坊与课程",
     "auto.includeFeralButFresh.d240b2": "包含 Feral but FRESH Cream Deodorant",
@@ -857,7 +855,8 @@
     "auto.botanicalSelfCareBath.a6459a": "Renewal Wellness 的植物自我护理、泡澡浸浴品与手工膏。",
     "auto.fridayNightGothicPunk.e61b6f": "NoDa Brewing Co 的周五晚哥特与朋克市集。",
     "auto.nightMarket.eee899": "夜市",
-    "auto.wellnessMarket.68e27d": "健康市集"
+    "auto.wellnessMarket.68e27d": "健康市集",
+    "auto.alternativeMakersOdditiesSmall.496e96": "在 The Venue at Locust Hill 汇聚另类手作人、奇物与小批量自我护理产品——快来找找我们的摊位吧。"
   }
 };
 
