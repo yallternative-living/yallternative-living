@@ -1277,6 +1277,8 @@
       btn.setAttribute("role", "option");
       btn.setAttribute("aria-selected", lang.code === currentLang ? "true" : "false");
       btn.setAttribute("data-lang", lang.code);
+      // The endonym's own language, so "Deutsch" is read in German (SC 3.1.2).
+      btn.setAttribute("lang", lang.code);
       btn.textContent = lang.name;
 
       btn.addEventListener("click", async function () {

@@ -2563,5 +2563,84 @@ assert(
   );
 })();
 
+// ---------------------------------------------------------------------------
+// Shipped scripts count as "the built site" for dictionary rule 1.
+//
+// The scanner decides which strings the gate may treat as present, so a
+// scanner bug is a gate bug: reading a comment would keep a dead key alive,
+// and misreading a regex would hide live ones. It is pinned two ways -- on
+// the constructs that trip a naive scan, and against acorn on every script
+// the site ships.
+// ---------------------------------------------------------------------------
+(function shippedScriptReachability() {
+  const { extractJsLiterals } = require("./lib/js-literals");
+  eq(
+    extractJsLiterals(
+      [
+        '// "Your cart is empty" (a comment quoting old copy)',
+        "/* 'Patch Test' */",
+        'var a = "Next appearance";',
+        "var re = /[\"']+/g, b = 'it\\'s \\u00e9';",
+        "var c = x / 2 / y, d = `Share ${name} on ${`Apple ${1}`} now`;",
+        'if (z) { return /a"b/.test(s); }'
+      ].join("\n")
+    ),
+    ["Next appearance", "it's é", "Share ", " on ", "Apple ", " now"],
+    "extractJsLiterals: cooked strings and template chunks only -- no comments, no regex bodies"
+  );
+
+  let acorn = null;
+  try {
+    acorn = require("acorn");
+  } catch {
+    acorn = null;
+  }
+  if (!acorn) {
+    // eslint brings acorn in; without node_modules there is nothing to compare to.
+    console.log("  - skipped: acorn parity (acorn is not installed)");
+  } else {
+    const dirs = ["assets/js", "assets/js/modules"];
+    const mismatched = [];
+    let files = 0;
+    dirs.forEach(function (sub) {
+      const dir = path.join(__dirname, "..", sub);
+      fs.readdirSync(dir)
+        .filter(function (f) {
+          return f.endsWith(".js");
+        })
+        .forEach(function (f) {
+          const src = fs.readFileSync(path.join(dir, f), "utf8");
+          const expected = [];
+          for (const tok of acorn.tokenizer(src, { ecmaVersion: "latest", allowHashBang: true })) {
+            const label = tok.type.label;
+            if ((label === "string" || label === "template") && tok.value) expected.push(tok.value);
+          }
+          files++;
+          if (JSON.stringify(expected) !== JSON.stringify(extractJsLiterals(src))) {
+            mismatched.push(sub + "/" + f);
+          }
+        });
+    });
+    assert(
+      files > 0 && mismatched.length === 0,
+      "extractJsLiterals matches acorn on all " +
+        files +
+        " shipped scripts" +
+        (mismatched.length ? " -- differs on " + mismatched.join(", ") : "")
+    );
+  }
+
+  const names = buildScript.collectShippedScripts().map(function (s) {
+    return s.name;
+  });
+  assert(names.indexOf("assets/js/main.js") !== -1, "collectShippedScripts reads main.js");
+  assert(
+    names.every(function (n) {
+      return n !== "assets/js/locales-data.js" && n.indexOf("assets/js/locales/") !== 0;
+    }),
+    "collectShippedScripts never reads the dictionaries (that would make every key reachable)"
+  );
+})();
+
 console.log(`\nbuild-site-data.test.js: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

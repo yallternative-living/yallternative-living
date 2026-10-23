@@ -80,6 +80,7 @@ const renderMarkdown = require("../assets/js/markdown.js").renderMarkdown;
    scripts/analytics.test.js asserts the emitted tag and the emitted rules
    still agree. */
 const { ANALYTICS_LOADER_PATH } = require("./lib/analytics-proxy");
+const { extractJsLiterals } = require("./lib/js-literals");
 const ROOT = path.join(__dirname, "..");
 
 /* Read + parse one of the canonical assets/data/*.json source files.
@@ -985,6 +986,54 @@ function collectBuiltHtml() {
   });
 }
 
+/* Scripts that ship but are not copy: the dictionaries themselves (reading
+   them would make every key trivially reachable) and the image manifest
+   (paths). */
+const SHIPPED_SCRIPT_EXCLUDE = new Set([
+  "assets/js/locales-data.js",
+  "assets/js/image-manifest.js"
+]);
+
+/**
+ * The string and template literals of every script the site ships, one
+ * pseudo-page per file, in the same {name, text} shape collectBuiltHtml
+ * returns.
+ *
+ * The cart drawer, event cards, journal list and search results are rendered
+ * from these files, not from any .html, so "appears somewhere in the built
+ * site" has to include them or every string they render is either a dead-key
+ * failure or a hand-written runtime-manifest entry. Before 2026-10-23 it was
+ * the latter, and 102 rendered strings sat deferred as runtime-only because
+ * nobody had written their manifest entries.
+ *
+ * Literals only (scripts/lib/js-literals.js): a comment that quotes old copy
+ * ("Your cart is empty") must not keep a dead key alive, and a regex literal
+ * must not be misread as a string. A string assembled at runtime from a
+ * template and data is a literal nowhere, so it still needs the manifest.
+ */
+function collectShippedScripts() {
+  const files = [];
+  ["assets/js", "assets/js/modules"].forEach(function (sub) {
+    const dir = path.join(ROOT, sub);
+    if (!fs.existsSync(dir)) return;
+    fs.readdirSync(dir)
+      .filter(function (f) {
+        return f.endsWith(".js");
+      })
+      .sort()
+      .forEach(function (f) {
+        const rel = sub + "/" + f;
+        if (!SHIPPED_SCRIPT_EXCLUDE.has(rel)) files.push(rel);
+      });
+  });
+  return files.map(function (rel) {
+    const src = fs.readFileSync(path.join(ROOT, rel), "utf8");
+    const literals = extractJsLiterals(src);
+    const joined = literals.join("\n");
+    return { name: rel, text: joined + "\n" + decodeHtmlEntities(joined) };
+  });
+}
+
 function digestEnglish(value) {
   return crypto.createHash("sha1").update(value, "utf8").digest("hex").slice(0, 10);
 }
@@ -1091,10 +1140,12 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
   });
 
   // Rule 1: reachability.
-  const pages = collectBuiltHtml();
-  if (!pages.length) {
+  const htmlPages = collectBuiltHtml();
+  if (!htmlPages.length) {
     throw new Error("No built HTML pages found -- refusing to report dictionary coverage.");
   }
+  const scripts = collectShippedScripts();
+  const pages = htmlPages.concat(scripts);
   const unreachable = [];
   const unreachableBotKeys = [];
   keys.forEach(function (key) {
@@ -1250,8 +1301,10 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
       " key(s) x " +
       SUPPORTED_LOCALES.length +
       " locales, all reachable in " +
-      pages.length +
-      " built pages or the runtime manifest"
+      htmlPages.length +
+      " built pages, " +
+      scripts.length +
+      " shipped scripts or the runtime manifest"
   );
   return true;
 }
@@ -9393,6 +9446,7 @@ if (typeof module !== "undefined" && module.exports) {
     IDENTICAL_BY_DESIGN: IDENTICAL_BY_DESIGN,
     decodeHtmlEntities: decodeHtmlEntities,
     collectBuiltHtml: collectBuiltHtml,
+    collectShippedScripts: collectShippedScripts,
     digestEnglish: digestEnglish,
     gitHistoryIsComplete: gitHistoryIsComplete,
     formatEventMapDestination: formatEventMapDestination,

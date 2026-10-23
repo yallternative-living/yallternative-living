@@ -86,11 +86,15 @@
  *
  * WHAT IS NEW BUT DEFERRED (`defer` on the entry; --write skips these):
  *
- *   runtime-only     reachable only after JavaScript runs and not declared in
- *                    i18n-runtime-strings.json. Adding it to en.json would
- *                    fail gate rule 1 forever, and no amount of translating
- *                    would fix it -- a human has to add a manifest entry with
- *                    a `source` and `verify` fragments first.
+ *   runtime-only     reachable only after JavaScript runs, a literal in no
+ *                    built page and no shipped script, and not declared in
+ *                    i18n-runtime-strings.json -- i.e. ASSEMBLED at runtime
+ *                    ("+ Add $14", "Share Potions & Pour Decisions"). Adding
+ *                    it to en.json would fail gate rule 1 forever; it needs a
+ *                    tpl.* template or a manifest entry written by hand. A
+ *                    string a script renders verbatim from data ("Next
+ *                    appearance", an event's note) is a literal in a shipped
+ *                    script and is NOT deferred.
  *   volatile-numeric a string carrying a loose number the build derives from
  *                    data ("Showing 20 of 20 goods", "Batch: Late October
  *                    2026", "2 reviews of this one"). Freezing today's number
@@ -318,7 +322,12 @@ const PLATFORM_LABELS = [
   "YouTube",
   "Etsy",
   "Threads",
-  "X"
+  "X",
+  // Where the event cards send you: product names, not copy.
+  "Apple Maps",
+  "Google Maps",
+  "Google Calendar",
+  "Apple / iCal"
 ];
 
 /** True when `text` is exactly a platform name, give or take a link arrow. */
@@ -725,10 +734,13 @@ function buildContext(payload) {
   const reviews = readJsonIfPresent("assets/data/site-reviews.json") || { reviews: [] };
   const events = readJsonIfPresent("assets/data/events.json") || { upcoming: [], past: [] };
 
-  const pages = build.collectBuiltHtml();
-  if (!pages.length) {
+  const htmlPages = build.collectBuiltHtml();
+  if (!htmlPages.length) {
     throw new Error("No built HTML pages found -- run `node scripts/build-site-data.js` first.");
   }
+  /* The gate's own definition of "in the built site" (rule 1), so this tool
+     and the gate never disagree about whether a key would be dead. */
+  const pages = htmlPages.concat(build.collectShippedScripts());
   const htmlCache = new Map();
   function inBuiltHtml(value) {
     if (!htmlCache.has(value)) {
@@ -762,7 +774,7 @@ function buildContext(payload) {
       })
     ),
     inBuiltHtml: inBuiltHtml,
-    pageCount: pages.length
+    pageCount: htmlPages.length
   };
 }
 
