@@ -113,10 +113,10 @@ build-compiled dictionary engine.
    - `validateLocalesAndGlossary()` fails the build when a translation drops a
      protected term the English string contains.
    - `locales-data.js`, `locales/en.js` (the index every lookup starts from)
-     and `translator.js` are in `sw.js` `ASSETS_TO_CACHE`. The other eight
-     dictionaries are NOT precached: each is fetched when a shopper first
-     reads the shop in that language and cached by the fetch handler, so
-     switching back to a language they have used works offline. Switching
+     and `translator.js` are in `sw.js` `ASSETS_TO_CACHE`. The Spanish
+     dictionary is NOT precached: it is fetched when a shopper first reads
+     the shop in Spanish and cached by the fetch handler, so switching back
+     to it works offline. Switching
      offline to a language this browser has never displayed does not -- the
      engine fails closed to English rather than claiming it.
    - **No SEO layer.** There is deliberately no `hreflang` injection and no
@@ -181,26 +181,45 @@ build-compiled dictionary engine.
 ## Known limitations (measured, not estimated)
 
 These are real and they are why this is a UI-chrome translator, not a
-localised site. Numbers are from the 2026-09-02 audit, re-measured after the
-blocking fixes:
+localised site. Re-measured 2026-10-23 with `node scripts/i18n-coverage-report.js
+--lang <code>` (changed text nodes / non-empty text nodes; the language
+selectors are excluded from both halves). Re-derive, never quote:
 
-- **Coverage is 10-21% of text nodes**, not 100%: `/` 56/264 (21.2%),
-  `/shop.html` 99/961 (10.3%) under `es`. Lookup is exact string equality on
-  the trimmed text, and 58% of authored dictionary entries match no string on
-  any page -- `cart.empty` is "Your cart is empty" while the DOM says "Your
-  cart is empty."; `pdp.patchTest` is "Patch Test" while the DOM says "Patch
-  Test:". Regenerating the dictionaries from the built markup, with a build
-  gate asserting every English value appears somewhere in the site, is the
-  fix.
-- **`data-i18n` is not used anywhere in the shipped markup**, so the key-based
-  lookup path is currently dead code and all real translation goes through the
-  fragile exact-string path.
-- **`<html lang>` stays `"en"`.** Declaring the document Spanish while 79-90%
-  of it is English is a WCAG 2.1 SC 3.1.1 (Level A) failure -- a screen reader
-  would apply Spanish phonetics to the English majority. Only the elements
-  whose text was actually replaced are marked (55 on `/`, 98 on
-  `/shop.html`), with `lang="en"` counter-marks where an untranslated element
-  sits under a marked one. Revisit when coverage approaches 100%.
+- **The site ships English and Spanish only** (since 2026-10-23; German,
+  French, Japanese, Chinese, Vietnamese, Korean and Portuguese were removed
+  and are in git history). Spanish is translated by hand.
+- **Coverage is roughly 50-90% of text nodes, not 100%.** Under `es`: `/`
+  156/274 (56.9%), `/shop.html` 507/1011 (50.1%), `/products/sleep-salve.html`
+  147/224 (65.6%), `/faq.html` 138/156 (88.5%), cart drawer 52.8%, search
+  modal 53.8%, quiz 97.4%. Most
+  of what stays English stays English on purpose -- product and bundle names,
+  prices and sizes, INCI and ingredient names, verbatim reviews, venue names,
+  symbols -- and some is correct as-is ("Subtotal" in Spanish), so 100% is
+  not the ceiling. The 2026-09-02 figure here was 10-21%.
+- **The dictionary gate is enforced.** `validateDictionaryCoverage` in
+  `scripts/build-site-data.js` fails the build (and so `npm test` and the
+  Netlify deploy) when a hand-authored English value appears in no built page,
+  no shipped script and no runtime-manifest entry. "Shipped script" was added
+  2026-10-23: copy the scripts render from data (event cards, the cart
+  drawer, bundle blurbs) is a literal in `assets/js/*.js`, and before that it
+  could only be keyed through a hand-written manifest entry. The 58% dead-entry
+  rate this section used to report is 0% today (895 keys, 0 orphaned).
+- **What is still deferred, and why.** `npm run i18n:new` reports strings the
+  site shows that the dictionary lacks. On 2026-10-23, 126 were deferred: 69
+  assembled at runtime from a template plus data ("+ Add $14", "Get directions
+  to Potions & Pour Decisions on Apple Maps") and 57 carrying a number the
+  build derives ("Showing 20 of 20 goods", event dates). Both want `tpl.*`
+  templates, not dictionary entries.
+- **`data-i18n` is not used in the shipped markup.** Lookup is by exact text;
+  copy is wrapped in `<!--YL:key-->` markers by the build, and `data-i18n-tpl`
+  carries the templated strings.
+- **`<html lang>` stays `"en"` on purpose.** About half of every page's text
+  nodes stay English, so declaring the document Spanish would be a WCAG 2.1
+  SC 3.1.1 failure. Elements whose text was actually replaced are marked
+  instead (153 on `/`, 487 on `/shop.html` under `es`), with `lang="en"`
+  counter-marks where an untranslated element sits under a marked one, and
+  every language-selector option carries its own `lang` (SC 3.1.2). Revisit
+  when coverage approaches 100%.
 - **Meta is never translated.** `translateTree` runs on `document.body`, so
   `<meta name="description">`, `og:title` and `og:description` stay English.
 - **Search does not follow the UI language.** The index is English-only:

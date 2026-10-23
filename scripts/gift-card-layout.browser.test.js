@@ -212,8 +212,8 @@ async function run() {
     }
 
     // ---- M4: preset grid columns stay equal even with a long translated
-    // label ("Personalizado" / "Personnalisé" / "カスタム"), and nothing clips.
-    for (const lang of ["es", "fr", "ja"]) {
+    // label ("Personalizado"), and nothing clips.
+    for (const lang of ["es"]) {
       for (const width of [320, 360, 390]) {
         const page = await browser.newPage();
         await page.evaluateOnNewDocument((l) => {

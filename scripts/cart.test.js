@@ -1847,8 +1847,8 @@ assert(
       assert(typeof checkoutLocale === "function", "cart.js exports checkoutLocale");
       eq(
         CHECKOUT_LOCALES,
-        ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"],
-        "checkout locale allow-list is exactly the nine languages the picker offers"
+        ["en", "es"],
+        "checkout locale allow-list is exactly the languages the picker offers"
       );
 
       const savedTranslator = mockWindow.YL_TRANSLATOR;
@@ -1862,25 +1862,30 @@ assert(
         eq(checkoutLocale(), code, `stored preference ${code} is used verbatim`);
       });
 
-      mockLocalStorage.setItem("yl-lang", "JA");
-      eq(checkoutLocale(), "ja", "stored preference is normalised to lower case");
-      mockLocalStorage.setItem("yl-lang", "  fr  ");
-      eq(checkoutLocale(), "fr", "stored preference is trimmed");
+      mockLocalStorage.setItem("yl-lang", "ES");
+      eq(checkoutLocale(), "es", "stored preference is normalised to lower case");
+      mockLocalStorage.setItem("yl-lang", "  es  ");
+      eq(checkoutLocale(), "es", "stored preference is trimmed");
 
-      ["es-MX", "pt-BR", "klingon", "", "<script>", "../../etc/passwd"].forEach((bad) => {
-        mockLocalStorage.setItem("yl-lang", bad);
-        eq(
-          checkoutLocale(),
-          "en",
-          `unrecognised stored value ${JSON.stringify(bad)} falls back to en`
-        );
-      });
+      /* "de" and "ja" were real choices until 2026-10-23; a shopper who picked
+         one still has it in storage, and must check out in English. */
+      ["de", "ja", "es-MX", "pt-BR", "klingon", "", "<script>", "../../etc/passwd"].forEach(
+        (bad) => {
+          mockLocalStorage.setItem("yl-lang", bad);
+          eq(
+            checkoutLocale(),
+            "en",
+            `unrecognised stored value ${JSON.stringify(bad)} falls back to en`
+          );
+        }
+      );
 
       /* The live translator wins over storage: a ?lang= link changes the
          language of the page being read without rewriting storage first. */
+      mockLocalStorage.setItem("yl-lang", "en");
+      mockWindow.YL_TRANSLATOR = { getCurrentLanguage: () => "es" };
+      eq(checkoutLocale(), "es", "the translator's live language beats the stored one");
       mockLocalStorage.setItem("yl-lang", "es");
-      mockWindow.YL_TRANSLATOR = { getCurrentLanguage: () => "de" };
-      eq(checkoutLocale(), "de", "the translator's live language beats the stored one");
       mockWindow.YL_TRANSLATOR = {
         getCurrentLanguage: () => {
           throw new Error("translator exploded");
@@ -1889,9 +1894,9 @@ assert(
       eq(checkoutLocale(), "es", "a throwing translator falls back to the stored preference");
       mockWindow.YL_TRANSLATOR = null;
 
-      mockLocalStorage.setItem("yl-lang", "zh");
+      mockLocalStorage.setItem("yl-lang", "es");
       const payload = toCheckoutPayload([{ id: "lavender-soak", qty: 1 }], null, null, false, "");
-      eq(payload.locale, "zh", "the checkout payload carries the shopper's language");
+      eq(payload.locale, "es", "the checkout payload carries the shopper's language");
       assert(
         Array.isArray(payload.items) && payload.items.length === 1,
         "adding the locale did not disturb the line items"

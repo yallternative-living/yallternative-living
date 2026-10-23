@@ -80,6 +80,7 @@ const renderMarkdown = require("../assets/js/markdown.js").renderMarkdown;
    scripts/analytics.test.js asserts the emitted tag and the emitted rules
    still agree. */
 const { ANALYTICS_LOADER_PATH } = require("./lib/analytics-proxy");
+const { extractJsLiterals } = require("./lib/js-literals");
 const ROOT = path.join(__dirname, "..");
 
 /* Read + parse one of the canonical assets/data/*.json source files.
@@ -732,7 +733,7 @@ function renderFaqAnswerHtml(answer) {
    the dictionary load and the build-time validation below. It deliberately
    does NOT drive any SEO annotation -- see the note on hreflang at the
    robots.txt block. */
-const SUPPORTED_LOCALES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+const SUPPORTED_LOCALES = ["en", "es"];
 
 function validateLocalesAndGlossary(locales, glossary) {
   if (!glossary || !Array.isArray(glossary.protectedTerms) || !glossary.protectedTerms.length) {
@@ -811,106 +812,15 @@ function validateLocalesAndGlossary(locales, glossary) {
    needs a reason -- "the word is the same in that language" is a reason,
    "we did not get to it" is not. */
 const IDENTICAL_BY_DESIGN = {
-  "nav.shop": { de: "Shop is the ordinary German retail word" },
-  "nav.contact": { fr: "Contact is the ordinary French word" },
-  "nav.faq": {
-    de: "FAQ is used as-is",
-    fr: "FAQ is used as-is",
-    ko: "FAQ is used as-is",
-    pt: "FAQ is used as-is"
-  },
-  "nav.slashShop": { de: "breadcrumb of nav.shop" },
-  "nav.slashFaq": {
-    de: "breadcrumb of nav.faq",
-    fr: "breadcrumb of nav.faq",
-    ko: "breadcrumb of nav.faq",
-    pt: "breadcrumb of nav.faq"
-  },
-  "search.esc": {
-    es: "ESC is the key legend printed on the keyboard",
-    de: "ESC is the key legend printed on the keyboard",
-    ja: "ESC is the key legend printed on the keyboard",
-    zh: "ESC is the key legend printed on the keyboard",
-    vi: "ESC is the key legend printed on the keyboard",
-    ko: "ESC is the key legend printed on the keyboard",
-    pt: "ESC is the key legend printed on the keyboard"
-  },
-  /* Two product names and a file extension. Nothing in it is language. */
+  "search.esc": { es: "ESC is the key legend printed on the keyboard" },
   "events.icalAppleCalendar": {
-    es: "iCal and Apple Calendar are product names, .ics is a file extension",
-    vi: "iCal and Apple Calendar are product names, .ics is a file extension",
-    ko: "iCal and Apple Calendar are product names, .ics is a file extension",
-    pt: "iCal and Apple Calendar are product names, .ics is a file extension"
+    es: "iCal and Apple Calendar are product names, .ics is a file extension"
   },
-  "shop.vegan": { de: "Vegan is the ordinary German word", fr: "Vegan is used as-is" },
-  "cart.subtotal": {
-    es: "Subtotal is the ordinary Spanish word",
-    pt: "Subtotal is the ordinary Portuguese word"
-  },
-  "footer.explore": { pt: "Explore is the ordinary Portuguese imperative" },
-  "footer.emailLabel": { vi: "Email is the ordinary Vietnamese word" },
-  "box.item1": { pt: "Item is the ordinary Portuguese word" },
-  "box.item2": { pt: "Item is the ordinary Portuguese word" },
-  "box.item3": { pt: "Item is the ordinary Portuguese word" },
-  "box.optional": { de: "Optional is the ordinary German word" },
-  "box.catPotions": { fr: "POTIONS is the ordinary French word" },
-  "gift.optional": { de: "Optional is the ordinary German word" },
-  "reviews.name": { de: "Name is the ordinary German word" },
+  "cart.subtotal": { es: "Subtotal is the ordinary Spanish word" },
   "reviews.general": { es: "General is the ordinary Spanish word" },
-  /* Page furniture and loanwords the 2026-09-04 nine-locale expansion added.
-     Each is a word the target language uses as-is; the alternative was
-     inventing a translation nobody writes ("Bestseller" is Bestseller in
-     German, and a French breadcrumb reading "/ Journal" is a French
-     breadcrumb). Keys are auto.* because discovery minted them; if the
-     English changes the key changes with it and the stale entry goes inert,
-     which the gate reports rather than hides. */
-  "auto.festival.9f8f3e": {
-    de: "Festival is the ordinary German word",
-    es: "Festival is the ordinary Spanish word",
-    fr: "Festival is the ordinary French word",
-    pt: "Festival is the ordinary Portuguese word"
-  },
-  "auto.events.a26238": { de: "breadcrumb; Events is used as-is in German" },
-  "auto.journal.2ce617": {
-    de: "breadcrumb; Journal is used as-is in German",
-    fr: "breadcrumb; Journal is the ordinary French word"
-  },
-  "auto.apothecaryJournal.04917a": { de: "Apothecary Journal reads as-is in German" },
-  "auto.apothecaryJournalYallternativeLiving.a3343f": {
-    de: "page title: the section name plus the protected brand"
-  },
-  "auto.bestseller.df042d": {
-    de: "Bestseller is the ordinary German word",
-    fr: "Bestseller is used as-is in French"
-  },
-  "auto.faqYallternativeLiving.1b057b": {
-    de: "page title: FAQ (used as-is) plus the protected brand",
-    fr: "page title: FAQ (used as-is) plus the protected brand",
-    ja: "page title: FAQ (used as-is) plus the protected brand",
-    ko: "page title: FAQ (used as-is) plus the protected brand",
-    pt: "page title: FAQ (used as-is) plus the protected brand",
-    vi: "page title: FAQ (used as-is) plus the protected brand"
-  },
-  "auto.landrumSouthCarolina.526b7e": {
-    de: "a place name; German writes the Carolinas unchanged",
-    vi: "a place name; Vietnamese writes it unchanged"
-  },
-  "auto.socialMedia.3d84a8": { de: "Social Media is the ordinary German term" },
-  "auto.contact.8508af": { fr: "breadcrumb; Contact is the ordinary French word" },
-  "auto.contactYallternativeLiving.2072b3": {
-    fr: "page title: Contact (the ordinary French word) plus the protected brand"
-  },
-  "auto.message.68f414": { fr: "Message is the ordinary French word" },
-  "cart.mixMatchLabel": { de: "Mix & Match is the term German retail uses as-is" },
+  "auto.festival.9f8f3e": { es: "Festival is the ordinary Spanish word" },
   "tpl.bundleVariantLabel": {
-    es: "just an em-dash joining two already-translated vars, same as in English",
-    de: "just an em-dash joining two already-translated vars, same as in English",
-    fr: "just an em-dash joining two already-translated vars, same as in English",
-    ja: "just an em-dash joining two already-translated vars, same as in English",
-    zh: "just an em-dash joining two already-translated vars, same as in English",
-    vi: "just an em-dash joining two already-translated vars, same as in English",
-    ko: "just an em-dash joining two already-translated vars, same as in English",
-    pt: "just an em-dash joining two already-translated vars, same as in English"
+    es: "just an em-dash joining two already-translated vars, same as in English"
   }
 };
 
@@ -985,6 +895,54 @@ function collectBuiltHtml() {
   });
 }
 
+/* Scripts that ship but are not copy: the dictionaries themselves (reading
+   them would make every key trivially reachable) and the image manifest
+   (paths). */
+const SHIPPED_SCRIPT_EXCLUDE = new Set([
+  "assets/js/locales-data.js",
+  "assets/js/image-manifest.js"
+]);
+
+/**
+ * The string and template literals of every script the site ships, one
+ * pseudo-page per file, in the same {name, text} shape collectBuiltHtml
+ * returns.
+ *
+ * The cart drawer, event cards, journal list and search results are rendered
+ * from these files, not from any .html, so "appears somewhere in the built
+ * site" has to include them or every string they render is either a dead-key
+ * failure or a hand-written runtime-manifest entry. Before 2026-10-23 it was
+ * the latter, and 102 rendered strings sat deferred as runtime-only because
+ * nobody had written their manifest entries.
+ *
+ * Literals only (scripts/lib/js-literals.js): a comment that quotes old copy
+ * ("Your cart is empty") must not keep a dead key alive, and a regex literal
+ * must not be misread as a string. A string assembled at runtime from a
+ * template and data is a literal nowhere, so it still needs the manifest.
+ */
+function collectShippedScripts() {
+  const files = [];
+  ["assets/js", "assets/js/modules"].forEach(function (sub) {
+    const dir = path.join(ROOT, sub);
+    if (!fs.existsSync(dir)) return;
+    fs.readdirSync(dir)
+      .filter(function (f) {
+        return f.endsWith(".js");
+      })
+      .sort()
+      .forEach(function (f) {
+        const rel = sub + "/" + f;
+        if (!SHIPPED_SCRIPT_EXCLUDE.has(rel)) files.push(rel);
+      });
+  });
+  return files.map(function (rel) {
+    const src = fs.readFileSync(path.join(ROOT, rel), "utf8");
+    const literals = extractJsLiterals(src);
+    const joined = literals.join("\n");
+    return { name: rel, text: joined + "\n" + decodeHtmlEntities(joined) };
+  });
+}
+
 function digestEnglish(value) {
   return crypto.createHash("sha1").update(value, "utf8").digest("hex").slice(0, 10);
 }
@@ -993,16 +951,17 @@ function digestEnglish(value) {
    else. The reasoning, because this is a real if narrow relaxation of a gate
    that was written strict on purpose:
 
-   `auto.*` keys are minted by scripts/i18n-new-strings.js from product copy and
-   filled by scripts/i18n-translate.js -- they are the bot's, not a human's. The
-   owner edits a blurb in the CMS at /admin; that commit lands on main; Netlify
-   builds it immediately, BEFORE the bot's workflow has finished re-translating.
+   `auto.*` keys are minted by scripts/i18n-new-strings.js from CMS-authored
+   copy -- they follow the CMS, not a human typing into en.json. (They were
+   filled by a Gemini bot, scripts/i18n-translate.js, until it was retired on
+   2026-10-23; they are translated by hand now.) The owner edits a blurb in the
+   CMS at /admin; that commit lands on main; Netlify builds it immediately,
+   BEFORE anyone has re-translated it.
    For one deploy cycle the old English is unreachable (rule 1) and the recorded
    digest is stale (rule 4), both at once, for a key nobody typed. Under the old
    gate that is a FAILED DEPLOY and a failed-deploy email for every product edit
-   -- and the owner cannot tell "expected, the bot is a minute behind" from "the
-   site is broken", which is exactly the experience this pipeline exists to
-   remove. The cost of warning instead is one deploy showing a stale or English
+   -- and the owner cannot tell "expected, the translation is behind" from "the
+   site is broken". The cost of warning instead is one deploy showing a stale or English
    string, and assets/js/translator.js already falls back to English on any text
    it cannot match, so nothing renders wrong; it renders untranslated.
 
@@ -1091,10 +1050,12 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
   });
 
   // Rule 1: reachability.
-  const pages = collectBuiltHtml();
-  if (!pages.length) {
+  const htmlPages = collectBuiltHtml();
+  if (!htmlPages.length) {
     throw new Error("No built HTML pages found -- refusing to report dictionary coverage.");
   }
+  const scripts = collectShippedScripts();
+  const pages = htmlPages.concat(scripts);
   const unreachable = [];
   const unreachableBotKeys = [];
   keys.forEach(function (key) {
@@ -1118,9 +1079,9 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
   if (unreachableBotKeys.length) {
     warnings.push(
       unreachableBotKeys.length +
-        " bot-minted auto.* value(s) appear nowhere in the built site. Expected for one " +
-        "deploy cycle after a CMS copy edit -- the i18n bot re-translates and re-keys them " +
-        "on its own run. If they are still here after that run, something is wrong:\n    " +
+        " auto.* value(s) appear nowhere in the built site -- the CMS copy they were " +
+        "minted from was edited or removed. `npm run i18n:new -- --write` prunes them and " +
+        "mints the new copy for translation:\n    " +
         unreachableBotKeys.join("\n    ")
     );
   }
@@ -1228,8 +1189,8 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
     warnings.push(
       staleBotKeys.length +
         " bot-minted auto.* key(s) whose English drifted from its recorded basis. Expected " +
-        "for one deploy cycle after a CMS copy edit; `npm run i18n:translate` re-translates " +
-        "them and re-records the digest:\n    " +
+        "after a CMS copy edit until the key is re-translated by hand and its digest " +
+        "re-recorded:\n    " +
         staleBotKeys.join("\n    ")
     );
   }
@@ -1250,8 +1211,10 @@ function validateDictionaryCoverage(locales, runtimeManifest, basisDoc) {
       " key(s) x " +
       SUPPORTED_LOCALES.length +
       " locales, all reachable in " +
-      pages.length +
-      " built pages or the runtime manifest"
+      htmlPages.length +
+      " built pages, " +
+      scripts.length +
+      " shipped scripts or the runtime manifest"
   );
   return true;
 }
@@ -9393,6 +9356,7 @@ if (typeof module !== "undefined" && module.exports) {
     IDENTICAL_BY_DESIGN: IDENTICAL_BY_DESIGN,
     decodeHtmlEntities: decodeHtmlEntities,
     collectBuiltHtml: collectBuiltHtml,
+    collectShippedScripts: collectShippedScripts,
     digestEnglish: digestEnglish,
     gitHistoryIsComplete: gitHistoryIsComplete,
     formatEventMapDestination: formatEventMapDestination,

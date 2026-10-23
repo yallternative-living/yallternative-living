@@ -52,7 +52,7 @@ const { createStaticServer: createSiteServer, listenLoopback } = require("./serv
 
 const PORT = 8087;
 const ROOT = path.resolve(__dirname, "..");
-const LOCALE_CODES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+const LOCALE_CODES = ["en", "es"];
 
 function createStaticServer(port) {
   // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that
@@ -68,14 +68,18 @@ function createStaticServer(port) {
    scope, and each carries a line saying the English text governs. */
 const LEGAL_PAGES = ["terms.html", "privacy.html", "policies.html", "safety.html"];
 
-/* Subtrees that are out of scope for the dictionary. Reviews are verbatim
-   customer text carried over from Etsy and are never translated; the language
-   selector is skipped by translator.js itself. */
+/* Subtrees that are out of scope for the dictionary. The language selector is
+   skipped by translator.js itself.
+
+   Review BODIES are verbatim customer text and are never translated, but the
+   card around them is ours: "Verified buyer", the star-rating label, "Reply
+   from Savanna". Excluding the whole card (as this list did until 2026-10-23)
+   hid that chrome from discovery while translator.js still walked it, so it
+   stayed English on every page with a review grid -- 22 badges on /shop.html
+   alone. The bodies and authors are kept out downstream instead, by
+   i18n-new-strings.js's review-verbatim rule, which matches them against
+   site-reviews.json after stripping the decorative quotes. */
 const EXCLUDED_SELECTORS = [
-  ".reviews-list",
-  ".review-card",
-  ".pdp-review-card",
-  ".pdp-reviews-list",
   ".ugc-strip",
   "#langSelectorWrap",
   ".lang-selector-wrap",

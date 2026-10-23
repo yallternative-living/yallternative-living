@@ -3,19 +3,21 @@
  * English the runtime translator can reach that nobody has translated yet,
  * give it stable keys, and hand the next step a machine-readable list.
  *
- * Position in the pipeline (the other half is a separate, provider-specific
- * step -- nothing in this file talks to a translation engine or to a network):
+ * Position in the pipeline (nothing in this file talks to a translation
+ * engine or to a network; translation is by hand since the Gemini bot was
+ * retired on 2026-10-23):
  *
  *   1. node scripts/build-site-data.js      (build the site -- NOT done here)
- *   2. npm run i18n:new -- --write          (this file: discover + key + record)
- *   3. translate step                        (fills es/de/fr/ja/zh from the report)
+ *   2. npm run i18n:new -- --write          (this file: discover + key + record,
+ *                                            and prune orphaned auto.* keys)
+ *   3. translate by hand                     (add each new key to es.json)
  *   4. node scripts/i18n-claims.test.js      (claims-drift pins)
  *   5. node scripts/build-site-data.js       (the four-rule gate goes green)
  *   6. commit
  *
  * Between 2 and 3 the build gate is RED on purpose: validateDictionaryCoverage
- * rule 2 fails because the other five locales do not carry the new keys yet.
- * That is the intended state, and its message names the new keys.
+ * rule 2 fails because the locale files do not carry the new keys yet. That
+ * is the intended state, and its message names the new keys.
  *
  * Three sets, all computed against assets/data/locales/en.json:
  *
@@ -30,10 +32,12 @@
  *             translations are now stale. Same digest function the build gate
  *             uses (build-site-data.js digestEnglish), imported, not re-rolled.
  *   ORPHANED  a dictionary key whose English is reachable nowhere any more.
- *             Reported only. Nothing here ever deletes a key: a translation
- *             that took a human hour must never disappear because a tool ran.
+ *             --write deletes the auto.* ones (minted from CMS copy that has
+ *             since been edited or removed, so no translation of them can
+ *             show again) and only reports the hand-authored ones: a
+ *             hand-authored key going dark is a human decision.
  *
- * Why the other five locales are never written here: this step knows what
+ * Why no translation is ever written here: this step knows what
  * needs translating, not what the translation IS. Writing a placeholder into
  * es.json would satisfy rule 2 while shipping English-shaped Spanish, and rule
  * 3 (every locale value must differ from English) is the only thing standing
@@ -72,7 +76,7 @@
  *                          ("Lavender for Hush Y'all ... Sleep Salve")
  *   review-verbatim        customer review text or author from
  *                          site-reviews.json -- Etsy verbatim, never rewritten
- *   event-atom             an event's name or town from events.json --
+ *   event-atom             an event's name, town or venue from events.json --
  *                          "Spartanburg Punk Flea Market", "Asheville, NC".
  *                          A market a shopper drives to is not copy
  *   platform-label         a social link that is just the platform's name and
@@ -86,11 +90,15 @@
  *
  * WHAT IS NEW BUT DEFERRED (`defer` on the entry; --write skips these):
  *
- *   runtime-only     reachable only after JavaScript runs and not declared in
- *                    i18n-runtime-strings.json. Adding it to en.json would
- *                    fail gate rule 1 forever, and no amount of translating
- *                    would fix it -- a human has to add a manifest entry with
- *                    a `source` and `verify` fragments first.
+ *   runtime-only     reachable only after JavaScript runs, a literal in no
+ *                    built page and no shipped script, and not declared in
+ *                    i18n-runtime-strings.json -- i.e. ASSEMBLED at runtime
+ *                    ("+ Add $14", "Share Potions & Pour Decisions"). Adding
+ *                    it to en.json would fail gate rule 1 forever; it needs a
+ *                    tpl.* template or a manifest entry written by hand. A
+ *                    string a script renders verbatim from data ("Next
+ *                    appearance", an event's note) is a literal in a shipped
+ *                    script and is NOT deferred.
  *   volatile-numeric a string carrying a loose number the build derives from
  *                    data ("Showing 20 of 20 goods", "Batch: Late October
  *                    2026", "2 reviews of this one"). Freezing today's number
@@ -318,7 +326,12 @@ const PLATFORM_LABELS = [
   "YouTube",
   "Etsy",
   "Threads",
-  "X"
+  "X",
+  // Where the event cards send you: product names, not copy.
+  "Apple Maps",
+  "Google Maps",
+  "Google Calendar",
+  "Apple / iCal"
 ];
 
 /** True when `text` is exactly a platform name, give or take a link arrow. */
@@ -338,12 +351,20 @@ function collectEventAtoms(events) {
     const trimmed = value.trim();
     if (trimmed) atoms.add(trimmed);
   }
-  const groups = [(events && events.upcoming) || [], (events && events.past) || []];
+  const groups = [
+    (events && events.upcoming) || [],
+    (events && events.workshops) || [],
+    (events && events.past) || []
+  ];
   groups.forEach(function (list) {
     (list || []).forEach(function (e) {
       if (!e) return;
       add(e.name);
       add(e.location);
+      // A venue is a place someone drives to, same as the town. Missing it let
+      // "NoDa Brewing Co" and "Renewal Wellness" through as copy, and the
+      // translator refused them as passthroughs on every run (issue #67).
+      add(e.venue);
     });
   });
   return atoms;
@@ -717,10 +738,13 @@ function buildContext(payload) {
   const reviews = readJsonIfPresent("assets/data/site-reviews.json") || { reviews: [] };
   const events = readJsonIfPresent("assets/data/events.json") || { upcoming: [], past: [] };
 
-  const pages = build.collectBuiltHtml();
-  if (!pages.length) {
+  const htmlPages = build.collectBuiltHtml();
+  if (!htmlPages.length) {
     throw new Error("No built HTML pages found -- run `node scripts/build-site-data.js` first.");
   }
+  /* The gate's own definition of "in the built site" (rule 1), so this tool
+     and the gate never disagree about whether a key would be dead. */
+  const pages = htmlPages.concat(build.collectShippedScripts());
   const htmlCache = new Map();
   function inBuiltHtml(value) {
     if (!htmlCache.has(value)) {
@@ -754,7 +778,7 @@ function buildContext(payload) {
       })
     ),
     inBuiltHtml: inBuiltHtml,
-    pageCount: pages.length
+    pageCount: htmlPages.length
   };
 }
 
@@ -828,6 +852,32 @@ function writeJson(rel, doc) {
   fs.writeFileSync(p, JSON.stringify(doc, null, 2) + "\n");
 }
 
+/**
+ * The doc with `keys` removed from `field` (phrases or basis), order kept.
+ */
+function withoutKeys(doc, field, keys) {
+  const next = Object.assign({}, doc);
+  next[field] = {};
+  Object.keys(doc[field] || {}).forEach(function (k) {
+    if (!keys.has(k)) next[field][k] = doc[field][k];
+  });
+  return next;
+}
+
+/**
+ * Orphaned keys this tool may delete: bot-style auto.* keys only. Their
+ * English is reachable nowhere -- the CMS copy they were minted from was
+ * edited or removed -- so no translation of them can ever show again. A
+ * hand-authored key that went unreachable is a human decision (the copy may
+ * be coming back) and is only reported. This was scripts/i18n-translate.js's
+ * job until the Gemini translation bot was retired on 2026-10-23.
+ */
+function prunableOrphans(report) {
+  return (report.orphaned || []).filter(function (key) {
+    return String(key).indexOf("auto.") === 0;
+  });
+}
+
 function applyWrite(report, ctx, digestFn) {
   const entries = report.new
     .filter(function (e) {
@@ -836,10 +886,18 @@ function applyWrite(report, ctx, digestFn) {
     .map(function (e) {
       return { key: e.key, text: e.en };
     });
-  if (!entries.length) return 0;
-  writeJson(EN_PATH, appendPhrases(ctx.enDoc, entries));
-  writeJson(BASIS_PATH, appendBasis(ctx.basisDoc, entries, digestFn));
-  return entries.length;
+  const prune = new Set(prunableOrphans(report));
+  if (!entries.length && !prune.size) return { written: 0, pruned: 0 };
+  writeJson(EN_PATH, appendPhrases(withoutKeys(ctx.enDoc, "phrases", prune), entries));
+  writeJson(BASIS_PATH, appendBasis(withoutKeys(ctx.basisDoc, "basis", prune), entries, digestFn));
+  if (prune.size) {
+    build.SUPPORTED_LOCALES.slice(1).forEach(function (code) {
+      const rel = "assets/data/locales/" + code + ".json";
+      const doc = readJsonIfPresent(rel);
+      if (doc && doc.phrases) writeJson(rel, withoutKeys(doc, "phrases", prune));
+    });
+  }
+  return { written: entries.length, pruned: prune.size };
 }
 
 function runCli(argv) {
@@ -889,25 +947,30 @@ function runCli(argv) {
   );
 
   if (args.write) {
-    let written = 0;
+    let result;
     try {
-      written = applyWrite(report, ctx, build.digestEnglish);
+      result = applyWrite(report, ctx, build.digestEnglish);
     } catch (err) {
       console.error("i18n-new-strings could not write: " + err.message);
       return 2;
     }
-    if (written) {
+    if (result.pruned) {
+      console.error(
+        "Removed " + result.pruned + " orphaned auto.* key(s) from every dictionary and the basis."
+      );
+    }
+    if (result.written) {
       console.error(
         "Appended " +
-          written +
+          result.written +
           " key(s) to " +
           EN_PATH +
           " and recorded their basis in " +
           BASIS_PATH +
-          ".\nThe other five locales were NOT touched, so `node scripts/build-site-data.js`\n" +
-          "will now fail rule 2 naming those keys until the translation step fills them in."
+          ".\nThe translations were NOT written, so `node scripts/build-site-data.js`\n" +
+          "will now fail rule 2 naming those keys until each locale file has them."
       );
-    } else {
+    } else if (!result.pruned) {
       console.error("Nothing writable -- no files changed.");
     }
   } else {
@@ -948,6 +1011,9 @@ module.exports = {
   computeOrphaned,
   appendPhrases,
   appendBasis,
+  withoutKeys,
+  prunableOrphans,
+  applyWrite,
   parseArgs,
   buildReport,
   runCli

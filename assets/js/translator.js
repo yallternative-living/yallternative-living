@@ -44,14 +44,7 @@
 
   var LANGUAGES = [
     { code: "en", name: "English" },
-    { code: "es", name: "Español" },
-    { code: "de", name: "Deutsch" },
-    { code: "fr", name: "Français" },
-    { code: "ja", name: "日本語" },
-    { code: "zh", name: "中文" },
-    { code: "vi", name: "Tiếng Việt" },
-    { code: "ko", name: "한국어" },
-    { code: "pt", name: "Português" }
+    { code: "es", name: "Español" }
   ];
 
   var globeSVG =
@@ -1277,6 +1270,8 @@
       btn.setAttribute("role", "option");
       btn.setAttribute("aria-selected", lang.code === currentLang ? "true" : "false");
       btn.setAttribute("data-lang", lang.code);
+      // The endonym's own language, so "Deutsch" is read in German (SC 3.1.2).
+      btn.setAttribute("lang", lang.code);
       btn.textContent = lang.name;
 
       btn.addEventListener("click", async function () {

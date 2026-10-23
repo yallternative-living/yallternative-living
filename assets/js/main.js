@@ -536,17 +536,16 @@
       langSelect.name = "mobile_language";
       langSelect.className = "nav-mobile-lang-select";
       langSelect.setAttribute("aria-label", "Select language");
+      /* Each option is the language's own name for itself ("Deutsch", "日本語"),
+         so it must never be translated -- the desktop selector is skipped for
+         the same reason -- and each carries its own lang so a screen reader
+         reads "Deutsch" in German, not in the page's language (WCAG 2.1 SC
+         3.1.2). */
+      langSelect.setAttribute("translate", "no");
 
       var langs = (window.YL_TRANSLATOR && window.YL_TRANSLATOR.LANGUAGES) || [
         { code: "en", name: "English" },
-        { code: "es", name: "Español" },
-        { code: "de", name: "Deutsch" },
-        { code: "fr", name: "Français" },
-        { code: "ja", name: "日本語" },
-        { code: "zh", name: "中文" },
-        { code: "vi", name: "Tiếng Việt" },
-        { code: "ko", name: "한국어" },
-        { code: "pt", name: "Português" }
+        { code: "es", name: "Español" }
       ];
       var activeLang =
         (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.getCurrentLanguage === "function"
@@ -562,6 +561,7 @@
         var opt = document.createElement("option");
         opt.value = l.code;
         opt.textContent = l.name;
+        opt.setAttribute("lang", l.code);
         if (l.code === activeLang) opt.selected = true;
         langSelect.appendChild(opt);
       });
