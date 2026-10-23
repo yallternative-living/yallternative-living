@@ -79,7 +79,7 @@ Resolved since: L-logo (50 KB, `<picture>` with AVIF/WebP), DI-11 (bundle varian
 | --- | --- | --- |
 | 1 | D1 database created, id pasted | **Done** — `workers/wrangler.toml:212-215` |
 | 2 | Worker secrets `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY` (+ `MAGIC_LINK_SECRET`) set in Cloudflare | Unverifiable. No dated confirmation anywhere in the repo. |
-| 3 | Stripe webhook pointed at the Worker, subscribed to exactly `checkout.session.completed`, `checkout.session.expired`, `charge.refunded` | Unverifiable. Code handles all three. |
+| 3 | Stripe webhook pointed at the Worker, subscribed to the five events the handler now covers | **Confirmed 2026-09-09** by the owner: the two async-payment events were added to the three already subscribed. Recorded in `AGENTS.md` §2.8. |
 | 4 | Resend domain shows Verified for `gifts@yallternativeliving.com` | Unverifiable. Without it gift-card emails fail silently (`workers/README.md:349`). |
 | 5 | Old Netlify env vars deleted | Unverifiable. |
 | 6 | Cloudflare Workers Builds: branch control + watch paths scoped to `workers/*` | Unverifiable; recorded as dashboard-only in `workers/wrangler.toml` header. |
