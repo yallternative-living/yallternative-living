@@ -96,7 +96,9 @@ jobs:
       # the keys, because "this batch took too long" is not evidence that
       # gemini-3.8-flash has been retired, and swapping models mid-run
       # rewrites the register of every string that follows.
-      I18N_MODELS: "gemini-3.8-flash,gemini-3.5-flash"
+      # 2026-10-23: back on the AI Studio free tier (LLM_PROVIDER=gemini below),
+      # so the alias returns as the last entry, after the second stable id.
+      I18N_MODELS: "gemini-3.8-flash,gemini-3.5-flash,gemini-flash-latest"
       # A dry run does everything and commits nothing. `false && x` is false, so
       # a push always evaluates to false and only a manual run can set it.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
@@ -149,16 +151,19 @@ jobs:
       # NOT on the auto-redaction list, so never `curl -v`, never `set -x`.
       - name: Translate, gate every string, write the dictionaries
         env:
-          # The paid Google Cloud key (Vertex AI express mode) is the provider;
-          # GEMINI_API_KEY stays as the one-line fallback (LLM_PROVIDER=gemini).
-          LLM_PROVIDER: vertex
+          # The free AI Studio key, NOT the paid Google Cloud key (Vertex AI
+          # express mode). Owner decision 2026-10-23: translations no longer run
+          # on paid Gemini. VERTEX_API_KEY is deliberately not passed to this
+          # step, so a stray LLM_PROVIDER=vertex fails loudly instead of billing.
+          # Free-tier 503s ("high demand", seen 2026-09-04) defer keys to the
+          # next run; they do not drop them.
+          LLM_PROVIDER: gemini
           # Gemini 3.x thinking level (the code default is also medium; stated
           # here so the run log shows it). none | minimal | low | medium | high
           # Lowered from high on 2026-09-04: measured on claim-bearing copy,
           # high produced 0 gate failures and 0 claim offences -- and so did
           # none -- at 2.3-3.6x the latency. See scripts/lib/llm.js.
           LLM_THINKING: medium
-          VERTEX_API_KEY: ${{ secrets.VERTEX_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           node scripts/i18n-translate.js \
