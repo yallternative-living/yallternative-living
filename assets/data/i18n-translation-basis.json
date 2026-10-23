@@ -844,6 +844,11 @@
     "auto.fridayNightGothicPunk.e61b6f": "e61b6fded8",
     "auto.nightMarket.eee899": "eee899df6d",
     "auto.wellnessMarket.68e27d": "68e27d7c55",
-    "auto.alternativeMakersOdditiesSmall.496e96": "496e96de16"
+    "auto.alternativeMakersOdditiesSmall.496e96": "496e96de16",
+    "home.day": "c69052c04c",
+    "home.hour": "0981739dd9",
+    "home.hourUntil": "7a707705c8",
+    "home.minUntil": "edf1ff8426",
+    "home.lessThanAMinuteUntil": "5d6f9b1652"
   }
 }

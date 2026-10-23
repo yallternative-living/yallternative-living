@@ -859,6 +859,86 @@ assert(
   "renderWishDrawer handles empty wishlist state"
 );
 
+/* 6b. Countdown wording -- countdownParts / countdownHeroHtml /
+   countdownBannerTime, shared by the hero ticker and the events banner.
+   They used to format separately: the hero never took the singular ("1 Days,
+   01 Hours", "01 Mins") and under a minute both read "00 Mins" / "0 Mins".
+   Pure functions of the remaining milliseconds, so no clock is involved. */
+{
+  const MIN = 60 * 1000;
+  const HOUR = 60 * MIN;
+  const DAY = 24 * HOUR;
+  const details = "Fixture Market (Landrum, SC)";
+  const heroText = (html) =>
+    html
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const cases = [
+    ["3 days, 3 hours", 3 * DAY + 3 * HOUR + 59 * MIN, "3 Days, 03 Hours", ["days", "hours"]],
+    ["1 day, 1 hour", DAY + HOUR, "1 Day, 01 Hour", ["days", "hours"]],
+    ["1 day, 0 hours", DAY + 30 * MIN, "1 Day, 00 Hours", ["days", "hours"]],
+    ["2 days, 1 hour", 2 * DAY + HOUR, "2 Days, 01 Hour", ["days", "hours"]],
+    ["21 hours, 30 mins", 21 * HOUR + 30 * MIN, "21 Hours, 30 Mins", ["hours", "minutes"]],
+    ["1 hour, 1 min", HOUR + MIN + 30 * 1000, "1 Hour, 01 Min", ["hours", "minutes"]],
+    ["5 hours, 0 mins", 5 * HOUR, "5 Hours, 00 Mins", ["hours", "minutes"]],
+    ["25 mins", 25 * MIN, "25 Mins", ["minutes"]],
+    ["1 min", MIN + 59 * 1000, "1 Min", ["minutes"]],
+    ["59 seconds", 59 * 1000, "Less than a minute", []],
+    ["1 ms", 1, "Less than a minute", []]
+  ];
+  for (const [label, rem, time, units] of cases) {
+    const parts = main.countdownParts(rem);
+    eq(
+      parts.map((p) => p.unit),
+      units,
+      `countdownParts(${label}) uses ${units.join("+") || "no units"}`
+    );
+    eq(main.countdownBannerTime(parts), time, `banner reads "${time}" at ${label}`);
+    const html = main.countdownHeroHtml(parts, details);
+    eq(heroText(html), `${time} until ${details}`, `hero reads "${time} until ..." at ${label}`);
+    for (const unit of ["days", "hours", "minutes"]) {
+      eq(
+        html.includes(`id="yl-countdown-${unit}"`),
+        units.includes(unit),
+        `hero ${units.includes(unit) ? "has" : "omits"} #yl-countdown-${unit} at ${label}`
+      );
+    }
+  }
+  assert(
+    !main.countdownHeroHtml(main.countdownParts(25 * MIN), "<b>x</b>").includes("<b>"),
+    "countdownHeroHtml escapes the event details"
+  );
+
+  /* Every word the hero puts in a text node must be an en.json phrase, or
+     translator.js leaves it in English on a translated page. Collect the
+     text nodes from every shape above and look each one up. */
+  const enPhrases = new Set(
+    Object.values(
+      JSON.parse(
+        require("fs").readFileSync(
+          require("path").join(__dirname, "..", "assets/data/locales/en.json"),
+          "utf8"
+        )
+      ).phrases
+    )
+  );
+  const heroWords = new Set();
+  for (const [, rem] of cases) {
+    main
+      .countdownHeroHtml(main.countdownParts(rem), details)
+      .replace(/<span[^>]*>[^<]*<\/span>/g, "\u0000")
+      .split("\u0000")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .forEach((t) => heroWords.add(t));
+  }
+  assert(heroWords.size >= 9, `hero text nodes collected (${heroWords.size})`);
+  for (const word of heroWords) {
+    assert(enPhrases.has(word), `hero text "${word}" is an en.json phrase, so it is translated`);
+  }
+}
+
 /* 7. pickNextEvent -- the countdown ticker's event selection.
    events.json is hand-ordered through the CMS, so none of this can lean on
    the array already being in date order. */
