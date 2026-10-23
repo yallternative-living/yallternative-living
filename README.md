@@ -96,12 +96,13 @@ Here is a quick checklist of the external accounts you'll need to set up for lau
     push; `npm run test:cross-browser` adds Firefox and WebKit.
 
   `TEST_INFRA.md` explains the layout, including why every browser-driven
-  suite is named `*.browser.test.js`, and documents the automatic translation
-  pipeline (`npm run i18n:new` → `npm run i18n:translate` →
-  `.github/workflows/i18n-bot.yml`): what it translates, the deterministic
-  checks a machine translation has to pass before it is written, the
-  environment variables, how to run the whole thing offline with
-  `--provider mock`, and the one-time first-run checklist.
+  suite is named `*.browser.test.js`, and documents the translation pipeline.
+  The site ships English and Spanish only (2026-10-23), translated by hand:
+  `npm run i18n:new -- --write` finds and keys new copy (and prunes orphaned
+  `auto.*` keys), Spanish goes into `assets/data/locales/es.json`, and the
+  dictionary gate in the build must be green. The Gemini translation bot
+  (`i18n-translate.js`, `i18n-bot.yml`) was retired the same day; it is in git
+  history.
 
 ---
 

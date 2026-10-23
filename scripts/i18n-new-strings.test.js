@@ -450,5 +450,27 @@ try {
 }
 assert(threw, "--json without a path is refused");
 
+// --write prunes orphaned auto.* keys (the retired translation bot's job), and
+// only those: a hand-authored key that went unreachable is a human decision.
+assertEqual(
+  tool
+    .prunableOrphans({ orphaned: ["auto.gone.aaaaaa", "nav.retired", "auto.alsoGone.bbbbbb"] })
+    .join(","),
+  "auto.gone.aaaaaa,auto.alsoGone.bbbbbb",
+  "only auto.* orphans are prunable"
+);
+assertEqual(tool.prunableOrphans({}).length, 0, "a report with no orphans prunes nothing");
+assertEqual(
+  JSON.stringify(
+    tool.withoutKeys(
+      { meta: { code: "es" }, phrases: { a: "1", b: "2", c: "3" } },
+      "phrases",
+      new Set(["b"])
+    )
+  ),
+  JSON.stringify({ meta: { code: "es" }, phrases: { a: "1", c: "3" } }),
+  "withoutKeys drops the named keys, keeps the rest in order and keeps meta"
+);
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed ? 1 : 0);

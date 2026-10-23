@@ -29,7 +29,7 @@ const VIEWPORTS = [
   { name: "mobile", width: 375, height: 667 }
 ];
 
-const LANGUAGES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+const LANGUAGES = ["en", "es"];
 
 const SCREENSHOT_DIR = path.join(__dirname, "../tmp/audit_screenshots");
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -117,10 +117,6 @@ function createStaticServer(port = 8080) {
                 // Generic prefix to simulate language styling & moderate length increase
                 if (target === "en") return text;
                 if (target === "es") return `[ES] ${text}o`;
-                if (target === "de") return `[DE] ${text}en`;
-                if (target === "fr") return `[FR] ${text}e`;
-                if (target === "ja") return `[JA] ${text.slice(0, 10)}のテスト`;
-                if (target === "zh") return `[ZH] ${text.slice(0, 10)}的测试`;
                 return `[MOCK-${target.toUpperCase()}] ${text}`;
               }
             };

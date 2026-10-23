@@ -30,7 +30,7 @@ on:
         type: string
         required: false
 
-# Cancel-in-progress is safe HERE and would not be in i18n-bot.yml: nothing is
+# Cancel-in-progress is safe HERE and would not be in a job that commits: nothing is
 # committed, nothing is pushed, and a superseded run's report is stale by
 # definition. The newest push is the one whose wording matters.
 concurrency:
@@ -45,11 +45,10 @@ permissions: {}
 
 jobs:
   review:
-    # Skip the bot's own commits, exactly as i18n-bot.yml does. GitHub does not
+    # Skip the bot's own commits. GitHub does not
     # start a run from a push made with GITHUB_TOKEN, so this is belt and
-    # braces -- but the i18n bot commits to this repo on a schedule nobody
-    # controls, and reviewing a machine's dictionary diff for health claims is
-    # noise at best. head_commit is null on workflow_dispatch.
+    # braces -- reviewing a machine's own commit for health claims is noise at
+    # best. head_commit is null on workflow_dispatch.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.head_commit.author.name != 'github-actions[bot]'

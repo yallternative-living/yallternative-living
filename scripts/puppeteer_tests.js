@@ -1774,10 +1774,10 @@ function createStaticServer(port = 8082) {
           }
         });
         await failPage.setRequestInterception(true);
-        let jaBlocked = 0;
+        let esBlocked = 0;
         failPage.on("request", (req) => {
-          if (/\/assets\/js\/locales\/ja\.js/.test(req.url())) {
-            jaBlocked++;
+          if (/\/assets\/js\/locales\/es\.js/.test(req.url())) {
+            esBlocked++;
             req.abort("internetdisconnected").catch(() => {});
             return;
           }
@@ -1786,7 +1786,7 @@ function createStaticServer(port = 8082) {
         await failPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
         await failPage.click(".nav-toggle");
         await failPage.waitForSelector("#mobileLangSelect", { visible: true, timeout: 3000 });
-        await failPage.select("#mobileLangSelect", "ja");
+        await failPage.select("#mobileLangSelect", "es");
         await failPage
           .waitForFunction(() => document.getElementById("mobileLangSelect").value === "en", {
             timeout: 5000
@@ -1795,18 +1795,18 @@ function createStaticServer(port = 8082) {
         const st = await failPage.evaluate(() => ({
           select: document.getElementById("mobileLangSelect").value,
           translator: window.YL_TRANSLATOR && window.YL_TRANSLATOR.getCurrentLanguage(),
-          jaMarked: document.querySelectorAll(
-            '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
+          esMarked: document.querySelectorAll(
+            '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
           ).length
         }));
-        if (jaBlocked > 0 && st.translator === "en" && st.select === "en" && st.jaMarked === 0) {
+        if (esBlocked > 0 && st.translator === "en" && st.select === "en" && st.esMarked === 0) {
           console.log(
-            "✅ Drawer language select falls back to English when the ja dictionary cannot load."
+            "✅ Drawer language select falls back to English when the es dictionary cannot load."
           );
         } else {
           console.log(
             "❌ Drawer language select disagrees with the page after a failed dictionary load:",
-            { jaBlocked, ...st }
+            { esBlocked, ...st }
           );
           exitCode = 1;
         }
@@ -1820,36 +1820,36 @@ function createStaticServer(port = 8082) {
 
     // 11.7 The drawer's own labels are translated with the rest of the page
     {
-      const ja = JSON.parse(
-        fs.readFileSync(path.join(__dirname, "..", "assets", "data", "locales", "ja.json"), "utf8")
+      const esPhrases = JSON.parse(
+        fs.readFileSync(path.join(__dirname, "..", "assets", "data", "locales", "es.json"), "utf8")
       ).phrases;
       const en = JSON.parse(
         fs.readFileSync(path.join(__dirname, "..", "assets", "data", "locales", "en.json"), "utf8")
       ).phrases;
       const wanted = ["nav.more", "nav.preferences", "nav.appearance", "nav.language"];
-      const jaPage = await browser.newPage();
+      const esPage = await browser.newPage();
       try {
-        await jaPage.setViewport({ width: 375, height: 667 });
-        await jaPage.evaluateOnNewDocument(() => {
+        await esPage.setViewport({ width: 375, height: 667 });
+        await esPage.evaluateOnNewDocument(() => {
           try {
-            localStorage.setItem("yl-lang", "ja");
+            localStorage.setItem("yl-lang", "es");
           } catch {
             /* ignore */
           }
         });
-        await jaPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
-        await jaPage.waitForFunction(
+        await esPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+        await esPage.waitForFunction(
           () =>
             document.querySelector(
-              '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
+              '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
             ) !== null,
           {
             timeout: 5000
           }
         );
-        await jaPage.click(".nav-toggle");
-        await jaPage.waitForSelector(".nav-mobile-prefs", { visible: true, timeout: 3000 });
-        const shown = await jaPage.evaluate(() =>
+        await esPage.click(".nav-toggle");
+        await esPage.waitForSelector(".nav-mobile-prefs", { visible: true, timeout: 3000 });
+        const shown = await esPage.evaluate(() =>
           Array.from(
             document.querySelectorAll(
               ".nav-links .nav-secondary-heading, .nav-links .nav-mobile-pref-label"
@@ -1857,19 +1857,20 @@ function createStaticServer(port = 8082) {
           ).map((el) => el.textContent.trim())
         );
         const bad = wanted.filter(
-          (k) => !ja[k] || !en[k] || ja[k] === en[k] || shown.indexOf(ja[k]) === -1
+          (k) =>
+            !esPhrases[k] || !en[k] || esPhrases[k] === en[k] || shown.indexOf(esPhrases[k]) === -1
         );
         if (shown.length === wanted.length && bad.length === 0) {
-          console.log(`✅ Drawer headings and labels render in Japanese: ${shown.join(" / ")}`);
+          console.log(`✅ Drawer headings and labels render in Spanish: ${shown.join(" / ")}`);
         } else {
-          console.log("❌ Drawer labels not translated under ja:", { shown, missing: bad });
+          console.log("❌ Drawer labels not translated under es:", { shown, missing: bad });
           exitCode = 1;
         }
       } catch (e) {
         console.log("❌ Drawer label translation check errored:", e.message);
         exitCode = 1;
       } finally {
-        await jaPage.close();
+        await esPage.close();
       }
     }
 

@@ -4,8 +4,8 @@
  * This table used to live inside scripts/i18n-claims.test.js. It now lives
  * here because two things need it and they must never disagree: the test,
  * which is the gate over the committed dictionaries, and
- * scripts/i18n-translate.js, which refuses a machine translation BEFORE it is
- * written. A prompt that told the model "do not say 舒缓" while the gate
+ * scripts/i18n-translate.js (the Gemini bot, retired 2026-10-23), which
+ * refused a machine translation BEFORE it was written. A prompt that told the model "do not say 舒缓" while the gate
  * banned a different word would be worse than no prompt at all -- the run
  * would look green and the drift would be somewhere else.
  *
@@ -756,7 +756,7 @@ function claimPromptFragment(code) {
  * Brand and product names a translation invented.
  *
  * The mirror image of the "protected terms are reproduced verbatim" rule that
- * scripts/i18n-translate.js already gates each key on: a model that is told to
+ * the retired scripts/i18n-translate.js gated each key on: a model that is told to
  * keep "Y'allternative Living" untranslated will sometimes reach for a brand
  * string the English never used, most often a capitalised collection name it
  * saw in the glossary. On 2026-09-10 four locales opened a gift blurb with

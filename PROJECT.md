@@ -113,10 +113,10 @@ build-compiled dictionary engine.
    - `validateLocalesAndGlossary()` fails the build when a translation drops a
      protected term the English string contains.
    - `locales-data.js`, `locales/en.js` (the index every lookup starts from)
-     and `translator.js` are in `sw.js` `ASSETS_TO_CACHE`. The other eight
-     dictionaries are NOT precached: each is fetched when a shopper first
-     reads the shop in that language and cached by the fetch handler, so
-     switching back to a language they have used works offline. Switching
+     and `translator.js` are in `sw.js` `ASSETS_TO_CACHE`. The Spanish
+     dictionary is NOT precached: it is fetched when a shopper first reads
+     the shop in Spanish and cached by the fetch handler, so switching back
+     to it works offline. Switching
      offline to a language this browser has never displayed does not -- the
      engine fails closed to English rather than claiming it.
    - **No SEO layer.** There is deliberately no `hreflang` injection and no
@@ -185,10 +185,13 @@ localised site. Re-measured 2026-10-23 with `node scripts/i18n-coverage-report.j
 --lang <code>` (changed text nodes / non-empty text nodes; the language
 selectors are excluded from both halves). Re-derive, never quote:
 
+- **The site ships English and Spanish only** (since 2026-10-23; German,
+  French, Japanese, Chinese, Vietnamese, Korean and Portuguese were removed
+  and are in git history). Spanish is translated by hand.
 - **Coverage is roughly 50-90% of text nodes, not 100%.** Under `es`: `/`
-  153/274 (55.8%), `/shop.html` 496/1011 (49.1%), `/products/sleep-salve.html`
+  156/274 (56.9%), `/shop.html` 507/1011 (50.1%), `/products/sleep-salve.html`
   147/224 (65.6%), `/faq.html` 138/156 (88.5%), cart drawer 52.8%, search
-  modal 48.4%, quiz 97.4%; the other seven locales sit within ~3 points. Most
+  modal 53.8%, quiz 97.4%. Most
   of what stays English stays English on purpose -- product and bundle names,
   prices and sizes, INCI and ingredient names, verbatim reviews, venue names,
   symbols -- and some is correct as-is ("Subtotal" in Spanish), so 100% is
@@ -200,14 +203,13 @@ selectors are excluded from both halves). Re-derive, never quote:
   2026-10-23: copy the scripts render from data (event cards, the cart
   drawer, bundle blurbs) is a literal in `assets/js/*.js`, and before that it
   could only be keyed through a hand-written manifest entry. The 58% dead-entry
-  rate this section used to report is 0% today (871 keys, 0 orphaned).
+  rate this section used to report is 0% today (895 keys, 0 orphaned).
 - **What is still deferred, and why.** `npm run i18n:new` reports strings the
   site shows that the dictionary lacks. On 2026-10-23, 126 were deferred: 69
   assembled at runtime from a template plus data ("+ Add $14", "Get directions
   to Potions & Pour Decisions on Apple Maps") and 57 carrying a number the
   build derives ("Showing 20 of 20 goods", event dates). Both want `tpl.*`
-  templates, not dictionary entries. Another 24 writable strings are
-  marketing, event and policy copy left for the i18n bot.
+  templates, not dictionary entries.
 - **`data-i18n` is not used in the shipped markup.** Lookup is by exact text;
   copy is wrapped in `<!--YL:key-->` markers by the build, and `data-i18n-tpl`
   carries the templated strings.

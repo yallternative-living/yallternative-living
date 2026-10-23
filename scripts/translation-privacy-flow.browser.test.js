@@ -8,7 +8,8 @@
  * 2. Cookie Isolation: 0 'googtrans' cookies written to document.cookie on page loads or language toggles.
  * 3. Persistence: localStorage['yl-lang'] correctly persists and hydrates across navigations
  *    (index -> shop -> product -> about -> index) across all 6 supported languages.
- * 4. URL parameter: ?lang=es, ?lang=fr, ?lang=ja cleanly sets initial language and DOM state.
+ * 4. URL parameter: ?lang=es cleanly sets initial language and DOM state; a removed locale
+ *    (?lang=ja) falls back to English.
  * 5. Offline translation support: the Service Worker precaches the translation core
  *    (/assets/js/locales-data.js), the English index (/assets/js/locales/en.js) and
  *    /assets/js/translator.js; a language used online is cached and switches offline,
@@ -183,8 +184,8 @@ async function runChallenger2Tests() {
     let googtransCookie = cookies.find((c) => c.name.toLowerCase().includes("googtrans"));
     assert(!googtransCookie, "No googtrans cookie found on initial load");
 
-    // Switch between all 6 languages sequentially and assert document.cookie remains clean
-    const testLanguages = ["es", "de", "fr", "ja", "zh", "en"];
+    // Switch back and forth between the shop's languages and assert document.cookie stays clean
+    const testLanguages = ["es", "en", "es", "en"];
     for (const lang of testLanguages) {
       await page.evaluate(async (l) => {
         if (window.YL_TRANSLATOR && typeof window.YL_TRANSLATOR.setLanguage === "function") {
@@ -270,30 +271,30 @@ async function runChallenger2Tests() {
       "Navigated to product page /products/miracle-balm.html: Language 'es' successfully persisted."
     );
 
-    // Change language to German ('de') on PDP
+    // Change language back to English on the PDP
     await page.evaluate(async () => {
-      await window.YL_TRANSLATOR.setLanguage("de");
+      await window.YL_TRANSLATOR.setLanguage("en");
     });
     storedLang = await page.evaluate(() => localStorage.getItem("yl-lang"));
-    assert(storedLang === "de", "localStorage['yl-lang'] updated to 'de'");
+    assert(storedLang === "en", "localStorage['yl-lang'] updated to 'en'");
 
-    // Navigate to /about.html and verify German ('de') is hydrated
+    // Navigate to /about.html and verify the change, not the first choice, persisted
     await page.goto(`${baseUrl}/about.html`, { waitUntil: "networkidle0" });
     currentLang = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      markedDe: document.querySelectorAll(
-        '[lang="de"]:not(.lang-option):not(#mobileLangSelect option)'
+      markedEs: document.querySelectorAll(
+        '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
       ).length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
     }));
-    assert(currentLang.engineLang === "de", "YL_TRANSLATOR active language is 'de' on about.html");
-    assert(currentLang.htmlLang === "en", "<html lang> stays 'en' on about.html");
-    assert(currentLang.markedDe > 0, "translated elements are marked lang='de' on about.html");
-    assert(currentLang.indicatorText === "DE", "Dropdown indicator shows 'DE' on about.html");
-    pass("Navigated to /about.html: Language 'de' successfully persisted and hydrated.");
+    assert(currentLang.engineLang === "en", "YL_TRANSLATOR active language is 'en' on about.html");
+    assert(currentLang.htmlLang === "en", "<html lang> is 'en' on about.html");
+    assert(currentLang.markedEs === 0, "no element is left marked lang='es' on about.html");
+    assert(currentLang.indicatorText === "EN", "Dropdown indicator shows 'EN' on about.html");
+    pass("Navigated to /about.html: switching back to English persisted across pages.");
 
     /* =========================================================================
        SECTION 4: URL PARAMETER ?lang= CLEAN INITIALIZATION
@@ -303,13 +304,13 @@ async function runChallenger2Tests() {
     // Clear localStorage to test pure URL param initialization
     await page.evaluate(() => localStorage.removeItem("yl-lang"));
 
-    // Navigate to /shop.html?lang=fr
-    await page.goto(`${baseUrl}/shop.html?lang=fr`, { waitUntil: "networkidle0" });
+    // Navigate to /shop.html?lang=es
+    await page.goto(`${baseUrl}/shop.html?lang=es`, { waitUntil: "networkidle0" });
     let urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
       marked: document.querySelectorAll(
-        '[lang="fr"]:not(.lang-option):not(#mobileLangSelect option)'
+        '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
       ).length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
@@ -318,8 +319,8 @@ async function runChallenger2Tests() {
     }));
 
     assert(
-      urlParamState.engineLang === "fr",
-      `Expected engine lang 'fr', got '${urlParamState.engineLang}'`
+      urlParamState.engineLang === "es",
+      `Expected engine lang 'es', got '${urlParamState.engineLang}'`
     );
     assert(
       urlParamState.htmlLang === "en",
@@ -327,73 +328,43 @@ async function runChallenger2Tests() {
     );
     assert(
       urlParamState.marked > 0,
-      `Expected at least one element marked lang='fr', got ${urlParamState.marked}`
+      `Expected at least one element marked lang='es', got ${urlParamState.marked}`
     );
     assert(
-      urlParamState.indicatorText === "FR",
-      `Expected indicator 'FR', got '${urlParamState.indicatorText}'`
+      urlParamState.indicatorText === "ES",
+      `Expected indicator 'ES', got '${urlParamState.indicatorText}'`
     );
-    pass("Direct navigation to /shop.html?lang=fr initialized engine to French (fr).");
+    pass("Direct navigation to /shop.html?lang=es initialized engine to Spanish (es).");
 
-    // Test Japanese /privacy.html?lang=ja
+    /* Japanese was removed on 2026-10-23, but ?lang=ja links are still out
+       there. They must land on a working English page, never on a language
+       the shop no longer ships. */
     await page.goto(`${baseUrl}/privacy.html?lang=ja`, { waitUntil: "networkidle0" });
     urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      marked: document.querySelectorAll(
-        '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
-      ).length,
+      marked: document.querySelectorAll("body [lang='ja']").length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
     }));
     assert(
-      urlParamState.engineLang === "ja",
-      `Expected engine lang 'ja', got '${urlParamState.engineLang}'`
+      urlParamState.engineLang === "en",
+      `Expected a removed locale to fall back to 'en', got '${urlParamState.engineLang}'`
     );
     assert(
       urlParamState.htmlLang === "en",
-      `Expected html[lang] to stay 'en' under partial coverage, got '${urlParamState.htmlLang}'`
+      `Expected html[lang] 'en', got '${urlParamState.htmlLang}'`
     );
     assert(
-      urlParamState.marked > 0,
-      `Expected at least one element marked lang='ja', got ${urlParamState.marked}`
+      urlParamState.marked === 0,
+      `Expected nothing marked lang='ja', got ${urlParamState.marked}`
     );
     assert(
-      urlParamState.indicatorText === "JA",
-      `Expected indicator 'JA', got '${urlParamState.indicatorText}'`
+      urlParamState.indicatorText === "EN",
+      `Expected indicator 'EN', got '${urlParamState.indicatorText}'`
     );
-    pass("Direct navigation to /privacy.html?lang=ja initialized engine to Japanese (ja).");
-
-    // Test Chinese /index.html?lang=zh
-    await page.goto(`${baseUrl}/index.html?lang=zh`, { waitUntil: "networkidle0" });
-    urlParamState = await page.evaluate(() => ({
-      engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
-      htmlLang: document.documentElement.getAttribute("lang"),
-      marked: document.querySelectorAll(
-        '[lang="zh"]:not(.lang-option):not(#mobileLangSelect option)'
-      ).length,
-      indicatorText: document.querySelector(".lang-current-code")
-        ? document.querySelector(".lang-current-code").textContent.trim()
-        : null
-    }));
-    assert(
-      urlParamState.engineLang === "zh",
-      `Expected engine lang 'zh', got '${urlParamState.engineLang}'`
-    );
-    assert(
-      urlParamState.htmlLang === "en",
-      `Expected html[lang] to stay 'en' under partial coverage, got '${urlParamState.htmlLang}'`
-    );
-    assert(
-      urlParamState.marked > 0,
-      `Expected at least one element marked lang='zh', got ${urlParamState.marked}`
-    );
-    assert(
-      urlParamState.indicatorText === "ZH",
-      `Expected indicator 'ZH', got '${urlParamState.indicatorText}'`
-    );
-    pass("Direct navigation to /index.html?lang=zh initialized engine to Chinese (zh).");
+    pass("Direct navigation to /privacy.html?lang=ja (a removed locale) falls back to English.");
 
     /* =========================================================================
        SECTION 5: BRAND GLOSSARY INTEGRITY IN REAL BROWSER DOM
@@ -441,7 +412,7 @@ async function runChallenger2Tests() {
        The dictionaries moved out of locales-data.js on 2026-09-04: it now
        carries the glossary and the manifest, each language is its own file
        under /assets/js/locales/, and only English -- the index every lookup
-       starts from -- is precached with it. The other eight are fetched when a
+       starts from -- is precached with it. Spanish is fetched when a
        shopper first reads the shop in that language and cached by the fetch
        handler, so what "offline translation" means changed shape and 6.3
        below asserts the new shape rather than the old claim. */
@@ -473,19 +444,19 @@ async function runChallenger2Tests() {
 
     /* 6.3 Offline translation.
        A language is available offline once it has been used online, because
-       the fetch handler caches it. So use Japanese ONLINE first -- which is
-       what a real shopper reading the shop in Japanese has already done --
+       the fetch handler caches it. So use Spanish ONLINE first -- which is
+       what a real shopper reading the shop in Spanish has already done --
        then pull the network and prove the switch still works from cache. */
     const warmed = await page.evaluate(async () => {
-      await window.YL_TRANSLATOR.setLanguage("ja");
+      await window.YL_TRANSLATOR.setLanguage("es");
       await window.YL_TRANSLATOR.setLanguage("en");
       return Object.keys(window.YL_LOCALES || {});
     });
     assert(
-      warmed.includes("ja") && warmed.includes("en"),
-      `Japanese was fetched and cached while online (registry: ${JSON.stringify(warmed)})`
+      warmed.includes("es") && warmed.includes("en"),
+      `Spanish was fetched and cached while online (registry: ${JSON.stringify(warmed)})`
     );
-    pass("Japanese dictionary fetched online and cached by the service worker.");
+    pass("Spanish dictionary fetched online and cached by the service worker.");
 
     /* Offline for real: the page is put offline AND the origin is taken away,
        because the service worker would otherwise keep serving the page from a
@@ -495,18 +466,15 @@ async function runChallenger2Tests() {
     await server.kill();
     console.log("    🌐 Page offline via CDP and the origin shut down -- cache only");
 
-    // Switch language to Japanese ('ja') while offline
     const offlineSwitchResult = await page.evaluate(async () => {
       if (window.YL_TRANSLATOR) {
-        await window.YL_TRANSLATOR.setLanguage("ja");
+        await window.YL_TRANSLATOR.setLanguage("es");
         return {
           currentLang: window.YL_TRANSLATOR.getCurrentLanguage(),
           htmlLang: document.documentElement.getAttribute("lang"),
           marked: document.querySelectorAll(
-            '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
-          ).length,
-          navCartText: (document.querySelector("[data-i18n='nav.cart']") || {}).textContent,
-          title: document.title
+            '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
+          ).length
         };
       }
       return null;
@@ -514,24 +482,23 @@ async function runChallenger2Tests() {
 
     assert(offlineSwitchResult, "YL_TRANSLATOR functioned offline");
     assert(
-      offlineSwitchResult.currentLang === "ja",
-      `Offline language switch to 'ja' succeeded (got ${offlineSwitchResult.currentLang})`
+      offlineSwitchResult.currentLang === "es",
+      `Offline language switch to 'es' succeeded (got ${offlineSwitchResult.currentLang})`
     );
     assert(offlineSwitchResult.htmlLang === "en", `Offline html[lang] stays 'en'`);
     assert(
       offlineSwitchResult.marked > 0,
-      `Offline switch marked ${offlineSwitchResult.marked} elements lang='ja'`
+      `Offline switch marked ${offlineSwitchResult.marked} elements lang='es'`
     );
-    pass(
-      "Offline translation switch to Japanese (ja) succeeded completely without network access."
-    );
+    pass("Offline translation switch to Spanish (es) succeeded completely without network access.");
 
-    /* Vietnamese, deliberately: es, de, fr, ja and zh have all been used
-       earlier in this run, so their dictionaries are in the cache and would
-       switch offline perfectly well -- which is the happy path §6.3 already
-       proved with Japanese. vi is the one language this browser context has
-       never displayed. */
-    const offlineFrResult = await page.evaluate(async () => {
+    /* A removed locale, offline: the engine must refuse it -- never put a
+       "VI" badge over the page. An unknown code means English by design
+       (setLanguage's `valid ? langCode : "en"`), which needs no dictionary
+       and so works offline.
+       (Failing closed on a SUPPORTED dictionary that cannot load is pinned
+       in scripts/puppeteer_tests.js 11.6, which blocks es.js outright.) */
+    const offlineRemovedResult = await page.evaluate(async () => {
       if (window.YL_TRANSLATOR) {
         await window.YL_TRANSLATOR.setLanguage("vi");
         return {
@@ -541,26 +508,16 @@ async function runChallenger2Tests() {
       }
       return null;
     });
-    /* Vietnamese was never used in this browser context, so its dictionary
-       was never fetched and is in no cache. Offline, that request cannot
-       succeed -- and the contract is that the engine FAILS CLOSED: it stays
-       in English rather than putting a Vietnamese badge over English copy.
-       This is the documented cost of not precaching all nine dictionaries,
-       and it is asserted rather than left to be discovered. */
-    /* "Fails closed" means the engine never claims a language it cannot
-       render. It does NOT mean throwing away the language the shopper already
-       had: the page was Japanese and stays Japanese, which is a working page.
-       What must not happen is currentLang or the badge saying "vi". */
     assert(
-      offlineFrResult.currentLang !== "vi",
-      `Offline switch to a never-fetched language does not claim it (got ${offlineFrResult.currentLang})`
+      offlineRemovedResult.currentLang !== "vi",
+      `A removed locale is not claimed (got ${offlineRemovedResult.currentLang})`
     );
     assert(
-      offlineFrResult.currentLang === "ja",
-      `and leaves the working Japanese page alone (got ${offlineFrResult.currentLang})`
+      offlineRemovedResult.currentLang === "en",
+      `and the page lands on English (got ${offlineRemovedResult.currentLang})`
     );
-    assert(offlineFrResult.htmlLang === "en", "and html[lang] still reads en");
-    pass("Offline switch to an unfetched language fails closed instead of lying.");
+    assert(offlineRemovedResult.htmlLang === "en", "and html[lang] still reads en");
+    pass("Offline switch to a removed locale fails closed instead of lying.");
 
     // Restore online mode
     await page.setOfflineMode(false);

@@ -52,7 +52,7 @@ const { createStaticServer: createSiteServer, listenLoopback } = require("./serv
 
 const PORT = 8087;
 const ROOT = path.resolve(__dirname, "..");
-const LOCALE_CODES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+const LOCALE_CODES = ["en", "es"];
 
 function createStaticServer(port) {
   // serve.js's server, not a copy of path.join(ROOT, req.url): the copy that

@@ -164,12 +164,12 @@ async function main() {
         (window.YL_TRANSLATOR.LANGUAGES || []).map((l) => l.code)
       );
       check(
-        "the picker offers nine languages",
-        pickerCodes.length === 9,
+        "the picker offers English and Spanish",
+        JSON.stringify(pickerCodes) === JSON.stringify(["en", "es"]),
         JSON.stringify(pickerCodes)
       );
       check(
-        "and the manifest names exactly those nine",
+        "and the manifest names exactly those two",
         manifestCodes.length === pickerCodes.length &&
           pickerCodes.every((c) => manifestCodes.includes(c)),
         JSON.stringify({ manifestCodes, pickerCodes })

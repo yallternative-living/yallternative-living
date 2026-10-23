@@ -1618,8 +1618,8 @@ assert(
     "generateHreflangTags is no longer exported (the ?lang= SEO layer is not shipped)"
   );
   assert(
-    Array.isArray(buildScript.SUPPORTED_LOCALES) && buildScript.SUPPORTED_LOCALES.length === 9,
-    "SUPPORTED_LOCALES still drives the nine locale dictionaries"
+    JSON.stringify(buildScript.SUPPORTED_LOCALES) === JSON.stringify(["en", "es"]),
+    "SUPPORTED_LOCALES is English + Spanish (the other seven were removed 2026-10-23)"
   );
 
   // 2. validateLocalesAndGlossary
@@ -1846,7 +1846,7 @@ assert(
 // not silently start passing (or failing) when the site's copy changes.
 // ---------------------------------------------------------------------------
 (function dictionaryGateSpeeds() {
-  const LANGS = ["es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+  const LANGS = ["es"];
   const REACHABLE = "Free shipping on orders of $40 or more";
   const UNREACHABLE = "zzz this sentence is on no page and in no manifest zzz";
 
@@ -1981,7 +1981,7 @@ assert(
   const missingLocale = (function () {
     const phrases = { "announcement.shipping": REACHABLE, "auto.blurb.dddddd": REACHABLE };
     const locales = localesWith(phrases);
-    locales.de.phrases["auto.blurb.dddddd"] = "";
+    locales.es.phrases["auto.blurb.dddddd"] = "";
     const realWarn = console.warn;
     const realLog = console.log;
     console.warn = function () {};
@@ -2005,7 +2005,7 @@ assert(
   const englishInLocale = (function () {
     const phrases = { "announcement.shipping": REACHABLE, "auto.blurb.eeeeee": REACHABLE };
     const locales = localesWith(phrases);
-    locales.fr.phrases["auto.blurb.eeeeee"] = REACHABLE;
+    locales.es.phrases["auto.blurb.eeeeee"] = REACHABLE;
     const realWarn = console.warn;
     const realLog = console.log;
     console.warn = function () {};

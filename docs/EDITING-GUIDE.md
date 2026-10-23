@@ -54,19 +54,18 @@ Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Sectio
 
 ---
 
-### A note on the other eight languages
+### A note on Spanish
 
-Your shop shows up in Spanish, German, French, Japanese, Chinese, Vietnamese,
-Korean, and Portuguese as well as English, and you do not have to do anything
-about it. When you save a change to a product name, blurb, description or any
-other wording in `/admin`, a helper runs on its own and writes the eight
-translations within about ten minutes.
-Until it finishes, that one piece of wording simply shows in English to a
-customer who has picked another language — nothing looks broken and nothing
-needs fixing. If a sentence ever cannot be translated safely (for example, it
-would turn a nice description into a health claim, which the law is strict
-about for skincare), it is left in English on purpose and Steven gets a note
-about it. You never need to translate anything by hand.
+Your shop reads in English and Spanish. (Until October 2026 it also offered
+German, French, Japanese, Chinese, Vietnamese, Korean and Portuguese; those
+were removed so the Spanish could be kept properly up to date.)
+
+Spanish is translated by hand now, not by an automatic helper. When you save a
+change to a product name, blurb, description or any other wording in `/admin`,
+that piece of wording shows in English to a customer reading in Spanish until
+someone translates it — nothing looks broken and nothing needs fixing on your
+side. Tell Steven when you have changed wording you want in Spanish, and it
+gets translated in one batch. Product names always stay as they are.
 
 ---
 

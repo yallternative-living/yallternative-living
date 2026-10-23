@@ -412,7 +412,7 @@ function es(key) {
   return phraseIn("es", key);
 }
 
-/** The same, for any locale -- suite 11 switches to German mid-test. */
+/** The same, for any shipped locale. */
 function phraseIn(code, key) {
   const value = LOCALES[code] && LOCALES[code].phrases ? LOCALES[code].phrases[key] : null;
   assert.ok(
@@ -648,9 +648,9 @@ async function runAllSuites() {
     assert.strictEqual(dropdown.getAttribute("aria-label"), "Select language");
 
     const options = dropdown.querySelectorAll(".lang-option");
-    assert.strictEqual(options.length, 9, "Must contain exactly 9 language option buttons");
+    assert.strictEqual(options.length, 2, "Must contain exactly 2 language option buttons");
 
-    const expectedCodes = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+    const expectedCodes = ["en", "es"];
     options.forEach((opt, idx) => {
       const code = expectedCodes[idx];
       assert.strictEqual(opt.getAttribute("role"), "option");
@@ -713,7 +713,7 @@ async function runAllSuites() {
     /* The count, before indexing by it: options[options.length - 1] is
        simultaneously first and last in a one-option dropdown, which would
        make both the End and Home assertions below pass on a broken picker. */
-    assert.strictEqual(options.length, 9, "the dropdown still offers nine options");
+    assert.strictEqual(options.length, 2, "the dropdown still offers both options");
 
     // Test End key focuses last option
     dropdown.dispatchEvent({ type: "keydown", key: "End", preventDefault: () => {} });
@@ -754,12 +754,12 @@ async function runAllSuites() {
   // Suite 3: dictionary_loading_and_integrity
   // ----------------------------------------------------
   await suite(
-    "3. dictionary_loading_and_integrity: 6 languages, phrase count & structure",
+    "3. dictionary_loading_and_integrity: both languages, phrase count & structure",
     async () => {
       const locales = LOCALES;
       assert.ok(locales, "LOCALES data must be loaded");
 
-      const expectedLangs = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+      const expectedLangs = ["en", "es"];
       expectedLangs.forEach((code) => {
         assert.ok(locales[code], `Locale ${code} must exist in dictionaries`);
         assert.strictEqual(locales[code].meta.code, code, `Locale ${code} meta.code matches`);
@@ -1109,27 +1109,27 @@ async function runAllSuites() {
         receivedEvents.push(e.detail);
       });
 
-      await translator.setLanguage("fr");
+      await translator.setLanguage("es");
 
       assert.strictEqual(receivedEvents.length, 1, "Dispatched yl-language-changed event");
       assert.deepStrictEqual(
         receivedEvents[0],
-        { lang: "fr", prevLang: "en" },
+        { lang: "es", prevLang: "en" },
         "Event payload carries target lang and prevLang"
       );
 
-      await translator.setLanguage("de");
+      await translator.setLanguage("en");
       assert.strictEqual(receivedEvents.length, 2);
       assert.deepStrictEqual(
         receivedEvents[1],
-        { lang: "de", prevLang: "fr" },
+        { lang: "en", prevLang: "es" },
         "Second switch carries correct prevLang"
       );
 
       // Verify analytics call
       assert.ok(mockWindow.plausibleEvents.length >= 2, "Plausible tracking function called");
       assert.strictEqual(mockWindow.plausibleEvents[0].eventName, "Language Changed");
-      assert.strictEqual(mockWindow.plausibleEvents[0].options.props.language, "fr");
+      assert.strictEqual(mockWindow.plausibleEvents[0].options.props.language, "es");
     }
   );
 
@@ -1140,15 +1140,15 @@ async function runAllSuites() {
     "8. persistence_and_url_params: localStorage, URL query params, HTML lang/dir",
     async () => {
       // 1. Test localStorage persistence
-      await translator.setLanguage("ja");
+      await translator.setLanguage("es");
       assert.strictEqual(
         mockLocalStorage.getItem("yl-lang"),
-        "ja",
+        "es",
         "Language saved to localStorage['yl-lang']"
       );
-      /* NOT "ja". Dictionary coverage is 10-20% of a page, so declaring the
-         whole document Japanese made a screen reader apply Japanese phonetics
-         to the English 80-90% -- WCAG 2.1 SC 3.1.1 (Level A). The document
+      /* NOT "es". Dictionary coverage is about half of a page, so declaring
+         the whole document Spanish would make a screen reader apply Spanish
+         phonetics to the English half -- WCAG 2.1 SC 3.1.1 (Level A). The document
          stays English and only the elements whose text was actually replaced
          are marked; see suite 4. Raise coverage to ~100% and this pin is the
          thing to revisit. */
@@ -1166,16 +1166,34 @@ async function runAllSuites() {
       // 2. Test getInitialLanguage reads localStorage
       assert.strictEqual(
         translator.getInitialLanguage(),
-        "ja",
+        "es",
         "getInitialLanguage detects stored preference"
       );
 
       // 3. Test URL query param takes precedence
-      mockWindow.location.search = "?lang=zh";
+      mockLocalStorage.setItem("yl-lang", "en");
+      mockWindow.location.search = "?lang=es";
       assert.strictEqual(
         translator.getInitialLanguage(),
-        "zh",
-        "URL ?lang=zh takes precedence over localStorage"
+        "es",
+        "URL ?lang=es takes precedence over localStorage"
+      );
+
+      /* 3b. The seven locales removed on 2026-10-23. Old links (?lang=de) and
+         old stored choices ("ja") are still out there; neither may select a
+         dictionary that no longer ships. */
+      mockWindow.location.search = "?lang=de";
+      assert.strictEqual(
+        translator.getInitialLanguage(),
+        "en",
+        "a ?lang= for a removed locale is ignored, falling back to the stored en"
+      );
+      mockWindow.location.search = "";
+      mockLocalStorage.setItem("yl-lang", "ja");
+      assert.strictEqual(
+        translator.getInitialLanguage(),
+        "en",
+        "a stored choice of a removed locale falls back to English"
       );
 
       /* 4. Browser-language detection. The shop is read by people whose
@@ -1212,18 +1230,22 @@ async function runAllSuites() {
           "a Spanish-language browser opens the shop in Spanish"
         );
 
-        withLanguages(["pt-BR"]);
-        assert.strictEqual(translator.detectBrowserLanguage(), "pt", "pt-BR resolves to pt");
-        withLanguages(["zh-TW"]);
+        withLanguages(["es"]);
+        assert.strictEqual(translator.detectBrowserLanguage(), "es", "a bare tag matches");
+        withLanguages(["ES-us"]);
+        assert.strictEqual(translator.detectBrowserLanguage(), "es", "tags are case-insensitive");
+        withLanguages(["pt-BR", "zh-TW"]);
         assert.strictEqual(
           translator.detectBrowserLanguage(),
-          "zh",
-          "zh-TW gets the Simplified dictionary rather than English"
+          null,
+          "removed locales detect nothing"
         );
-        withLanguages(["vi"]);
-        assert.strictEqual(translator.detectBrowserLanguage(), "vi", "a bare tag matches");
-        withLanguages(["KO-kr"]);
-        assert.strictEqual(translator.detectBrowserLanguage(), "ko", "tags are case-insensitive");
+        withLanguages(["de-DE", "es-ES"]);
+        assert.strictEqual(
+          translator.detectBrowserLanguage(),
+          "es",
+          "an unsupported first tag is skipped for the next one the shop speaks"
+        );
 
         withLanguages(["en-GB", "fr-FR"]);
         assert.strictEqual(
@@ -1251,14 +1273,16 @@ async function runAllSuites() {
           "en",
           "a stored English preference outranks a Spanish device -- a choice is a choice"
         );
-        mockLocalStorage.setItem("yl-lang", "ja");
+        withLanguages(["en-US"]);
+        mockLocalStorage.setItem("yl-lang", "es");
         assert.strictEqual(
           translator.getInitialLanguage(),
-          "ja",
+          "es",
           "any stored preference outranks the browser"
         );
-        mockWindow.location.search = "?lang=de";
-        assert.strictEqual(translator.getInitialLanguage(), "de", "and ?lang= outranks both");
+        mockLocalStorage.setItem("yl-lang", "en");
+        mockWindow.location.search = "?lang=es";
+        assert.strictEqual(translator.getInitialLanguage(), "es", "and ?lang= outranks both");
 
         setNavigator(undefined);
         mockWindow.location.search = "";
@@ -1286,7 +1310,7 @@ async function runAllSuites() {
       } finally {
         if (savedNavigator) Object.defineProperty(globalThis, "navigator", savedNavigator);
         mockWindow.location.search = "";
-        mockLocalStorage.setItem("yl-lang", "ja");
+        mockLocalStorage.setItem("yl-lang", "es");
       }
     }
   );
@@ -1295,8 +1319,8 @@ async function runAllSuites() {
   // Suite 8b: the switch race -- the LAST request wins, not the last to arrive
   // ----------------------------------------------------
   await suite("8b. switch_race: a slower earlier switch cannot overwrite a later one", async () => {
-    /* Two dictionaries, the first held back. The shopper clicks Español and
-         then 한국어 before Spanish has arrived. The page must end in Korean
+    /* The Spanish dictionary is held back. The shopper clicks Español and
+         then English before Spanish has arrived. The page must end in English
          -- what was asked for LAST -- even though Spanish resolves last. */
     const original = translator.ensureLocale;
     const registry = global.YL_LOCALES;
@@ -1316,20 +1340,20 @@ async function runAllSuites() {
       });
     try {
       const first = translator.setLanguage("es");
-      const second = await translator.setLanguage("ko");
-      assert.strictEqual(second, "ko", "the later request applies immediately");
-      assert.strictEqual(translator.getCurrentLanguage(), "ko", "and is the current language");
+      const second = await translator.setLanguage("en");
+      assert.strictEqual(second, "en", "the later request applies immediately");
+      assert.strictEqual(translator.getCurrentLanguage(), "en", "and is the current language");
       releaseEs();
       const firstResult = await first;
       assert.strictEqual(
         firstResult,
-        "ko",
+        "en",
         "the earlier, slower request reports what is in effect rather than applying itself"
       );
       assert.strictEqual(
         translator.getCurrentLanguage(),
-        "ko",
-        "the page is still Korean after the Spanish dictionary arrives"
+        "en",
+        "the page is still English after the Spanish dictionary arrives"
       );
     } finally {
       registry.es = stashedEs;
@@ -1480,14 +1504,15 @@ async function runAllSuites() {
         "a fully-translated template element is marked lang=es like any other"
       );
 
-      // Switching language again re-renders from the cached ENGLISH original
-      // (not from whatever Spanish is already on screen) -- so it lands on
-      // correct German, not on Spanish-run-through-German-lookup.
-      await translator.setLanguage("de");
+      // Switching away and back re-renders from the cached ENGLISH original
+      // (not from whatever Spanish was on screen) -- so it lands on the same
+      // correct Spanish, not on Spanish run through a second lookup.
+      await translator.setLanguage("en");
+      await translator.setLanguage("es");
       assert.strictEqual(
         giftBtn.textContent,
-        phraseIn("de", "tpl.addGiftCard").replace("{amount}", "$25"),
-        "language switch re-renders the template element in the new language"
+        es("tpl.addGiftCard").replace("{amount}", "$25"),
+        "a second switch re-renders the template element from the English original"
       );
 
       // Switching back to English restores the exact original text.
