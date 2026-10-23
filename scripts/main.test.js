@@ -3226,7 +3226,19 @@ eq(main.quizParamName({}, 3), "quiz-step4", "quizParamName falls back to quiz-st
    runtime. Two implementations of the same markup is exactly the shape that
    drifts, so pin them together against the real assets/data/events.json.
    Asserts the tag EXISTS first: an empty match would otherwise make this
-   check pass by comparing nothing. */
+   check pass by comparing nothing.
+
+   Both sides run on ONE pinned day. This used to compare the COMMITTED
+   events.html -- built on whatever day it was last built -- against main.js
+   filtered on the real clock, so it went red the first morning after any
+   market without either implementation changing (2026-10-23: events.html
+   built 17 Oct still listed that day's Rejects Market, correctly, and the
+   test dropped it). Now the real build runs on a scratch copy with the clock
+   frozen (scripts/lib/freeze-clock.js), and the runtime side filters on the
+   same day. The day comes from the data, not the calendar: the day the
+   SECOND event ends. The earliest event is then past for both copies, and
+   the second ends "today" and must still be listed, so both sides of the
+   archive cutoff are exercised, the boundary included. */
 /* Workshops (events.json `workshops`) are folded into the upcoming calendar
    by the build, and so into its Event JSON-LD: run the same fold here. */
 const eventsJsonSrc = require("./build-site-data.js").mergeWorkshopsIntoUpcoming(
@@ -3235,19 +3247,46 @@ const eventsJsonSrc = require("./build-site-data.js").mergeWorkshopsIntoUpcoming
 const contentJsonSrc = JSON.parse(
   fs404.readFileSync(path404.join(repoRoot, "assets/data/content.json"), "utf8")
 );
-const eventsHtmlSrc = fs404.readFileSync(path404.join(repoRoot, "events.html"), "utf8");
+const ldCutoffs = Array.from(
+  new Set((eventsJsonSrc.upcoming || []).map((ev) => ev.endDate || ev.date).filter((d) => !!d))
+).sort();
+const buildTodayForLd = ldCutoffs[1] || ldCutoffs[0] || "2026-01-01";
+const eventsHtmlSrc = (function buildEventsHtmlOnPinnedDay() {
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const scratch = fs404.mkdtempSync(path404.join(os.tmpdir(), "yl-event-ld-"));
+  try {
+    fs404.cpSync(repoRoot, scratch, {
+      recursive: true,
+      filter: (src) => !/[\\/](node_modules|\.git)$/.test(src)
+    });
+    const run = spawnSync(
+      process.execPath,
+      [
+        "-r",
+        path404.join(repoRoot, "scripts/lib/freeze-clock.js"),
+        path404.join(scratch, "scripts/build-site-data.js")
+      ],
+      {
+        cwd: scratch,
+        encoding: "utf8",
+        // Noon UTC-4/-5 is safely inside the same Eastern calendar day.
+        env: { ...process.env, YL_FREEZE_NOW: `${buildTodayForLd}T16:00:00Z` }
+      }
+    );
+    assert(
+      run.status === 0,
+      `build-site-data.js runs on the pinned day ${buildTodayForLd}` +
+        (run.status === 0 ? "" : `: ${(run.stderr || "").slice(-400)}`)
+    );
+    return fs404.readFileSync(path404.join(scratch, "events.html"), "utf8");
+  } finally {
+    fs404.rmSync(scratch, { recursive: true, force: true });
+  }
+})();
 const staticEventLdMatch = eventsHtmlSrc.match(
   /<script type="application\/ld\+json" id="yl-event-jsonld">\s*([\s\S]*?)\s*<\/script>/
 );
-const buildTodayForLd =
-  typeof main.todayInEastern === "function"
-    ? main.todayInEastern()
-    : new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/New_York",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      }).format(new Date());
 const upcomingForLd = (eventsJsonSrc.upcoming || [])
   .filter((ev) => {
     const cutoff = ev.endDate || ev.date;
@@ -3258,6 +3297,16 @@ const upcomingForLd = (eventsJsonSrc.upcoming || [])
   .map((x) => x.ev);
 const runtimeEventLd = main.buildEventsJsonLd(upcomingForLd);
 const eventLdEnabled = (contentJsonSrc.site || {}).enableEventJsonLd !== false;
+if (ldCutoffs.length >= 2) {
+  assert(
+    upcomingForLd.length > 0 && upcomingForLd.length < (eventsJsonSrc.upcoming || []).length,
+    `on the pinned day ${buildTodayForLd} the earliest event is past and the rest are not`
+  );
+  assert(
+    upcomingForLd.some((ev) => (ev.endDate || ev.date) === buildTodayForLd),
+    `an event ending on the pinned day ${buildTodayForLd} is still upcoming (cutoff is inclusive)`
+  );
+}
 
 if (eventLdEnabled && runtimeEventLd.length) {
   assert(
