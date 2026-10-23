@@ -230,7 +230,9 @@ async function runChallenger2Tests() {
     let currentLang = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      markedEs: document.querySelectorAll('[lang="es"]').length,
+      markedEs: document.querySelectorAll(
+        '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null,
@@ -255,7 +257,9 @@ async function runChallenger2Tests() {
     currentLang = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      markedEs: document.querySelectorAll('[lang="es"]').length,
+      markedEs: document.querySelectorAll(
+        '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length,
       stored: localStorage.getItem("yl-lang")
     }));
     assert(currentLang.stored === "es", "localStorage['yl-lang'] remains 'es' on PDP");
@@ -278,7 +282,9 @@ async function runChallenger2Tests() {
     currentLang = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      markedDe: document.querySelectorAll('[lang="de"]').length,
+      markedDe: document.querySelectorAll(
+        '[lang="de"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
@@ -302,7 +308,9 @@ async function runChallenger2Tests() {
     let urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      marked: document.querySelectorAll('[lang="fr"]').length,
+      marked: document.querySelectorAll(
+        '[lang="fr"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null,
@@ -332,7 +340,9 @@ async function runChallenger2Tests() {
     urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      marked: document.querySelectorAll('[lang="ja"]').length,
+      marked: document.querySelectorAll(
+        '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
@@ -360,7 +370,9 @@ async function runChallenger2Tests() {
     urlParamState = await page.evaluate(() => ({
       engineLang: window.YL_TRANSLATOR ? window.YL_TRANSLATOR.getCurrentLanguage() : null,
       htmlLang: document.documentElement.getAttribute("lang"),
-      marked: document.querySelectorAll('[lang="zh"]').length,
+      marked: document.querySelectorAll(
+        '[lang="zh"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length,
       indicatorText: document.querySelector(".lang-current-code")
         ? document.querySelector(".lang-current-code").textContent.trim()
         : null
@@ -490,7 +502,9 @@ async function runChallenger2Tests() {
         return {
           currentLang: window.YL_TRANSLATOR.getCurrentLanguage(),
           htmlLang: document.documentElement.getAttribute("lang"),
-          marked: document.querySelectorAll('[lang="ja"]').length,
+          marked: document.querySelectorAll(
+            '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
+          ).length,
           navCartText: (document.querySelector("[data-i18n='nav.cart']") || {}).textContent,
           title: document.title
         };

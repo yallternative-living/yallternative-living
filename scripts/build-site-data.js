@@ -812,6 +812,23 @@ function validateLocalesAndGlossary(locales, glossary) {
    needs a reason -- "the word is the same in that language" is a reason,
    "we did not get to it" is not. */
 const IDENTICAL_BY_DESIGN = {
+  /* Issue #67: the i18n bot refused these as passthroughs on every run. The
+     English IS the ordinary word in these languages, and the dictionary
+     already uses it that way ("Nach Vibe filtern", "Self-Care für ...",
+     "Filtrer par vibe"). */
+  "auto.filter.d7decf": { de: "Filter is the ordinary German word" },
+  "auto.journal.57d7f7": {
+    de: "Journal is the ordinary German word",
+    fr: "Journal is the ordinary French word"
+  },
+  "auto.selfCare.e8a8e0": { de: "Self-Care is the German usage, as in home.heroTitle" },
+  "auto.vibe.becbde": {
+    de: "Vibe is the loanword the dictionary already uses (Nach Vibe filtern)",
+    fr: "Vibe is the loanword the dictionary already uses (Filtrer par vibe)",
+    vi: "Vibe is the loanword the dictionary already uses (Lọc theo vibe)",
+    pt: "Vibe is the loanword the dictionary already uses (Filtrar por vibe)"
+  },
+  "auto.workshop.13b8fe": { de: "Workshop is the ordinary German word" },
   "nav.shop": { de: "Shop is the ordinary German retail word" },
   "nav.contact": { fr: "Contact is the ordinary French word" },
   "nav.faq": {

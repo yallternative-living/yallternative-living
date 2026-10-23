@@ -861,7 +861,29 @@
     "auto.fridayNightGothicPunk.e61b6f": "Mercado gótico y punk de viernes por la noche en NoDa Brewing Co.",
     "auto.nightMarket.eee899": "Mercado nocturno",
     "auto.wellnessMarket.68e27d": "Mercado de bienestar",
-    "auto.alternativeMakersOdditiesSmall.496e96": "Creadores alternativos, rarezas y cuidado personal en lotes pequeños en The Venue at Locust Hill — ven a buscar nuestra mesa."
+    "auto.alternativeMakersOdditiesSmall.496e96": "Creadores alternativos, rarezas y cuidado personal en lotes pequeños en The Venue at Locust Hill — ven a buscar nuestra mesa.",
+    "auto.postedOnEtsy.13b9ae": "· publicado en Etsy",
+    "auto.altMarket.aeb058": "Mercado alternativo",
+    "auto.fantasyFestival.bdaf96": "Festival de fantasía",
+    "auto.filter.d7decf": "Filtrar",
+    "auto.journal.57d7f7": "Diario",
+    "auto.latestArticles.ae4fa9": "Artículos recientes",
+    "auto.nextAppearance.50be33": "Próxima aparición",
+    "auto.previousAppearance.426644": "Aparición anterior",
+    "auto.nextLiveAppearance.6ff239": "Próxima aparición en vivo",
+    "auto.perPerson.7189e9": "por persona",
+    "auto.prideEvent.3c646e": "Evento de Pride",
+    "auto.readPost.aefb01": "Leer publicación →",
+    "auto.replyFromSavanna.c85c30": "Respuesta de Savanna",
+    "auto.selfCare.e8a8e0": "Autocuidado",
+    "auto.share.09ca55": "Compartir",
+    "auto.verifiedBuyer.73a425": "Comprador verificado",
+    "auto.verifiedCustomer.759b59": "Cliente verificado",
+    "auto.vibe.becbde": "Vibra",
+    "auto.viewPost.996d8e": "Ver publicación ↗",
+    "auto.whatsIncluded.9af1d4": "Qué incluye",
+    "auto.workshop.13b8fe": "Taller",
+    "auto.orderAheadPickUp.baf029": "Pide con anticipación / Recoge aquí"
   }
 };
 

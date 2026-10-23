@@ -701,15 +701,37 @@ async function runBrowserStressTests() {
            stronger assertion than the old one, because it fails if the engine
            stops translating while still flipping an attribute. */
         const langState = await page.evaluate((code) => {
+          /* The language selectors' options are authored lang marks, not the
+             engine's: each endonym carries its own language ("Deutsch" is
+             lang="de") whatever the page is showing. Excluded from both
+             counts, or the lang="es" option alone would satisfy `marked > 0`
+             on a page the engine never touched. */
+          const ENDONYMS = ".lang-option, #mobileLangSelect option";
+          const engineMarks = function (sel) {
+            return Array.prototype.filter.call(document.querySelectorAll(sel), function (el) {
+              return !el.matches(ENDONYMS);
+            }).length;
+          };
           return {
             docLang: document.documentElement.getAttribute("lang"),
             /* Scoped to body on purpose: <html lang="en"> is authored markup
                and would satisfy a bare [lang="en"] count for the wrong
                reason. */
-            marked: document.querySelectorAll('body [lang="' + code + '"]').length,
-            anyMarks: document.querySelectorAll("body [lang]").length
+            marked: engineMarks('body [lang="' + code + '"]'),
+            anyMarks: engineMarks("body [lang]"),
+            endonymsMarked: Array.prototype.every.call(
+              document.querySelectorAll(ENDONYMS),
+              function (el) {
+                const own = el.getAttribute("data-lang") || el.getAttribute("value");
+                return el.getAttribute("lang") === own;
+              }
+            )
           };
         }, targetLang);
+        assert.ok(
+          langState.endonymsMarked,
+          `Page ${testPath} keeps every language option marked with its own lang under '${targetLang}'`
+        );
         assert.strictEqual(
           langState.docLang,
           "en",
@@ -955,7 +977,10 @@ async function runBrowserStressTests() {
         checkoutText: checkoutBtn ? checkoutBtn.textContent.trim() : "",
         headingText: heading ? heading.textContent.trim() : "",
         closeLabel: closeBtn ? closeBtn.getAttribute("aria-label") : "",
-        leftoverEsMarks: document.querySelectorAll('[lang="es"]').length
+        // The "Español" option is lang="es" by authoring, not by the engine.
+        leftoverEsMarks: document.querySelectorAll(
+          '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
+        ).length
       };
     });
 

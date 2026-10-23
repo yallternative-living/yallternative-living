@@ -861,7 +861,29 @@
     "auto.fridayNightGothicPunk.e61b6f": "Chợ gothic & punk tối Thứ Sáu tại NoDa Brewing Co.",
     "auto.nightMarket.eee899": "Chợ đêm",
     "auto.wellnessMarket.68e27d": "Chợ Sống Khỏe",
-    "auto.alternativeMakersOdditiesSmall.496e96": "Thợ thủ công alternative, đồ độc lạ & sản phẩm chăm sóc bản thân mẻ nhỏ tại The Venue at Locust Hill — ghé bàn của tụi này nhé."
+    "auto.alternativeMakersOdditiesSmall.496e96": "Thợ thủ công alternative, đồ độc lạ & sản phẩm chăm sóc bản thân mẻ nhỏ tại The Venue at Locust Hill — ghé bàn của tụi này nhé.",
+    "auto.postedOnEtsy.13b9ae": "· đăng trên Etsy",
+    "auto.altMarket.aeb058": "Chợ phong cách alt",
+    "auto.fantasyFestival.bdaf96": "Lễ hội giả tưởng",
+    "auto.filter.d7decf": "Lọc",
+    "auto.journal.57d7f7": "Nhật ký",
+    "auto.latestArticles.ae4fa9": "Bài viết mới nhất",
+    "auto.nextAppearance.50be33": "Lần xuất hiện tiếp theo",
+    "auto.previousAppearance.426644": "Lần xuất hiện trước",
+    "auto.nextLiveAppearance.6ff239": "Lần Xuất Hiện Trực Tiếp Tiếp Theo",
+    "auto.perPerson.7189e9": "mỗi người",
+    "auto.prideEvent.3c646e": "Sự kiện Pride",
+    "auto.readPost.aefb01": "Đọc bài →",
+    "auto.replyFromSavanna.c85c30": "Phản hồi từ Savanna",
+    "auto.selfCare.e8a8e0": "Chăm sóc bản thân",
+    "auto.share.09ca55": "Chia sẻ",
+    "auto.verifiedBuyer.73a425": "Người mua đã xác minh",
+    "auto.verifiedCustomer.759b59": "Khách hàng đã xác minh",
+    "auto.vibe.becbde": "Vibe",
+    "auto.viewPost.996d8e": "Xem bài đăng ↗",
+    "auto.whatsIncluded.9af1d4": "Bao gồm",
+    "auto.workshop.13b8fe": "Buổi workshop",
+    "auto.orderAheadPickUp.baf029": "Đặt trước / Nhận hàng tại đây"
   }
 };
 

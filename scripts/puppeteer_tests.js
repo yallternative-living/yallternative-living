@@ -1552,7 +1552,9 @@ function createStaticServer(port = 8082) {
     const esState = await page.evaluate(() => {
       /* eslint-disable no-undef */
       const docLang = document.documentElement.getAttribute("lang");
-      const markedEs = document.querySelectorAll('[lang="es"]').length;
+      const markedEs = document.querySelectorAll(
+        '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length;
       const savedLang = localStorage.getItem("yl-lang");
       const currentCode = document.querySelector(".lang-current-code")?.textContent;
       const navLinks = Array.from(document.querySelectorAll(".nav-links a")).map((a) =>
@@ -1610,7 +1612,9 @@ function createStaticServer(port = 8082) {
     const enState = await page.evaluate(() => {
       /* eslint-disable no-undef */
       const docLang = document.documentElement.getAttribute("lang");
-      const markedEs = document.querySelectorAll('[lang="es"]').length;
+      const markedEs = document.querySelectorAll(
+        '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
+      ).length;
       const savedLang = localStorage.getItem("yl-lang");
       const currentCode = document.querySelector(".lang-current-code")?.textContent;
       const navLinks = Array.from(document.querySelectorAll(".nav-links a")).map((a) =>
@@ -1704,7 +1708,9 @@ function createStaticServer(port = 8082) {
       /* eslint-disable no-undef */
       return {
         savedLang: localStorage.getItem("yl-lang"),
-        markedCount: document.querySelectorAll('[lang="es"]').length
+        markedCount: document.querySelectorAll(
+          '[lang="es"]:not(.lang-option):not(#mobileLangSelect option)'
+        ).length
       };
       /* eslint-enable no-undef */
     });
@@ -1781,7 +1787,9 @@ function createStaticServer(port = 8082) {
         const st = await failPage.evaluate(() => ({
           select: document.getElementById("mobileLangSelect").value,
           translator: window.YL_TRANSLATOR && window.YL_TRANSLATOR.getCurrentLanguage(),
-          jaMarked: document.querySelectorAll('[lang="ja"]').length
+          jaMarked: document.querySelectorAll(
+            '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
+          ).length
         }));
         if (jaBlocked > 0 && st.translator === "en" && st.select === "en" && st.jaMarked === 0) {
           console.log(

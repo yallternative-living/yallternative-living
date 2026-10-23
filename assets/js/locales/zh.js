@@ -861,7 +861,29 @@
     "auto.fridayNightGothicPunk.e61b6f": "NoDa Brewing Co 的周五晚哥特与朋克市集。",
     "auto.nightMarket.eee899": "夜市",
     "auto.wellnessMarket.68e27d": "健康市集",
-    "auto.alternativeMakersOdditiesSmall.496e96": "在 The Venue at Locust Hill 汇聚另类手作人、奇物与小批量自我护理产品——快来找找我们的摊位吧。"
+    "auto.alternativeMakersOdditiesSmall.496e96": "在 The Venue at Locust Hill 汇聚另类手作人、奇物与小批量自我护理产品——快来找找我们的摊位吧。",
+    "auto.postedOnEtsy.13b9ae": "· 发布于 Etsy",
+    "auto.altMarket.aeb058": "另类市集",
+    "auto.fantasyFestival.bdaf96": "奇幻节",
+    "auto.filter.d7decf": "筛选",
+    "auto.journal.57d7f7": "博客",
+    "auto.latestArticles.ae4fa9": "最新文章",
+    "auto.nextAppearance.50be33": "下一场",
+    "auto.previousAppearance.426644": "上一场",
+    "auto.nextLiveAppearance.6ff239": "下一次现场亮相",
+    "auto.perPerson.7189e9": "每人",
+    "auto.prideEvent.3c646e": "Pride 活动",
+    "auto.readPost.aefb01": "阅读文章 →",
+    "auto.replyFromSavanna.c85c30": "Savanna 的回复",
+    "auto.selfCare.e8a8e0": "自我关怀",
+    "auto.share.09ca55": "分享",
+    "auto.verifiedBuyer.73a425": "已验证买家",
+    "auto.verifiedCustomer.759b59": "已验证顾客",
+    "auto.vibe.becbde": "氛围",
+    "auto.viewPost.996d8e": "查看帖子 ↗",
+    "auto.whatsIncluded.9af1d4": "包含内容",
+    "auto.workshop.13b8fe": "工作坊",
+    "auto.orderAheadPickUp.baf029": "提前下单 / 在此取货"
   }
 };
 
