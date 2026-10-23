@@ -302,53 +302,154 @@ function createStaticServer(port = 8082) {
     }
 
     // 5. Test Countdown Ticker (R1)
+    /* Every state on a pinned clock and a fixed calendar. This used to read
+       the real events.json on the real clock and accept only the >=1-day
+       layout (it required #yl-countdown-days), so it went red whenever the
+       next market was less than a day away -- 2026-10-23, the eve of the
+       Foothills Fantasy Festival, with the ticker correctly reading "21 Hours,
+       29 Mins". Now each state gets its own browser context (no service
+       worker carried over), its page clock frozen before any script runs, and
+       events-data.js answered with one fixture event, so each layout is
+       asserted exactly on every day the suite runs.
+
+       The fixture starts at 10am Eastern on 5 Dec 2026 (EST, so 15:00Z): the
+       ticker reads the opening time from dateLabel. */
     console.log("--- Testing Countdown Ticker (R1) ---");
-    for (const pageName of ["index.html", "events.html"]) {
-      await page.goto(`${url}/${pageName}`, { waitUntil: "networkidle2" });
-      if (pageName === "index.html") {
-        const ticker = await page.$("#yl-countdown-ticker");
-        if (ticker) {
-          /* Three legitimate states, all driven by the real events.json:
-             counting down to the next pop-up (the digit spans), a market
-             that's open today, or no dates on the calendar at all. The
-             "in progress" and "no dates" branches replace #heroCountdownTimer's
-             children with plain text, so asserting on the digit spans alone
-             turned this check into a calendar-dependent time bomb -- it would
-             start failing the morning of a market day. Assert the ticker says
-             something meaningful in whichever state it's in. */
-          const timerText = await page
-            .$eval("#heroCountdownTimer", (el) => el.textContent.replace(/\s+/g, " ").trim())
-            .catch(() => null);
-          const digits = await page.$("#yl-countdown-days");
-          const counting = digits !== null && /\d/.test(timerText || "");
-          const inProgress = /in progress today/i.test(timerText || "");
-          const noDates = /stay tuned for new confirmed market dates/i.test(timerText || "");
-          if (counting || inProgress || noDates) {
-            console.log(`✅ Countdown ticker rendering on ${pageName} ("${timerText}").`);
-          } else {
-            console.log(
-              `❌ Countdown ticker rendered no usable text on ${pageName} (got "${timerText}").`
-            );
-            exitCode = 1;
+    const tickerEvent = {
+      id: "fixture-market-2026-12-05",
+      date: "2026-12-05",
+      dateLabel: "December 5, 2026 · Saturday, 10am–4pm",
+      name: "Fixture Market",
+      type: "Alt Market",
+      location: "Landrum, SC"
+    };
+    const tickerDetails = `${tickerEvent.name} (${tickerEvent.location})`;
+    const tickerStates = [
+      {
+        label: "3+ days out",
+        now: "2026-12-02T12:00:00Z",
+        upcoming: [tickerEvent],
+        hero: `3 Days, 03 Hours until ${tickerDetails}`,
+        spans: { days: true, hours: true, minutes: false },
+        banner: "3 Days, 03 Hours until pop-up"
+      },
+      {
+        label: "under a day out",
+        now: "2026-12-04T17:30:00Z",
+        upcoming: [tickerEvent],
+        hero: `21 Hours, 30 Mins until ${tickerDetails}`,
+        spans: { days: false, hours: true, minutes: true },
+        banner: "21 Hours, 30 Mins until pop-up"
+      },
+      {
+        label: "under an hour out",
+        now: "2026-12-05T14:35:00Z",
+        upcoming: [tickerEvent],
+        hero: `25 Mins until ${tickerDetails}`,
+        spans: { days: false, hours: false, minutes: true },
+        banner: "25 Mins until pop-up"
+      },
+      {
+        label: "market open now",
+        now: "2026-12-05T16:00:00Z",
+        upcoming: [tickerEvent],
+        hero: `${tickerEvent.name} is in progress today!`,
+        spans: { days: false, hours: false, minutes: false },
+        banner: "Pop-up in progress today!"
+      },
+      {
+        label: "nothing on the calendar",
+        now: "2026-12-05T16:00:00Z",
+        upcoming: [],
+        hero: "Stay tuned for new confirmed market dates! | Handcrafted in Landrum, SC",
+        spans: { days: false, hours: false, minutes: false },
+        banner: "Check back soon for upcoming market appearances!"
+      }
+    ];
+    for (const state of tickerStates) {
+      const context = await browser.createBrowserContext();
+      try {
+        const tickerPage = await context.newPage();
+        // sw.js installs on index.html and would answer events.html from its
+        // own cache, where this page's request interception never sees it.
+        await tickerPage.setBypassServiceWorker(true);
+        await tickerPage.evaluateOnNewDocument((frozenIso) => {
+          const frozen = Date.parse(frozenIso);
+          const RealDate = Date;
+          class FrozenDate extends RealDate {
+            constructor(...args) {
+              if (args.length) super(...args);
+              else super(frozen);
+            }
+            static now() {
+              return frozen;
+            }
           }
-        } else {
-          console.log(`❌ #yl-countdown-ticker element missing on ${pageName}.`);
-          exitCode = 1;
-        }
-      } else {
-        const banner = await page.$("#eventsCountdownBanner");
-        if (banner) {
-          const bannerText = await page.evaluate((el) => el.textContent.trim(), banner);
-          if (bannerText.length > 0) {
-            console.log(`✅ Events countdown banner rendering on ${pageName}.`);
+          globalThis.Date = FrozenDate;
+        }, state.now);
+        let fixtureServed = 0;
+        await tickerPage.setRequestInterception(true);
+        tickerPage.on("request", (req) => {
+          if (req.isInterceptResolutionHandled()) return;
+          if (new URL(req.url()).pathname === "/assets/js/events-data.js") {
+            fixtureServed++;
+            req.respond({
+              status: 200,
+              contentType: "application/javascript",
+              body: `window.YL_EVENTS = ${JSON.stringify({ upcoming: state.upcoming, past: [] })};`
+            });
           } else {
-            console.log(`❌ Events countdown banner empty on ${pageName}.`);
-            exitCode = 1;
+            req.continue();
           }
-        } else {
-          console.log(`❌ #eventsCountdownBanner element missing on ${pageName}.`);
-          exitCode = 1;
+        });
+
+        await tickerPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
+        const hero = await tickerPage
+          .$eval("#heroCountdownTimer", (el) => ({
+            text: el.textContent.replace(/\s+/g, " ").trim(),
+            days: !!el.querySelector("#yl-countdown-days"),
+            hours: !!el.querySelector("#yl-countdown-hours"),
+            minutes: !!el.querySelector("#yl-countdown-minutes")
+          }))
+          .catch(() => null);
+
+        await tickerPage.goto(`${url}/events.html`, { waitUntil: "networkidle2" });
+        const bannerText = await tickerPage
+          .$eval("#eventsCountdownBanner", (el) => el.textContent.replace(/\s+/g, " ").trim())
+          .catch(() => null);
+
+        const problems = [];
+        if (fixtureServed < 2) {
+          problems.push(
+            `the fixture calendar was served ${fixtureServed}x, expected once per page`
+          );
         }
+        if (!hero) {
+          problems.push("#heroCountdownTimer missing on index.html");
+        } else {
+          if (hero.text !== state.hero) {
+            problems.push(`hero read "${hero.text}", expected "${state.hero}"`);
+          }
+          for (const unit of ["days", "hours", "minutes"]) {
+            if (hero[unit] !== state.spans[unit]) {
+              problems.push(`#yl-countdown-${unit} ${hero[unit] ? "present" : "missing"}`);
+            }
+          }
+        }
+        if (bannerText === null) {
+          problems.push("#eventsCountdownBanner missing on events.html");
+        } else if (!bannerText.includes(state.banner)) {
+          problems.push(`banner read "${bannerText}", expected it to contain "${state.banner}"`);
+        }
+
+        if (problems.length) {
+          console.log(`❌ Countdown ticker, ${state.label}: ${problems.join("; ")}.`);
+          exitCode = 1;
+        } else {
+          console.log(`✅ Countdown ticker, ${state.label}: "${hero.text}" / "${state.banner}".`);
+        }
+      } finally {
+        await context.close();
       }
     }
 
