@@ -17,25 +17,19 @@ name: i18n bot
 # pushes.
 # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onpushpull_requestpaths
 on:
-  # Once daily (4:23 UTC / 11:23 PM Eastern / 8:23 PM Pacific):
-  # Automatically translates CMS updates published to main by cms-publish.yml
-  # (since GitHub Actions GITHUB_TOKEN pushes do not trigger on:push workflows,
-  # a daily cron ensures CMS edits are translated without manual dispatch).
-  # A run with nothing to do commits nothing.
-  schedule:
-    - cron: "23 4 * * *"
-  # Also triggers immediately on human pushes or PR merges that touch CMS data files
-  push:
-    branches: [main]
-    paths:
-      - "assets/data/products.json"
-      - "assets/data/products/**"
-      - "assets/data/catalog-config.json"
-      - "assets/data/content.json"
-      - "assets/data/events.json"
-      - "assets/data/quiz.json"
-      - "assets/data/site-reviews.json"
-      - "assets/data/journal/**"
+  # MANUAL ONLY since 2026-10-23. Owner decision: translations no longer run on
+  # Gemini at all -- the key's Google project has billing linked, so the "free"
+  # AI Studio tier bills too. The daily schedule and the push trigger on the
+  # CMS data files are gone; translations are written by hand (see
+  # scripts/i18n-new-strings.js for finding what needs them).
+  #
+  # Starting this workflow by hand still CALLS GEMINI AND IS BILLED. To bring
+  # the automation back, restore `schedule:` (cron "23 4 * * *") and the
+  # `push:` paths filter from git history.
+  #
+  # Consequence: CMS copy edits are no longer translated automatically. They
+  # show in English until someone translates them; the build gate stays
+  # green because new strings are only discovered, never written, until then.
   workflow_dispatch:
     inputs:
       dry_run:
