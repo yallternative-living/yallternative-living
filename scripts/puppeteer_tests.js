@@ -1544,8 +1544,10 @@ function createStaticServer(port = 8082) {
     /* Waits on the per-element marks, not on <html lang>: the document stays
        English on purpose while coverage is partial (WCAG 3.1.1). */
     await page.waitForFunction(
-      /* eslint-disable-next-line no-undef */
-      () => document.querySelector('[lang="es"]') !== null,
+      () =>
+        /* eslint-disable-next-line no-undef */
+        document.querySelector('[lang="es"]:not(.lang-option):not(#mobileLangSelect option)') !==
+        null,
       { timeout: 3000 }
     );
 
@@ -1604,8 +1606,10 @@ function createStaticServer(port = 8082) {
     /* Restoring English means the marks come OFF again -- a leftover lang
        attribute is a wrong announcement outliving its translation. */
     await page.waitForFunction(
-      /* eslint-disable-next-line no-undef */
-      () => document.querySelector('[lang="es"]') === null,
+      () =>
+        /* eslint-disable-next-line no-undef */
+        document.querySelector('[lang="es"]:not(.lang-option):not(#mobileLangSelect option)') ===
+        null,
       { timeout: 3000 }
     );
 
@@ -1700,8 +1704,10 @@ function createStaticServer(port = 8082) {
     // 11.4 Test language selection in mobile drawer
     await page.select("#mobileLangSelect", "es");
     await page.waitForFunction(
-      /* eslint-disable-next-line no-undef */
-      () => document.querySelector('[lang="es"]') !== null,
+      () =>
+        /* eslint-disable-next-line no-undef */
+        document.querySelector('[lang="es"]:not(.lang-option):not(#mobileLangSelect option)') !==
+        null,
       { timeout: 3000 }
     );
     const mobileEsCheck = await page.evaluate(() => {
@@ -1726,8 +1732,10 @@ function createStaticServer(port = 8082) {
     // Restore to English & original theme
     await page.select("#mobileLangSelect", "en");
     await page.waitForFunction(
-      /* eslint-disable-next-line no-undef */
-      () => document.querySelector('[lang="es"]') === null,
+      () =>
+        /* eslint-disable-next-line no-undef */
+        document.querySelector('[lang="es"]:not(.lang-option):not(#mobileLangSelect option)') ===
+        null,
       { timeout: 3000 }
     );
     if (toggledTheme !== initialTheme) {
@@ -1830,9 +1838,15 @@ function createStaticServer(port = 8082) {
           }
         });
         await jaPage.goto(`${url}/index.html`, { waitUntil: "networkidle2" });
-        await jaPage.waitForFunction(() => document.querySelector('[lang="ja"]') !== null, {
-          timeout: 5000
-        });
+        await jaPage.waitForFunction(
+          () =>
+            document.querySelector(
+              '[lang="ja"]:not(.lang-option):not(#mobileLangSelect option)'
+            ) !== null,
+          {
+            timeout: 5000
+          }
+        );
         await jaPage.click(".nav-toggle");
         await jaPage.waitForSelector(".nav-mobile-prefs", { visible: true, timeout: 3000 });
         const shown = await jaPage.evaluate(() =>
