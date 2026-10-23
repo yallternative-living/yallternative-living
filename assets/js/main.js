@@ -10011,6 +10011,81 @@
     return best;
   }
 
+  /* The countdown's wording, shared by the hero ticker and the events-page
+     banner. They used to format separately and drifted: the banner said
+     "1 Day, 01 Hour" while the hero said "1 Days, 01 Hours", and under a
+     minute both said "00 Mins". One rule now: the leading unit is unpadded,
+     the second is zero-padded ("3 Days, 03 Hours"), a value of 1 takes the
+     singular, and under a minute there are no units at all -- the callers
+     say "Less than a minute" instead.
+
+     The unit words are literals here on purpose: the hero's text nodes
+     ("Day,", "Hours until", ...) are matched against en.json by
+     translator.js, and assets/data/i18n-runtime-strings.json verifies each
+     of them against this file. */
+  function countdownParts(remMs) {
+    var totalMin = Math.floor(Math.max(0, Number(remMs) || 0) / 60000);
+    if (totalMin < 1) return [];
+    var d = Math.floor(totalMin / 1440);
+    var h = Math.floor((totalMin % 1440) / 60);
+    var m = totalMin % 60;
+    var DAY = ["days", "Day", "Days"];
+    var HOUR = ["hours", "Hour", "Hours"];
+    var MIN = ["minutes", "Min", "Mins"];
+    var units =
+      d >= 1
+        ? [
+            [DAY, d],
+            [HOUR, h]
+          ]
+        : h > 0
+          ? [
+              [HOUR, h],
+              [MIN, m]
+            ]
+          : [[MIN, m]];
+    return units.map(function (u, i) {
+      var n = u[1];
+      return {
+        unit: u[0][0],
+        value: i === 0 || n >= 10 ? String(n) : "0" + n,
+        word: n === 1 ? u[0][1] : u[0][2]
+      };
+    });
+  }
+
+  /* The hero ticker's inner HTML: one span per unit, so the digits keep
+     their ids (#yl-countdown-days / -hours / -minutes). */
+  function countdownHeroHtml(parts, detailsText) {
+    var details = '<span id="heroEventDetails">' + attrEsc(detailsText) + "</span>";
+    if (!parts.length) return "Less than a minute until " + details;
+    return (
+      parts
+        .map(function (p, i) {
+          return (
+            '<span id="yl-countdown-' +
+            p.unit +
+            '">' +
+            p.value +
+            "</span> " +
+            p.word +
+            (i < parts.length - 1 ? ", " : " until ")
+          );
+        })
+        .join("") + details
+    );
+  }
+
+  /* The events banner's "3 Days, 03 Hours" (it adds " until pop-up"). */
+  function countdownBannerTime(parts) {
+    if (!parts.length) return "Less than a minute";
+    return parts
+      .map(function (p) {
+        return p.value + " " + p.word;
+      })
+      .join(", ");
+  }
+
   function initCountdownTicker() {
     var tickerContainer = document.getElementById("yl-countdown-ticker");
     var bannerContainer = document.getElementById("eventsCountdownBanner");
@@ -10105,61 +10180,19 @@
         }
       }
 
-      var totalSec = Math.floor(rem / 1000);
-      var d = Math.floor(totalSec / (3600 * 24));
-      totalSec %= 3600 * 24;
-      var h = Math.floor(totalSec / 3600);
-      totalSec %= 3600;
-      var m = Math.floor(totalSec / 60);
-
       /* Adaptive precision: when an event is >=24 hours away, minutes are omitted
          to reduce mobile banner crowding and eliminate artificial tick urgency.
          When <24 hours away, hours and minutes provide relevant countdown
          precision, dropping to minutes only under 1 hour. */
-      var hStr = (h < 10 ? "0" : "") + h;
-      var mStr = (m < 10 ? "0" : "") + m;
+      var parts = countdownParts(rem);
 
       if (tickerContainer && timerEl) {
         var detailsText = nextEvt.name + (nextEvt.location ? " (" + nextEvt.location + ")" : "");
-        if (d >= 1) {
-          timerEl.innerHTML =
-            '<span id="yl-countdown-days">' +
-            d +
-            "</span> Days, " +
-            '<span id="yl-countdown-hours">' +
-            hStr +
-            '</span> Hours until <span id="heroEventDetails">' +
-            attrEsc(detailsText) +
-            "</span>";
-        } else if (h > 0) {
-          timerEl.innerHTML =
-            '<span id="yl-countdown-hours">' +
-            hStr +
-            "</span> Hours, " +
-            '<span id="yl-countdown-minutes">' +
-            mStr +
-            '</span> Mins until <span id="heroEventDetails">' +
-            attrEsc(detailsText) +
-            "</span>";
-        } else {
-          timerEl.innerHTML =
-            '<span id="yl-countdown-minutes">' +
-            mStr +
-            '</span> Mins until <span id="heroEventDetails">' +
-            attrEsc(detailsText) +
-            "</span>";
-        }
+        timerEl.innerHTML = countdownHeroHtml(parts, detailsText);
       }
 
       if (bannerContainer) {
-        var timeStr = "";
-        if (d >= 1) {
-          timeStr = d + (d === 1 ? " Day, " : " Days, ") + hStr + (h === 1 ? " Hour" : " Hours");
-        } else if (h > 0) {
-          timeStr = h + (h === 1 ? " Hour, " : " Hours, ") + mStr + (m === 1 ? " Min" : " Mins");
-        } else {
-          timeStr = m + (m === 1 ? " Min" : " Mins");
-        }
+        var timeStr = countdownBannerTime(parts);
         var nextAppCatHtml = nextEvt.emoji
           ? '<span aria-hidden="true" style="margin-right: 4px;">' +
             attrEsc(nextEvt.emoji) +
@@ -13743,6 +13776,9 @@
       buildEventJsonLd: buildEventJsonLd,
       workshopOfferAvailability: workshopOfferAvailability,
       buildEventsJsonLd: buildEventsJsonLd,
+      countdownParts: countdownParts,
+      countdownHeroHtml: countdownHeroHtml,
+      countdownBannerTime: countdownBannerTime,
       injectEventJsonLd: injectEventJsonLd,
       eventInviteOrganizerHTML: eventInviteOrganizerHTML,
       eventEmailCaptureHTML: eventEmailCaptureHTML,
