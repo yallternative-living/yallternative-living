@@ -72,7 +72,7 @@
  *                          ("Lavender for Hush Y'all ... Sleep Salve")
  *   review-verbatim        customer review text or author from
  *                          site-reviews.json -- Etsy verbatim, never rewritten
- *   event-atom             an event's name or town from events.json --
+ *   event-atom             an event's name, town or venue from events.json --
  *                          "Spartanburg Punk Flea Market", "Asheville, NC".
  *                          A market a shopper drives to is not copy
  *   platform-label         a social link that is just the platform's name and
@@ -338,12 +338,20 @@ function collectEventAtoms(events) {
     const trimmed = value.trim();
     if (trimmed) atoms.add(trimmed);
   }
-  const groups = [(events && events.upcoming) || [], (events && events.past) || []];
+  const groups = [
+    (events && events.upcoming) || [],
+    (events && events.workshops) || [],
+    (events && events.past) || []
+  ];
   groups.forEach(function (list) {
     (list || []).forEach(function (e) {
       if (!e) return;
       add(e.name);
       add(e.location);
+      // A venue is a place someone drives to, same as the town. Missing it let
+      // "NoDa Brewing Co" and "Renewal Wellness" through as copy, and the
+      // translator refused them as passthroughs on every run (issue #67).
+      add(e.venue);
     });
   });
   return atoms;

@@ -128,7 +128,19 @@
     "Ladson, SC",
     "Summerville, SC",
     "Asheville, NC",
-    "Greenville, SC"
+    "Greenville, SC",
+    "Root & Ritual",
+    "@yallternativeliving",
+    "The Venue at Locust Hill",
+    "Rogers Park",
+    "NoDa Brewing Company",
+    "NoDa Brewing Co",
+    "Renewal Wellness",
+    "The Gathering Farm",
+    "Tryon International",
+    "Mills River Brewing Co",
+    "Pack Square Park",
+    "Landrum Depot"
   ],
   "categories": {
     "brand": [
@@ -139,7 +151,9 @@
       "Savanna",
       "Alt-Points",
       "Alt-Point",
-      "YALL10"
+      "YALL10",
+      "Root & Ritual",
+      "@yallternativeliving"
     ],
     "products": [
       "Porch Sweep Clearing Mist",
@@ -171,6 +185,18 @@
       "Everyday Armor Kit",
       "Gentle Landing Set",
       "Discovery Flight"
+    ],
+    "venues": [
+      "The Venue at Locust Hill",
+      "Rogers Park",
+      "NoDa Brewing Company",
+      "NoDa Brewing Co",
+      "Renewal Wellness",
+      "The Gathering Farm",
+      "Tryon International",
+      "Mills River Brewing Co",
+      "Pack Square Park",
+      "Landrum Depot"
     ],
     "idioms": [
       "Y'all Means All",
