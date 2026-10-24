@@ -465,6 +465,12 @@ jobs:
 
           echo "Publication complete. Netlify will now build once for this entire editing session."
 
+      - name: Notify IndexNow of Updated Sitemap URLs
+        if: steps.merge-cms.outputs.has_changes == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/submit-indexnow.js
+
       - name: Fail On Rejected CMS Branches
         # Runs after publishing (not `if: always()` -- a failed gate or push above
         # already fails the run on its own) so the good branches went live first and
