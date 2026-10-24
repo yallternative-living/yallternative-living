@@ -289,6 +289,13 @@ renders a copy somebody else is already serving.
 
 ## Step 3: the translation step, and the bot that runs the whole thing
 
+> **Retired 2026-10-23.** The site ships English and Spanish only, translated
+> by hand; `scripts/i18n-translate.js`, its test and
+> `.github/workflows/i18n-bot.yml` were deleted, and `i18n:new --write` now
+> also prunes orphaned `auto.*` keys (the one job of the bot's that a hand
+> workflow still needs). Everything below in this step describes the retired
+> bot and is kept as the record of how it worked; it is in git history.
+
 `scripts/i18n-translate.js` (`npm run i18n:translate`) fills es/de/fr/ja/zh and
 writes all seven files, `en.json`, the five locales and
 `i18n-translation-basis.json`. Note where the English write happens: HERE, not

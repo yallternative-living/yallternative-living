@@ -37,7 +37,8 @@ const path = require("path");
 const claimRules = require("./lib/i18n-claims-rules.js");
 
 const ROOT = path.resolve(__dirname, "..");
-const CODES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+// The shipped locales, from the build that compiles them -- never a second list.
+const CODES = require("./build-site-data.js").SUPPORTED_LOCALES;
 
 let passed = 0;
 let failed = 0;
@@ -104,8 +105,13 @@ function keyFor(englishText) {
    Protected brand terms are stripped from the English before the trigger
    search, so "Y'all Heal Now Miracle Frankincense Salve" cannot license
    "heilend". */
+/* Covers every SHIPPED locale. The table may hold more: it keeps the claim
+   words for the locales removed on 2026-10-23, so reviving one does not also
+   mean rebuilding its compliance net from scratch. */
 assert(
-  Object.keys(claimRules.CLAIM_WORDS).length === CODES.length - 1,
+  CODES.slice(1).every(function (code) {
+    return Array.isArray(claimRules.CLAIM_WORDS[code]);
+  }),
   "the shared claims table covers every non-English locale"
 );
 const protectedTerms = glossary.protectedTerms || [];
@@ -540,16 +546,6 @@ assert(botanicals.length > 0, "the glossary lists INCI botanicals to check again
         JSON.stringify(value)
       );
     });
-    /* The premise is "somebody has called you too much". Japanese renders it
-       as 多すぎる or as やりすぎ -- both say it, and which one a model picks
-       is not a fact about whether the premise survived. */
-    assert(
-      ["多すぎる", "やりすぎ"].some(function (w) {
-        return locales.ja.phrases[heroKey].indexOf(w) !== -1;
-      }),
-      "heroText [ja] still carries the 'a little too much' premise",
-      JSON.stringify(locales.ja.phrases[heroKey])
-    );
   }
 
   const quizKey = keyFor(

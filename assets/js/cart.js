@@ -523,7 +523,7 @@
      spelling of them -- workers/checkout.js maps es to es-419 and pt to
      pt-BR on the way out, because a cached copy of this file can outlive any
      mapping written here. */
-  var CHECKOUT_LOCALES = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+  var CHECKOUT_LOCALES = ["en", "es"];
 
   /* Render a dictionary key through the translator, with the English as the
      fallback when the engine is not on the page (the Node harness, or a page

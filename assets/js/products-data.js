@@ -1562,7 +1562,7 @@ window.YL_PRODUCTS = {
     },
     {
       "question": "Can I shop in another language or currency?",
-      "answer": "The site reads in nine languages: English, Spanish, German, French, Japanese, Chinese, Vietnamese, Korean and Portuguese. Use the globe in the top bar to switch; product names stay as they are. Prices, checkout and gift cards are all in US dollars, and for now we only ship within the US."
+      "answer": "The site reads in English and Spanish. Use the globe in the top bar to switch; product names stay as they are. Prices, checkout and gift cards are all in US dollars, and for now we only ship within the US."
     },
     {
       "question": "Can I get something custom or in bulk?",

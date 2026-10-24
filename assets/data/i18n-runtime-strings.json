@@ -1018,15 +1018,50 @@
       "key": "home.hours",
       "text": "Hours,",
       "source": "assets/js/main.js",
-      "verify": ["Hours,"],
+      "verify": ["\"Hours\"", "\", \""],
       "note": "countdown ticker hours suffix rendered dynamically when event is under 24 hours away"
     },
     {
       "key": "home.minsUntil",
       "text": "Mins until",
       "source": "assets/js/main.js",
-      "verify": ["Mins until"],
+      "verify": ["\"Mins\"", "\" until \""],
       "note": "countdown ticker suffix rendered dynamically when event is under 24 hours away"
+    },
+    {
+      "key": "home.day",
+      "text": "Day,",
+      "source": "assets/js/main.js",
+      "verify": ["\"Day\"", "\", \""],
+      "note": "countdown ticker unit word, assembled by countdownParts()/countdownHeroHtml() in main.js from the quoted literals"
+    },
+    {
+      "key": "home.hour",
+      "text": "Hour,",
+      "source": "assets/js/main.js",
+      "verify": ["\"Hour\"", "\", \""],
+      "note": "countdown ticker unit word, assembled by countdownParts()/countdownHeroHtml() in main.js from the quoted literals"
+    },
+    {
+      "key": "home.hourUntil",
+      "text": "Hour until",
+      "source": "assets/js/main.js",
+      "verify": ["\"Hour\"", "\" until \""],
+      "note": "countdown ticker unit word, assembled by countdownParts()/countdownHeroHtml() in main.js from the quoted literals"
+    },
+    {
+      "key": "home.minUntil",
+      "text": "Min until",
+      "source": "assets/js/main.js",
+      "verify": ["\"Min\"", "\" until \""],
+      "note": "countdown ticker unit word, assembled by countdownParts()/countdownHeroHtml() in main.js from the quoted literals"
+    },
+    {
+      "key": "home.lessThanAMinuteUntil",
+      "text": "Less than a minute until",
+      "source": "assets/js/main.js",
+      "verify": ["Less than a minute until "],
+      "note": "countdown ticker unit word, assembled by countdownParts()/countdownHeroHtml() in main.js from the quoted literals"
     }
   ]
 }

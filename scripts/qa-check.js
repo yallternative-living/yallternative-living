@@ -5610,7 +5610,7 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
   }
 
   // 4. assets/data/locales/*.json exist and validate brand glossary terms
-  var expectedLocales = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+  var expectedLocales = ["en", "es"];
   expectedLocales.forEach(function (lang) {
     var localePath = path.join(ROOT, "assets/data/locales", lang + ".json");
     if (fs.existsSync(localePath)) {
@@ -5872,7 +5872,7 @@ section("Localization: dictionary coverage");
     return;
   }
 
-  var LANGS = ["en", "es", "de", "fr", "ja", "zh", "vi", "ko", "pt"];
+  var LANGS = ["en", "es"];
   var locales = {};
   var loadFailed = false;
   LANGS.forEach(function (lang) {

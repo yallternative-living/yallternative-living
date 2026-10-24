@@ -19,48 +19,6 @@
     "name": "Español",
     "dir": "ltr",
     "src": "/assets/js/locales/es.js"
-  },
-  {
-    "code": "de",
-    "name": "Deutsch",
-    "dir": "ltr",
-    "src": "/assets/js/locales/de.js"
-  },
-  {
-    "code": "fr",
-    "name": "Français",
-    "dir": "ltr",
-    "src": "/assets/js/locales/fr.js"
-  },
-  {
-    "code": "ja",
-    "name": "日本語",
-    "dir": "ltr",
-    "src": "/assets/js/locales/ja.js"
-  },
-  {
-    "code": "zh",
-    "name": "中文",
-    "dir": "ltr",
-    "src": "/assets/js/locales/zh.js"
-  },
-  {
-    "code": "vi",
-    "name": "Tiếng Việt",
-    "dir": "ltr",
-    "src": "/assets/js/locales/vi.js"
-  },
-  {
-    "code": "ko",
-    "name": "한국어",
-    "dir": "ltr",
-    "src": "/assets/js/locales/ko.js"
-  },
-  {
-    "code": "pt",
-    "name": "Português",
-    "dir": "ltr",
-    "src": "/assets/js/locales/pt.js"
   }
 ];
   var BRAND_GLOSSARY = {
@@ -128,7 +86,19 @@
     "Ladson, SC",
     "Summerville, SC",
     "Asheville, NC",
-    "Greenville, SC"
+    "Greenville, SC",
+    "Root & Ritual",
+    "@yallternativeliving",
+    "The Venue at Locust Hill",
+    "Rogers Park",
+    "NoDa Brewing Company",
+    "NoDa Brewing Co",
+    "Renewal Wellness",
+    "The Gathering Farm",
+    "Tryon International",
+    "Mills River Brewing Co",
+    "Pack Square Park",
+    "Landrum Depot"
   ],
   "categories": {
     "brand": [
@@ -139,7 +109,9 @@
       "Savanna",
       "Alt-Points",
       "Alt-Point",
-      "YALL10"
+      "YALL10",
+      "Root & Ritual",
+      "@yallternativeliving"
     ],
     "products": [
       "Porch Sweep Clearing Mist",
@@ -171,6 +143,18 @@
       "Everyday Armor Kit",
       "Gentle Landing Set",
       "Discovery Flight"
+    ],
+    "venues": [
+      "The Venue at Locust Hill",
+      "Rogers Park",
+      "NoDa Brewing Company",
+      "NoDa Brewing Co",
+      "Renewal Wellness",
+      "The Gathering Farm",
+      "Tryon International",
+      "Mills River Brewing Co",
+      "Pack Square Park",
+      "Landrum Depot"
     ],
     "idioms": [
       "Y'all Means All",

@@ -25,7 +25,7 @@
  * `LLM_BASE_URL`, `LLM_MAX_CALLS`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES`, and the
  * key from the provider's own variable (`GEMINI_API_KEY`, `GROQ_API_KEY`). The
  * names are neutral because more than one bot uses this; a caller with its own
- * convention (the i18n bot reads `I18N_MODELS`) passes the value as an option
+ * convention passes the value as an option
  * and the environment is only the fallback.
  *
  * WHY ONE WRAPPER FOR TWO VENDORS. Google exposes Gemini through an
@@ -579,7 +579,7 @@ function createClient(options, env) {
             f.error +
             "; used " +
             f.to +
-            " -- re-pin the model list (I18N_MODELS in .github/workflows/i18n-bot.yml)"
+            " -- re-pin the model list (LLM_MODELS in the calling workflow)"
           );
         })
         .join(" | ");

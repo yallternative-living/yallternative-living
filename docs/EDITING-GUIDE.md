@@ -1,8 +1,10 @@
-# Editing Y'allternative Living, A Plain-English Guide for Savanna
+# Editing Y'allternative Living — A Plain-English Guide for Savanna
 
 Hey Savanna! Welcome to your shop's management guide. You do **not** need to be a coder or web developer to run Y'allternative Living. This guide is written specifically for you to manage products, adjust prices, run multi-buy volume deals, launch sales, update market schedules, and share stories easily.
 
-Nothing in this dashboard touches customer credit card numbers or sensitive payment info, Stripe securely handles checkout and transactions behind the scenes (see `docs/DEVELOPMENT.md` section 8, or `docs/SETUP-GUIDE.md` for account connections).
+Nothing in this dashboard touches customer credit card numbers or sensitive payment info — Stripe securely handles checkout and transactions behind the scenes (see `docs/DEVELOPMENT.md` section 8, or `docs/SETUP-GUIDE.md` for account connections).
+
+---
 
 ## 1. Your Dashboard Overview: The Editor at `/admin`
 
@@ -11,32 +13,34 @@ Whenever you want to make changes to the live site, open **yourdomain.com/admin*
 Your dashboard is organized into clean, partitioned sections in the left sidebar:
 
 ### Content & Catalog (Collections)
-- Products (Top Priority): Manage your catalog items (20 products), edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels. Features 1-click filter chips (*In Stock*, *Out of Stock*, *Coming Soon*, *Salves & Balms*, *Bath Soaks*), collapsible category accordion groups, fast search, and live preview links.
-- Journal: Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar and live preview links.
+- **Products (Top Priority)**: Manage your catalog items (20 products), edit prices, set size/scent variants, upload photos, add ingredients, and update stock levels. Features 1-click filter chips (*In Stock*, *Out of Stock*, *Coming Soon*, *Salves & Balms*, *Bath Soaks*), collapsible category accordion groups, fast search, and live preview links.
+- **Journal**: Each post is its own entry with a **New Post** button. Write kitchen updates, herbal deep-dives, and community announcements with a visual formatting toolbar and live preview links.
 
 ### Store Operations (Sections)
-1. **Shop & Catalog Settings**, Your store mechanics:
+1. **Shop & Catalog Settings** — Your store mechanics:
    - **Shop details & shipping** (first thing in the form): Etsy sync counters, free shipping threshold, cart reward tiers, and Build-Your-Own Box settings.
-   - Multi-buy deals: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2 oz Salves for $15 each*).
-   - Category sales: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
-   - Gift bundles: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
-   - FAQ: Update questions and answers on shipping, returns, paying, gift cards, promo codes, ingredients, shelf life, and custom orders.
-2. **Markets & Pop-Ups**, Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
-3. **Customer Reviews**, Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
-4. **Live Instagram Feed**, Automatically pulls your latest photos and reels from `@yallternativeliving` onto the homepage via Behold (no manual posting required).
+   - **Multi-buy deals**: Set up mix-and-match multi-buy category tiers (like *Any 2+ 2 oz Salves for $15 each*).
+   - **Category sales**: Put whole categories on sale at once with percentage discounts (e.g. *15% off Body & Skin*).
+   - **Gift bundles**: Create curated gift sets (*Discovery Flight*, *Everyday Armor Kit*) with auto-calculated bundle pricing.
+   - **FAQ**: Update questions and answers on shipping, returns, paying, gift cards, promo codes, ingredients, shelf life, and custom orders.
+2. **Markets & Pop-Ups** — Add upcoming pop-up markets, craft fairs, and Pride events. Upcoming dates display chronologically, and past appearances automatically archive themselves under "Where We've Been."
+3. **Customer Reviews** — Publish customer reviews and choose which glowing testimonials feature on the homepage carousel.
+4. **Live Instagram Feed** — Automatically pulls your latest photos and reels from `@yallternativeliving` onto the homepage via Behold (no manual posting required).
 
 ### Global Configuration (Sections)
-5. **Site Settings**, Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
-6. **Quiz**, The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
+5. **Site Settings** — Update homepage hero copy, About page story, bio photos, logos, social share images, and toggle site features on or off.
+6. **Quiz** — The questions, answer options, and product recommendations behind the Apothecary Recommendation Quiz.
 
 > **💡 The "Hit Save and Done" Rule:** Whenever you edit products, prices, or settings in `/admin`, simply click **Save**. You never have to worry about git branches, pull requests, or finding a "Publish" button. The system automatically batches your consecutive edits together and publishes them live to the web within ~5 minutes of your last save. You never need to run commands or touch server settings.
+
+---
 
 ## 2. How to Log In
 
 Your login does **not** rely on Netlify's deprecated Identity service. You can log in using either of these two straightforward methods:
 
 ### Option A: Sign In with Personal Access Token (Works Right Now!)
-1. Generate a GitHub Personal Access Token (classic) with `repo` permissions (takes 60 seconds, full click-by-click walkthrough in `docs/SETUP-GUIDE.md` Step 9).
+1. Generate a GitHub Personal Access Token (classic) with `repo` permissions (takes 60 seconds — full click-by-click walkthrough in `docs/SETUP-GUIDE.md` Step 9).
 2. Go to `yourdomain.com/admin`.
 3. Paste your token into the login box and click **Sign In**.
 4. You're in! Your browser will remember your session.
@@ -44,45 +48,52 @@ Your login does **not** rely on Netlify's deprecated Identity service. You can l
 ### Option B: Sign In with GitHub Button (Permanent One-Click Login)
 Once Steven completes the one-time OAuth app setup (`docs/DEVELOPMENT.md` Section 20, Option B), `/admin` displays a friendly **Sign in with GitHub** button. Click it, authorize your account, and you're immediately inside your dashboard.
 
+---
+
 ## 3. Step-by-Step Walkthroughs
 
-### A note on the other eight languages
+---
 
-Your shop shows up in Spanish, German, French, Japanese, Chinese, Vietnamese,
-Korean, and Portuguese as well as English, and you do not have to do anything
-about it. When you save a change to a product name, blurb, description or any
-other wording in `/admin`, a helper runs on its own and writes the eight
-translations within about ten minutes.
-Until it finishes, that one piece of wording simply shows in English to a
-customer who has picked another language, nothing looks broken and nothing
-needs fixing. If a sentence ever cannot be translated safely (for example, it
-would turn a nice description into a health claim, which the law is strict
-about for skincare), it is left in English on purpose and Steven gets a note
-about it. You never need to translate anything by hand.
+### A note on Spanish
+
+Your shop reads in English and Spanish. (Until October 2026 it also offered
+German, French, Japanese, Chinese, Vietnamese, Korean and Portuguese; those
+were removed so the Spanish could be kept properly up to date.)
+
+Spanish is translated by hand now, not by an automatic helper. When you save a
+change to a product name, blurb, description or any other wording in `/admin`,
+that piece of wording shows in English to a customer reading in Spanish until
+someone translates it — nothing looks broken and nothing needs fixing on your
+side. Tell Steven when you have changed wording you want in Spanish, and it
+gets translated in one batch. Product names always stay as they are.
+
+---
 
 ### A note on wording, and the check that reads it
 
-After you save, a check reads only the wording you just changed, not the whole
+After you save, a check reads only the wording you just changed — not the whole
 shop, and never anything you left alone. If something in it reads like a health
 promise ("brings the itch right down", "helps with eczema") or a bug-repellent
 promise ("keeps the mosquitoes off"), you get an email with your own sentence
 quoted, one plain line about why that particular wording is the kind the FDA or
 the EPA cares about, and one or two ways to say the same thing that sound like
 you. That is all it does. **It never changes your words**, it cannot stop your
-edit going live, and there is nothing to approve or dismiss, if the note is
+edit going live, and there is nothing to approve or dismiss — if the note is
 not useful, ignore it.
 
 Two things it will not pester you about. The four wordings from the September
-review that are still your decision, "Y'all Heal Now", "Sleep Salve",
-"Backroad Recovery" and the bug spray, are listed at the bottom of the note as
+review that are still your decision — "Y'all Heal Now", "Sleep Salve",
+"Backroad Recovery" and the bug spray — are listed at the bottom of the note as
 things you already know about, never as something new. And a save with nothing
 worth flagging sends you nothing at all, so an email from it means there is
 genuinely something to look at.
 
+---
+
 ### A note on search words
 
 You do not have to guess what a customer will type. Fill in **Search keywords**
-on a product with whatever comes to mind and leave the rest alone, after you
+on a product with whatever comes to mind and leave the rest alone — after you
 save, the site adds more search words for you, on its own, within a few minutes.
 It adds the plain-language ones people actually use ("that bug stuff"), the
 occasions ("stocking stuffer", "post hike"), the ingredient names, and the
@@ -91,7 +102,7 @@ common misspellings.
 **Your own keywords always win.** They come first, nothing you wrote is ever
 changed or removed, and if the site had already added a word you later type
 yourself, yours is the one that stays. None of the added words are written into
-your product, they exist only so the search box can find the right thing.
+your product — they exist only so the search box can find the right thing.
 
 Symptoms and conditions still stay out of Search keywords, exactly as the hint
 under the field says: those go under **Site Settings → Search settings → Extra
@@ -101,14 +112,14 @@ gets a list of anything it decided not to add.
 
 ### When somebody searches a medical word
 
-Some customers will type a condition or a medicine word into the search box , 
-"psoriasis", "cure", "pain", "wound salve", and some will type a bug word,
+Some customers will type a condition or a medicine word into the search box —
+"psoriasis", "cure", "pain", "wound salve" — and some will type a bug word,
 "mosquito bites" or "ticks". You do not have to write anything for that, and you
 should not try to. The site already recognises those words. It shows a short
 note above the results that says we make comfort products, not medicines, and
 that nothing here is meant to diagnose, treat, cure or prevent anything, and it
-points the customer at the right shelf, dry, rough skin, or wind-down, or after
-a long day, or porch nights and trail days, by name, not by condition and not
+points the customer at the right shelf — dry, rough skin, or wind-down, or after
+a long day, or porch nights and trail days — by name, not by condition and not
 by bug. Their ordinary words still work while it does: "wound salve" still
 brings back the salves and "bug spray" still brings back the bug spray, because
 only the medical or bug word is set aside.
@@ -126,6 +137,8 @@ fine; offering a list of conditions to click is the thing that would get the
 shop in trouble. If you think a word is missing, tell Steven rather than putting
 it anywhere yourself.
 
+---
+
 ### Walkthrough 1: Products, Pricing, Variants & Stock Levels
 
 #### A. Changing a Product's Base Price
@@ -139,31 +152,34 @@ For products available in different sizes (e.g. 1 oz vs 2 oz salve, 4 oz vs 8 oz
 1. Open the product and expand the **Variants** section.
 2. Set **Variant type** to `Size`, `Scent`, `Blend`, or `Option`.
 3. Under **Options**:
-   - Base Option (Required Rule): Exactly **one** option must have a **Price difference** of `0`. This represents your base price entered above (e.g., Option name `2 oz`, Price difference `0`).
-   - Additional Options (+ / - Deltas): Enter how much more or less the other sizes cost compared to the base price:
+   - **Base Option (Required Rule)**: Exactly **one** option must have a **Price difference** of `0`. This represents your base price entered above (e.g., Option name `2 oz`, Price difference `0`).
+   - **Additional Options (+ / - Deltas)**: Enter how much more or less the other sizes cost compared to the base price:
      - For a smaller size that costs less (e.g. 1 oz Salve for $14 when base is $20): enter `-6`.
      - For a larger size that costs more (e.g. 8 oz Soak for $24.00 when 4 oz base is $14.00): enter `10.00`.
-   - ⚠️ Character Trap: Never use the characters `[`, `]`, or `|` inside option names (e.g. write `2 oz Glass Jar`, **not** `2 oz [Jar]`), as those symbols are used internally by the shopping cart.
+   - **⚠️ Character Trap**: Never use the characters `[`, `]`, or `|` inside option names (e.g. write `2 oz Glass Jar`, **not** `2 oz [Jar]`), as those symbols are used internally by the shopping cart.
 
 #### C. The 5 Inventory & Availability States
 Manage stock with complete transparency and urgency without artificial hype.
 
-**The count runs itself.** **Stock count** is where you *set* a number; the shop then counts it down on its own as orders are paid (and puts units back when a checkout is abandoned or an order is fully refunded). A product you set to `10` that sells 3 shows "Only 7 left", and, at 0, "Sold Out", with no edit from you and no publish. Two things follow from that:
+**The count runs itself.** **Stock count** is where you *set* a number; the shop then counts it down on its own as orders are paid (and puts units back when a checkout is abandoned or an order is fully refunded). A product you set to `10` that sells 3 shows "Only 7 left" — and, at 0, "Sold Out" — with no edit from you and no publish. Two things follow from that:
 
 - **Saving a new Stock count resets the live count to that number.** Only retype it when you have actually recounted the shelf; re-saving the product with the *same* number leaves the live count alone.
 - **Site settings → Shop → Show live stock counts** (on by default) is the switch for the shop showing the live number. Off, product cards show the count as it was at the last publish; checkout still uses the live one so it can never sell what has already gone.
 
-The "Stock count" field is the only place a count is entered, there is nothing to update elsewhere.
+The "Stock count" field is the only place a count is entered — there is nothing to update elsewhere.
 
-**Your Square register counts the same number.** Once Square is connected (SETUP-GUIDE Step 10), every sale rung up at a market, cash, card, tap, or a freebie rung as a 100% discount, comes off the Stock count within seconds, and the live count is sent back to Square so the register shows what's left. The match is the item's **SKU in Square**: set it to the product's ID (`lavender-soak`), or the ID plus a size (`lavender-soak/24-oz`, every size shares one count), or list your existing SKUs under the product's **Square SKUs** field here. If a register sale can't be matched you get an email naming the item; fix its SKU, then adjust the Stock count for the ones already sold. **Site settings → Shop → Sync stock with Square** pauses it. Correct counts here, never in Square, the site is the boss of the number and overwrites Square's within the hour.
+**Your Square register counts the same number.** Once Square is connected (SETUP-GUIDE Step 10), every sale rung up at a market — cash, card, tap, or a freebie rung as a 100% discount — comes off the Stock count within seconds, and the live count is sent back to Square so the register shows what's left. The match is the item's **SKU in Square**: set it to the product's ID (`lavender-soak`), or the ID plus a size (`lavender-soak/24-oz` — every size shares one count), or list your existing SKUs under the product's **Square SKUs** field here. If a register sale can't be matched you get an email naming the item; fix its SKU, then adjust the Stock count for the ones already sold. **Site settings → Shop → Sync stock with Square** pauses it. Correct counts here, never in Square — the site is the boss of the number and overwrites Square's within the hour.
+
 
 | Desired Storefront Experience | What Customers See | How to Configure in `/admin` |
 |---|---|---|
 | **1. Made-to-Order / Unlimited** | Standard active "Add to Cart" button | Leave **Stock count** blank (empty) and ensure **In stock** is checked. |
-| **2. Low-Stock Urgency Badge** | "Only 3 left!, order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count**, or set any number and let sales bring it down to 5. |
-| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock**, or let the last unit sell; the live count reaching 0 does the same. |
-| **4. Single Variant Sold Out** | Size dropdown displays option greyed out (e.g. "1 oz, sold out"; unclickable) | Expand **Variants → Options**, find that option, and switch **Sold out?** to `ON`. *Never delete the option, so customers know you make it and it will return!* |
+| **2. Low-Stock Urgency Badge** | "Only 3 left! — order soon" warning badge on card | Enter a number from `1` to `5` in **Stock count** — or set any number and let sales bring it down to 5. |
+| **3. Entire Product Sold Out** | "Sold Out" badge; buy button replaced with "Email Me When Restocked" signup | Enter `0` in **Stock count** OR uncheck **In stock** — or let the last unit sell; the live count reaching 0 does the same. |
+| **4. Single Variant Sold Out** | Size dropdown displays option greyed out (e.g. "1 oz — sold out"; unclickable) | Expand **Variants → Options**, find that option, and switch **Sold out?** to `ON`. *Never delete the option, so customers know you make it and it will return!* |
 | **5. Coming Soon / Launch Signup** | "Coming Soon" badge; buy button replaced with "Email Me When It Launches" signup | Switch **Coming soon** to `ON` (checked). |
+
+---
 
 ### Walkthrough 2: Multi-Buy Volume Deals (`volumePricing`)
 
@@ -178,17 +194,19 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 1. In `/admin`, open **Shop & Catalog Settings** in the left sidebar.
 2. Click to expand **Multi-buy deals**.
 3. Click an existing rule (e.g., `2 oz Salve Multi-Buy`) or click **Add Deal**:
-   - Deal ID: A clean lowercase code with dashes (e.g. `salves-2oz`, `soaks-multi`).
-   - Deal name: A descriptive title for your reference (e.g. `2 oz Salve Multi-Buy`).
-   - Category: Select the category from the dropdown (e.g. `Salves & Balms`).
+   - **Deal ID**: A clean lowercase code with dashes (e.g. `salves-2oz`, `soaks-multi`).
+   - **Deal name**: A descriptive title for your reference (e.g. `2 oz Salve Multi-Buy`).
+   - **Category**: Select the category from the dropdown (e.g. `Salves & Balms`).
    - **Qualifying variant** *(optional)*:
      - Type a specific variant label (e.g. `2 oz`) if the deal only applies to that specific size. (1 oz jars or balves in other sizes remain unaffected).
      - Leave blank if *all* products and sizes in that category qualify.
-   - Minimum quantity: The quantity threshold needed to activate the discount (e.g. `2`).
-   - Discounted unit price ($): The discounted unit price (e.g. `15`).
-   - Deal badge wording: The badge copy shown on product cards and cart summaries (e.g. `2+ for $15 each`).
-   - Deal enabled: Toggle `ON` to run the deal, or toggle `OFF` to pause the promotion anytime without deleting your setup.
+   - **Minimum quantity**: The quantity threshold needed to activate the discount (e.g. `2`).
+   - **Discounted unit price ($)**: The discounted unit price (e.g. `15`).
+   - **Deal badge wording**: The badge copy shown on product cards and cart summaries (e.g. `2+ for $15 each`).
+   - **Deal enabled**: Toggle `ON` to run the deal, or toggle `OFF` to pause the promotion anytime without deleting your setup.
 4. Click **Save**.
+
+---
 
 ### Walkthrough 3: Category Sales & Single-Item Sales
 
@@ -196,9 +214,9 @@ Multi-buy deals encourage customers to mix and match multiple items within a cat
 Put an entire category on sale at once (e.g. 15% off all *Body & Skin*):
 1. In `/admin` → **Shop & Catalog Settings**, open **Category sales**.
 2. Click **Add Sale**.
-3. Which category is on sale: Pick the category from the dropdown (e.g. `Body & Skin`).
-4. Percent off: Type the percentage discount (e.g. `15` for 15% off).
-5. Sale name customers see: Enter the badge headline (e.g. `Spring Body Care Sale`).
+3. **Which category is on sale**: Pick the category from the dropdown (e.g. `Body & Skin`).
+4. **Percent off**: Type the percentage discount (e.g. `15` for 15% off).
+5. **Sale name customers see**: Enter the badge headline (e.g. `Spring Body Care Sale`).
 6. Click **Save**. Every item in that category automatically shows a sale badge, calculated discount price, and crossed-out regular price.
 
 #### B. Single-Product Sale
@@ -209,19 +227,23 @@ Put just one item on flash sale:
 4. In **Original price**, enter the regular price (e.g. `20`) so the crossed-out comparison price appears.
 5. Click **Save**.
 
+---
+
 ### Walkthrough 4: Curated Gift Sets & Bundles (`bundles`)
 
 Bundles are pre-curated collections (like the *Grit & Grace Starter Set* or *Discovery Flight*).
 
-- Dynamic Math (No Price to Type!): Bundle prices calculate automatically from the live prices of whatever items are inside, minus your discount percentage. If you update a salve's price, every bundle containing that salve recalculates its price automatically.
-- How to Create or Edit a Bundle:
+- **Dynamic Math (No Price to Type!)**: Bundle prices calculate automatically from the live prices of whatever items are inside, minus your discount percentage. If you update a salve's price, every bundle containing that salve recalculates its price automatically.
+- **How to Create or Edit a Bundle**:
   1. In `/admin` → **Shop & Catalog Settings**, open **Gift bundles**.
   2. Click **Add Bundle** or click an existing bundle to edit.
-  3. Bundle name: Give your gift set a warm name (e.g. `Backwoods Burnout Recovery Kit`).
-  4. Products in this bundle: Select 2 or more products by typing and clicking their real product names from the searchable dropdown list.
-  5. Discount percent: Enter the discount percentage (e.g. `10` for 10% off, or `15` for 15% off).
-  6. Bundle description: Write a vivid description of who it's for and what's inside.
+  3. **Bundle name**: Give your gift set a warm name (e.g. `Backwoods Burnout Recovery Kit`).
+  4. **Products in this bundle**: Select 2 or more products by typing and clicking their real product names from the searchable dropdown list.
+  5. **Discount percent**: Enter the discount percentage (e.g. `10` for 10% off, or `15` for 15% off).
+  6. **Bundle description**: Write a vivid description of who it's for and what's inside.
   7. Click **Save**.
+
+---
 
 ### Walkthrough 5: Shop Settings, Technical Filters & Navigation
 
@@ -238,8 +260,8 @@ At the top of **Shop & Catalog Settings**:
 #### The phone filter bar
 
 On a phone the shop no longer shows every category and vibe button above
-the products. Customers get one row, the search box, a **Filter** button
-(with a little count of how many filters are on) and a **Sort** button, and
+the products. Customers get one row -- the search box, a **Filter** button
+(with a little count of how many filters are on) and a **Sort** button -- and
 tapping either slides up a panel holding the same category, vibe, scent
 and sort choices. Filters they pick show as small removable chips above the
 products, with a **Clear all** next to them. Tablets and computers still show
@@ -262,11 +284,13 @@ yours too: **Site Settings → Shop page → Phone filter bar wording**.
 
 Leave any field blank to keep the standard wording. Like the rest of the
 site's copy, new wording is picked up by the translation run described in
-"A note on the other five languages" above, write it in English only.
+"A note on the other five languages" above -- write it in English only.
+
+---
 
 ### Walkthrough 5a: Promo codes (discount codes)
 
-Promo codes are **not** created in the dashboard, they live in Stripe, which
+Promo codes are **not** created in the dashboard -- they live in Stripe, which
 is what actually takes the money off. The click-by-click for making one is in
 `docs/SETUP-GUIDE.md`, Step 3, part E. What the dashboard controls is how the
 shop *presents* them:
@@ -274,15 +298,15 @@ shop *presents* them:
 | Setting | Where to Find It | What It Controls |
 |---|---|---|
 | **Accept promo codes in the cart** | `Site Settings` -> `⚙️ Site Settings` -> `Shop · Accept promo codes in the cart` | ON (the default) adds a "Have a code?" box to the cart, beside the gift card one. The shop checks the code with Stripe the moment it is typed and shows the discount and the new total *before* checkout, so nobody finds out on the payment page. OFF hides the box; Stripe's own code field on the payment page still works. Codes never apply to a gift card purchase, and can't be combined with a gift card. |
-| **Promo code prompt** | same screen -> `Shop · Promo code prompt` | The words on that box ("Have a code?"). Keep it short, it shares a row with the gift card prompt. |
+| **Promo code prompt** | same screen -> `Shop · Promo code prompt` | The words on that box ("Have a code?"). Keep it short -- it shares a row with the gift card prompt. |
 | **Promo code + gift card notice** | same screen -> `Shop · Promo code + gift card notice` | The sentence shown when someone has a gift card applied and enters a promo code too. Stripe allows **one** discount per order, so the code waits (it is kept, greyed out) until the gift card is removed. |
 
 Things worth knowing:
 
 - A code is checked twice: once in the cart (so the total is right) and again
   at checkout (so the total Stripe charges is the one the cart showed). A code
-  that stops working in between, expired, used up, or the cart dropped under
-  its minimum, is taken off with a plain sentence, never silently charged at
+  that stops working in between -- expired, used up, or the cart dropped under
+  its minimum -- is taken off with a plain sentence, never silently charged at
   full price.
 - The cart re-checks a code on its own when the cart changes, so a
   "$50 minimum" code that was applied at $60 comes off (and says why) if the
@@ -293,13 +317,13 @@ Things worth knowing:
   and never the code's internal ids.
 - Coupons in Stripe that are limited to specific Stripe *products* do not work
   here (the shop builds its prices at checkout time rather than from Stripe's
-  product catalog), make coupons that apply to the whole order.
+  product catalog) -- make coupons that apply to the whole order.
 - Free shipping is not something a code can grant: Stripe discounts the goods,
   never the postage. Use the free-shipping threshold for that.
 
 ### Walkthrough 5b: Marking an order shipped
 
-This is the one thing in the shop that is done in **Stripe**, not in the CMS , 
+This is the one thing in the shop that is done in **Stripe**, not in the CMS —
 and it is what sends your customer their tracking number.
 
 1. Open the payment in Stripe (**Payments** → click the order).
@@ -313,18 +337,18 @@ and it is what sends your customer their tracking number.
 | `shipped_at` | the date, however you like to write it |
 
 Saving that does three things. Their order-status page starts saying **Shipped**
-straight away. Then, **within the hour**, the site checks Stripe for newly
+straight away. Then, **within the hour** — the site checks Stripe for newly
 shipped orders once an hour, because Stripe does not announce this kind of edit
-on its own, the customer gets a "your order just left Landrum" email with the
+on its own — the customer gets a "your order just left Landrum" email with the
 tracking button in it, and the "how to use it" email is re-timed to arrive a few
 days after the box does instead of a few days after they paid. So if you mark
 something shipped at 2:05 and the customer has nothing by 2:10, that is normal;
 by 3:10 it should be there.
 
-> **💡 The Easy Way:** Instead of logging into Stripe, you can use the **Fulfillment Dashboard** built right into your CMS! Sign in at `/admin` with GitHub exactly the way you already do to edit the site, then click the blue "Fulfillment Dashboard" button in the top right. That is the whole sign-in, there is no password to remember any more, and nothing extra to type: if you can edit the site, you can ship orders. The dashboard lists every unshipped order; paste your tracking links in and click "Mark Shipped" to push the update to Stripe automatically. If it ever tells you that you are signed out, click its **Sign in to the CMS** link, sign in there, come back to the dashboard and press **Check again**, no harm done. The page as a whole accepts thirty requests a minute (about one page load plus a click per order), after which it asks you to wait a minute. A tracking link has to be a real `http://` or `https://` address; anything else is refused with a message rather than saved.
+> **💡 The Easy Way:** Instead of logging into Stripe, you can use the **Fulfillment Dashboard** built right into your CMS! Sign in at `/admin` with GitHub exactly the way you already do to edit the site, then click the blue "Fulfillment Dashboard" button in the top right. That is the whole sign-in — there is no password to remember any more, and nothing extra to type: if you can edit the site, you can ship orders. The dashboard lists every unshipped order; paste your tracking links in and click "Mark Shipped" to push the update to Stripe automatically. If it ever tells you that you are signed out, click its **Sign in to the CMS** link, sign in there, come back to the dashboard and press **Check again** — no harm done. The page as a whole accepts thirty requests a minute (about one page load plus a click per order), after which it asks you to wait a minute. A tracking link has to be a real `http://` or `https://` address; anything else is refused with a message rather than saved.
 
 **Put the status and the tracking link in the same save.** The email only sends
-once per order, on purpose, so fixing a typo later cannot mail somebody twice , 
+once per order — on purpose, so fixing a typo later cannot mail somebody twice —
 so a tracking link added afterwards will show on their order page but will not
 have been in the email they already got.
 
@@ -337,21 +361,23 @@ shipping window instead of a real one.
 Both live in **Site Settings → ⚙️ Site Settings**, near the "Emails to me"
 switches:
 
-- **Send a "how to use it" note after delivery**, off stops it completely,
+- **Send a "how to use it" note after delivery** — off stops it completely,
   including the ones already waiting in the queue. Products with the
   **Usage & care** section left blank are skipped either way.
-- **Days after shipping to send it**, counted from the day you mark the order
+- **Days after shipping to send it** — counted from the day you mark the order
   shipped, not from when it was paid for. Four days is the default, which lands
   it just after most parcels do.
 
 The tracking email itself has no switch: it is a fact about somebody's parcel,
 so it always sends.
 
+---
+
 ### Walkthrough 5c: The "Your Orders" page
 
 `/orders.html` lets a customer who has bought here before see every order
-placed with their email, what they bought, the total, whether it has shipped,
-the tracking link, and put the same things back in their cart with one
+placed with their email — what they bought, the total, whether it has shipped,
+the tracking link — and put the same things back in their cart with one
 button. **There are no accounts and no passwords.** They type the email they
 ordered with, the shop emails them a link, and the link opens their orders.
 The link works once and dies after 24 hours; if they want to look again they
@@ -363,7 +389,7 @@ same signing secret the points links use.
 **What you can change (Site Settings → Your Orders page):** the small line
 above the headline, the headline, the intro paragraph, the email box label
 and the note under it, the button text, and the confirmation shown after the
-button is pressed. One rule for the confirmation: keep it neutral, "if we
+button is pressed. One rule for the confirmation: keep it neutral — "if we
 have orders for that address, a link is on its way". The page shows exactly
 the same words whether or not that email has ever ordered, so nobody can type
 someone else's address into it to find out if they shop here.
@@ -377,37 +403,39 @@ everything.
 **Points:** if **Show Customer Rewards Points** is on, the page also shows the
 customer's Alt-Points balance and how far they are from the next reward code.
 
+---
+
 ### Walkthrough 6: Pop-Ups, Reviews, Blog, Social Feed & Site Settings
 
 #### A. Pop-Up Markets & Pride Events (Markets & Pop-Ups)
 1. Click **Markets & Pop-Ups** in the sidebar.
 2. Click **Add Event** under **Upcoming pop-ups**.
 3. Fill in the event title, start date (and end date if multi-day), friendly date label (e.g. `Saturday, Oct 12 · 9am–2pm`), location, and event link.
-4. ⚠️ Crucial Sales Tax Note: Always enter the **5-digit ZIP code** for any market where customers can select "Local Market Pickup" during online checkout. Sales tax in South Carolina is based on the exact pickup location, so the ZIP code ensures accurate tax calculation.
+4. **⚠️ Crucial Sales Tax Note**: Always enter the **5-digit ZIP code** for any market where customers can select "Local Market Pickup" during online checkout. Sales tax in South Carolina is based on the exact pickup location, so the ZIP code ensures accurate tax calculation.
 
-#### A2. Workshops & Classes, selling tickets on the website
-Your own ticketed nights (like Potions & Pour Decisions) live in their own list, and people can buy tickets right on the site, no Square link to build.
+#### A2. Workshops & Classes — selling tickets on the website
+Your own ticketed nights (like Potions & Pour Decisions) live in their own list, and people can buy tickets right on the site — no Square link to build.
 
 1. Click **Markets & Pop-Ups** in the sidebar, then **Add Workshop** under **Workshops & classes**.
 2. Fill in:
    - **Workshop name** and **Date**.
-   - **Date & time as shown on the page**, put the start time in (e.g. `Friday, November 6, 2026 · 6:30pm`). The homepage countdown counts down to that time.
-   - **Ticket price ($)**, per person, e.g. `60`.
-   - **Tickets available**, how many the website can sell. It counts down by itself as people buy. Only change it to correct the number left (say, after selling a few in person).
-   - **Town**, **Venue**, **Street address** and **ZIP**, the ZIP also lets shoppers pick up online orders at the workshop.
-   - **Short description**, one or two sentences that sell the night. Leave out the price, date and "limited spots": the card already shows those.
-   - **What's included**, one short item per line (e.g. `An 8 oz botanical bath soak, your scents`).
-   - **Good to know**, one line (e.g. `No experience needed. 21+ for the wine; mocktails for everyone.`).
-   - **Ticket image** (optional), shows next to the ticket in the cart and at checkout. Without one, the logo is used.
-3. Leave **Outside ticket link** blank to sell on the website. Only fill it in if you're selling somewhere else (Square, Eventbrite), the button then sends people there instead.
+   - **Date & time as shown on the page** — put the start time in (e.g. `Friday, November 6, 2026 · 6:30pm`). The homepage countdown counts down to that time.
+   - **Ticket price ($)** — per person, e.g. `60`.
+   - **Tickets available** — how many the website can sell. It counts down by itself as people buy. Only change it to correct the number left (say, after selling a few in person).
+   - **Town**, **Venue**, **Street address** and **ZIP** — the ZIP also lets shoppers pick up online orders at the workshop.
+   - **Short description** — one or two sentences that sell the night. Leave out the price, date and "limited spots": the card already shows those.
+   - **What's included** — one short item per line (e.g. `An 8 oz botanical bath soak, your scents`).
+   - **Good to know** — one line (e.g. `No experience needed. 21+ for the wine; mocktails for everyone.`).
+   - **Ticket image** (optional) — shows next to the ticket in the cart and at checkout. Without one, the logo is used.
+3. Leave **Outside ticket link** blank to sell on the website. Only fill it in if you're selling somewhere else (Square, Eventbrite) — the button then sends people there instead.
 4. **Save.** A few minutes later the Events page shows the workshop with a **Buy Tickets** button, a **Share** button (texts or copies a link straight to the workshop), and "Only 3 spots left" / "Sold out" as tickets go.
 
 Good to know:
 - Tickets go through the same checkout as the shop. There's no shipping and no sales tax on a ticket. Each order shows up in your order emails and the fulfillment dashboard like any other.
-- Leave the price or the number of tickets blank and the card says "Tickets coming soon", handy for announcing a night before tickets open.
+- Leave the price or the number of tickets blank and the card says "Tickets coming soon" — handy for announcing a night before tickets open.
 - Renaming a workshop is safe, even after tickets have sold: the **Workshop ID** fills itself in the first time you save and never changes, so the count and any shared links carry on.
-- **Moving the date of a workshop that hasn't happened yet** (a postponement) keeps its tickets: the people who bought still have their spots, the count left carries on, and shared links still work. Move it by the end of the night it was meant to happen, from the next day on, a new date counts as a brand-new workshop (below).
-- **Giving a past workshop a new date**, say, reusing last month's Potions & Pour Decisions for next month, starts a fresh workshop: it gets a new Workshop ID when it's published, and its ticket count starts again from **Tickets available**, so check that number is right for the new night. Links people shared to the past night stay with the past night, which stays in "Where We've Been".
+- **Moving the date of a workshop that hasn't happened yet** (a postponement) keeps its tickets: the people who bought still have their spots, the count left carries on, and shared links still work. Move it by the end of the night it was meant to happen — from the next day on, a new date counts as a brand-new workshop (below).
+- **Giving a past workshop a new date** — say, reusing last month's Potions & Pour Decisions for next month — starts a fresh workshop: it gets a new Workshop ID when it's published, and its ticket count starts again from **Tickets available**, so check that number is right for the new night. Links people shared to the past night stay with the past night, which stays in "Where We've Been".
 - The day after the workshop it moves itself to "Where We've Been" and ticket sales close.
 
 #### B. Publishing Customer Reviews (Customer Reviews)
@@ -422,7 +450,7 @@ Good to know:
 3. Enter the title, date, and a **Short teaser** (1–2 sentences for card previews; it is also the description search engines and social cards show for the post).
 4. Write your story in the main content box using the formatting toolbar (bold, italics, headings, bullet lists).
 5. Estimated reading time calculates automatically when published!
-6. **Every post gets its own web page**, built from the title the **first** time you save (so "Why Magnesium & Arnica?" becomes `yallternativeliving.com/journal/why-magnesium-arnica.html`), that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. It never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
+6. **Every post gets its own web page**, built from the title the **first** time you save (so "Why Magnesium & Arnica?" becomes `yallternativeliving.com/journal/why-magnesium-arnica.html`) -- that is the address the Journal list, the RSS feed, search engines and social cards all use, so it is the one to share. It never changes afterwards, even if you retitle the post, so a link you have already shared keeps working. You never type the address yourself. The featured product you pick shows as a card on the post page with a link to that product's own page and a one-click **Add to Cart**.
 
 #### D. Live Instagram Community Feed
 Your Instagram feed is connected directly to your `@yallternativeliving` account via Behold.
@@ -431,8 +459,8 @@ Whenever you post photos or reels on Instagram, they automatically appear on the
 #### E. Site Settings (Site Settings)
 1. Click **Site Settings**.
 2. Update homepage headlines, About page story text, or swap non-product photos (homepage hero banner, About bio photo, site logos).
-3. Under **Switches & branding** (the first thing in the Site Settings section), you can toggle features on or off anytime with simple checkboxes, including **Show live chat (Tawk.to)**, which hides the chat bubble everywhere without losing your Tawk.to IDs:
-   - Restock Email Alerts (a request now really is emailed to the shop, it
+3. Under **Switches & branding** (the first thing in the Site Settings section), you can toggle features on or off anytime with simple checkboxes -- including **Show live chat (Tawk.to)**, which hides the chat bubble everywhere without losing your Tawk.to IDs:
+   - Restock Email Alerts (a request now really is emailed to the shop -- it
      used to be accepted and discarded)
    - Apothecary Recommendation Quiz
    - Local Market Pickup
@@ -460,7 +488,7 @@ Whenever you post photos or reels on Instagram, they automatically appear on the
      threshold, whatever this switch says; the earn message, the cart counter
      and the redeem button stay removed. What the switch DOES control is
      whether the customer's balance is shown on the **Your Orders** page
-     (Walkthrough 5c), off hides it there.
+     (Walkthrough 5c) -- off hides it there.
    - **Show Order Lookup Tool** (`enableOrderStatusLookup`). `/order-status`
      now does a real lookup against Stripe (reference + email); off hides the
      lookup form and shows the contact route instead.
@@ -471,12 +499,12 @@ When traveling between pop-up markets, taking time off for the holidays, or expe
 2. Scroll down to **Seasonal Hiatus & Shipping Delay Notice (Turn on/off)**.
 3. Check **Turn on notice** to make it visible.
 4. Configure where it appears:
-   - Show in top header bar: Puts the announcement directly in the top bar on every page (on the homepage it loops with the countdown ticker; on other pages it forms a prominent top banner).
-   - Show in shopping cart drawer: Displays an amber warning banner at the top of the slide-out cart so shoppers see it before checking out.
+   - **Show in top header bar**: Puts the announcement directly in the top bar on every page (on the homepage it loops with the countdown ticker; on other pages it forms a prominent top banner).
+   - **Show in shopping cart drawer**: Displays an amber warning banner at the top of the slide-out cart so shoppers see it before checking out.
 5. Customize the wording:
    - **Headline** (e.g. *Holiday Break & Shipping Notice*)
    - **Message** (e.g. *Orders placed after Dec 18 will ship Jan 5...*)
-6. When you return: Simply uncheck **Turn on notice** and click **Save**. The notice disappears completely from both the header and cart drawer, while your message stays saved in the form so you don't have to retype it next time!
+6. **When you return:** Simply uncheck **Turn on notice** and click **Save**. The notice disappears completely from both the header and cart drawer, while your message stays saved in the form so you don't have to retype it next time!
 
 #### G. Interactive Apothecary Product Quiz
 Shoppers on the Shop page can take a 3-step quiz to find their personalized product match.
@@ -485,19 +513,23 @@ Shoppers on the Shop page can take a 3-step quiz to find their personalized prod
    - **Quiz eyebrow**, **Quiz headline**, and **Quiz subtitle**.
 3. Edit questions & options:
    - For each option, you can easily select:
-     - Hero Products (multi-select chips): Specific products to recommend when chosen.
-     - Store Vibes (multi-select chips): Which vibe filters this choice boosts (e.g., Wind-Down & Relaxation, Sore Muscles).
-     - Target Categories (multi-select chips): Boosts specific categories (e.g., salves, soaks).
+     - **Hero Products (multi-select chips)**: Specific products to recommend when chosen.
+     - **Store Vibes (multi-select chips)**: Which vibe filters this choice boosts (e.g., Wind-Down & Relaxation, Sore Muscles).
+     - **Target Categories (multi-select chips)**: Boosts specific categories (e.g., salves, soaks).
 4. All technical plumbing (DOM IDs, input names, scoring weights) is managed automatically behind the scenes!
+
+---
 
 ## 4. Photos & Media
 
-- Uploading Photos via `/admin`: Whenever you upload a product photo or gallery image in `/admin`, the build system automatically converts it into modern, blazing-fast responsive formats (AVIF and WebP) during deploy.
-- Local / Direct Image Addition: If you or Steven add images directly to `assets/img/`, name them cleanly (e.g. `sleep-salve.jpg`, `sleep-salve-alt1.jpg`), then run `npm run optimize-images`.
-- Replacing Placeholder Photos: Five products currently have temporary placeholder badges (`Y'all Means All Sugar Scrub`, `Y'all Means All Rainbow Whipped Body Butter`, `Appalachian Rain Clearing Mist`, `Moonlit Meadow Bath Tea`, and `Porch Sweep Clearing Mist`). To launch them:
+- **Uploading Photos via `/admin`:** Whenever you upload a product photo or gallery image in `/admin`, the build system automatically converts it into modern, blazing-fast responsive formats (AVIF and WebP) during deploy.
+- **Local / Direct Image Addition:** If you or Steven add images directly to `assets/img/`, name them cleanly (e.g. `sleep-salve.jpg`, `sleep-salve-alt1.jpg`), then run `npm run optimize-images`.
+- **Replacing Placeholder Photos:** Five products currently have temporary placeholder badges (`Y'all Means All Sugar Scrub`, `Y'all Means All Rainbow Whipped Body Butter`, `Appalachian Rain Clearing Mist`, `Moonlit Meadow Bath Tea`, and `Porch Sweep Clearing Mist`). To launch them:
   1. Upload the real product photo in `/admin`.
   2. Switch **Coming soon** to `OFF`.
   3. Hit **Save**. The product is immediately live and buyable!
+
+---
 
 ## 5. The "Edit the File" Way (For Developers & Terminal Work)
 
@@ -512,11 +544,15 @@ If Steven or a developer wants to update the catalog directly in code:
    export PATH="/opt/homebrew/bin:$PATH"; npm test
    ```
 
+---
+
 ## 6. What Requires Developer Help
 
 The dashboard gives you control over your entire catalog, promotions, pricing, markets, reviews, and page wording. Only a few structural elements still require a quick edit from Steven:
 - Modifying legal policy text on `privacy.html`, `terms.html`, or `policies.html`.
 - Modifying global CSS layouts or adding entirely new page templates.
+
+---
 
 ## 7. Quick Reference Cheat Sheet
 
@@ -526,7 +562,7 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Add size/scent option** | `1. Products` → `Variants` → Add option with `priceDelta` | Dropdown picker appears on product page |
 | **Mark one size sold out** | `1. Products` → `Variants` → Switch `Sold out?` to ON | Size shows as greyed-out "(Sold out)" in picker |
 | **Mark whole item sold out** | `1. Products` → Set `Stock count` to 0 or uncheck `In stock` | Shows "Sold Out" badge & Restock Email signup |
-| **Show low stock urgency** | `1. Products` → Set `Stock count` to 1, 2, 3, 4, or 5 | Shows "Only X left!, order soon" badge |
+| **Show low stock urgency** | `1. Products` → Set `Stock count` to 1, 2, 3, 4, or 5 | Shows "Only X left! — order soon" badge |
 | **Restock a sold-out item** | `1. Products` → Set `Stock count` to the new number | The live count resets to it; badge and buy button follow at once |
 | **Hide live counts on the shop** | `Site settings` → `Shop` → untick `Show live stock counts` | Cards show the last-published count; checkout still uses the live one |
 | **Match a Square register item to a product** | Square Dashboard → the item → `SKU` = the product's ID (or list it under `1. Products` → `Square SKUs`) | Register sales count the Stock count down; the register shows the site's live count |
@@ -549,5 +585,7 @@ The dashboard gives you control over your entire catalog, promotions, pricing, m
 | **Change the wording on the Your Orders page** | `Site Settings` → `Your Orders page` | Headline, intro, labels, button, confirmation (Walkthrough 5c) |
 | **Hide the Your Orders page** | `Site Settings` → `⚙️ Site Settings` → `Shop · Show the Your Orders page` | Off hides its links and shows an "email us" note on the page |
 | **Choose where "something broke" alerts go** | `Site Settings` → `⚙️ Site Settings` → `Emails to me · Where shop alerts go` | Failures behind the scenes are emailed there (blank = the order mailbox), at most one per problem every six hours |
+
+---
 
 *Made with love in Landrum, South Carolina. Y'all Means All.*
