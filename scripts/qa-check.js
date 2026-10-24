@@ -5810,6 +5810,20 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     fail("robots.txt", "file not found");
   }
 
+  // 6c. IndexNow ownership verification key file (<key>.txt) exists at site root.
+  var indexNowKey = "8a4e9f2c6b1d7035e4a8c9f01234b567";
+  var indexNowPath = path.join(ROOT, indexNowKey + ".txt");
+  if (fs.existsSync(indexNowPath)) {
+    var indexNowContent = fs.readFileSync(indexNowPath, "utf8").trim();
+    if (indexNowContent === indexNowKey) {
+      ok("IndexNow verification key file (" + indexNowKey + ".txt) matches key");
+    } else {
+      fail("IndexNow key file", indexNowKey + ".txt content does not match key");
+    }
+  } else {
+    fail("IndexNow key file", indexNowKey + ".txt not found -- run npm run build-data");
+  }
+
   // 7. sw.js includes /assets/js/locales-data.js and /assets/js/translator.js in ASSETS_TO_CACHE
   var swPath = path.join(ROOT, "sw.js");
   if (fs.existsSync(swPath)) {

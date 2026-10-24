@@ -57,6 +57,7 @@ const targetDirs = [
 const targetFiles = [
   path.join(ROOT, "sitemap.xml"),
   path.join(ROOT, "robots.txt"),
+  path.join(ROOT, "8a4e9f2c6b1d7035e4a8c9f01234b567.txt"),
   path.join(ROOT, "llms.txt"),
   path.join(ROOT, "llms-full.txt"),
   path.join(ROOT, "feed.xml"),

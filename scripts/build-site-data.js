@@ -5476,6 +5476,16 @@ function buildSiteData() {
     "/sitemap.xml\n";
   writeFile("robots.txt", robotsTxt);
 
+  /* ---------- 5b-ii) IndexNow ownership verification key (<key>.txt) ----------
+   IndexNow (https://www.indexnow.org/documentation) lets the site push URL
+   updates directly to Bing, Microsoft Copilot, ChatGPT Search, DuckDuckGo,
+   Yandex, Naver and Seznam without a login or DNS record: the root hosts a
+   UTF-8 text file `<key>.txt` whose body equals `<key>`, and
+   `scripts/submit-indexnow.js` (`npm run indexnow`) POSTs the sitemap URL
+   list to `https://api.indexnow.org/indexnow`. */
+  const INDEXNOW_KEY = "8a4e9f2c6b1d7035e4a8c9f01234b567";
+  writeFile(INDEXNOW_KEY + ".txt", INDEXNOW_KEY + "\n");
+
   /* ---------- 5d) /.well-known/security.txt (RFC 9116) ----------
    A shop that takes card payments through Stripe and publishes a MoCRA
    adverse-event address had no machine-readable way for anyone to report a
