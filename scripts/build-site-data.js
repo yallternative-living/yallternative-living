@@ -5417,6 +5417,10 @@ function buildSiteData() {
   const rssXml = generateRssFeed(JOURNAL, DOMAIN, { includeItems: journalPublished });
   writeFile("feed.xml", rssXml);
 
+  /* ---------- 5c-ii) merchant-feed.xml (Google Merchant Center RSS 2.0) ---------- */
+  const merchantXml = generateMerchantFeed(PRODUCTS, CATEGORY_LABEL, DOMAIN);
+  writeFile("merchant-feed.xml", merchantXml);
+
   /* ---------- 5b) robots.txt ----------
    Previously a hand-maintained static file -- its one dynamic bit (the
    Sitemap: line) had to be manually kept in sync with the DOMAIN
@@ -9323,6 +9327,169 @@ function generateRssFeed(journalData, domainUrl, options) {
     DOMAIN_URL +
     '/feed.xml" rel="self" type="application/rss+xml"/>\n' +
     (rssItems ? rssItems + "\n" : "") +
+    "  </channel>\n" +
+    "</rss>\n"
+  );
+}
+
+/**
+ * Generates an official Google Merchant Center RSS 2.0 XML product feed
+ * (`xmlns:g="http://base.google.com/ns/1.0"`) from the canonical product
+ * catalog so Merchant Center's "Add products from a file" auto-syncs all
+ * physical products whenever Savanna updates the catalog in Sveltia CMS.
+ *
+ * Digital gift cards (`yallternative-gift-card`) are omitted per Google
+ * Merchant Center policy (and matching `generateProductJsonLd`).
+ *
+ * @param {!Array<!Object>} products Canonical products array.
+ * @param {!Object<string, string>} categoryLabelMap Category slug to display label map.
+ * @param {string=} domainUrl Canonical site origin.
+ * @return {string} Complete UTF-8 XML feed string.
+ */
+function generateMerchantFeed(products, categoryLabelMap, domainUrl) {
+  const DOMAIN_URL = (domainUrl || "https://yallternativeliving.com").replace(/\/+$/, "");
+  const catMap = categoryLabelMap || {};
+  const list = Array.isArray(products) ? products : [];
+
+  const GOOGLE_CATEGORY_BY_SLUG = {
+    wear: "Apparel & Accessories > Clothing > Shirts & Tops",
+    soaks: "Health & Beauty > Personal Care > Cosmetics > Bath & Body > Bath Salts & Soaks",
+    salves: "Health & Beauty > Personal Care > Cosmetics > Skin Care",
+    body: "Health & Beauty > Personal Care > Cosmetics > Skin Care",
+    ritual: "Home & Garden > Household Supplies > Air Fresheners",
+    potions: "Health & Beauty > Personal Care > Cosmetics > Skin Care"
+  };
+
+  const itemsXml = list
+    .filter(function (product) {
+      return product && product.id && product.id !== "yallternative-gift-card";
+    })
+    .map(function (product) {
+      const prodId = String(product.id);
+      const sku = String(product.sku || prodId);
+      const mpn = String(product.mpn || sku);
+      const title = xmlText(product.name || "Y'allternative Living Product");
+      const desc = xmlText(product.description || product.name || "");
+      const link = xmlText(DOMAIN_URL + "/products/" + encodeURIComponent(prodId) + ".html");
+
+      const images = [];
+      if (product.image) {
+        const mainImg = /^https?:\/\//i.test(product.image)
+          ? product.image
+          : DOMAIN_URL + "/" + rasterImagePath(product.image, "product");
+        images.push(mainImg);
+      }
+      if (Array.isArray(product.images)) {
+        product.images.forEach(function (img) {
+          if (!img) return;
+          const fullImg = /^https?:\/\//i.test(img)
+            ? img
+            : DOMAIN_URL + "/" + rasterImagePath(img, "product");
+          if (images.indexOf(fullImg) === -1) {
+            images.push(fullImg);
+          }
+        });
+      }
+
+      const mainImageXml = images.length
+        ? "      <g:image_link>" + xmlText(images[0]) + "</g:image_link>\n"
+        : "";
+      const additionalImagesXml = images
+        .slice(1, 11)
+        .map(function (imgUrl) {
+          return (
+            "      <g:additional_image_link>" + xmlText(imgUrl) + "</g:additional_image_link>\n"
+          );
+        })
+        .join("");
+
+      const schemaAvail = schemaAvailability(product);
+      let gAvailability = "in_stock";
+      if (schemaAvail === "https://schema.org/OutOfStock") {
+        gAvailability = "out_of_stock";
+      } else if (schemaAvail === "https://schema.org/PreOrder") {
+        gAvailability = "preorder";
+      }
+
+      const range = variantPriceRange(product);
+      const priceStr = range.low.toFixed(2) + " USD";
+      const shippingRateStr = range.low >= 40 ? "0.00 USD" : "10.00 USD";
+      const catSlug = String(product.category || "");
+      const productType = xmlText(catMap[catSlug] || catSlug || "Apothecary");
+      const googleCategory = xmlText(
+        GOOGLE_CATEGORY_BY_SLUG[catSlug] ||
+          "Health & Beauty > Personal Care > Cosmetics > Skin Care"
+      );
+
+      let apparelTags = "";
+      if (catSlug === "wear") {
+        apparelTags =
+          "      <g:age_group>adult</g:age_group>\n" +
+          "      <g:gender>unisex</g:gender>\n" +
+          "      <g:color>Black</g:color>\n" +
+          "      <g:size>S/M/L/XL/2XL</g:size>\n";
+      }
+
+      return (
+        "    <item>\n" +
+        "      <g:id>" +
+        xmlText(sku) +
+        "</g:id>\n" +
+        "      <g:title>" +
+        title +
+        "</g:title>\n" +
+        "      <g:description>" +
+        desc +
+        "</g:description>\n" +
+        "      <g:link>" +
+        link +
+        "</g:link>\n" +
+        mainImageXml +
+        additionalImagesXml +
+        "      <g:availability>" +
+        gAvailability +
+        "</g:availability>\n" +
+        "      <g:price>" +
+        priceStr +
+        "</g:price>\n" +
+        "      <g:brand>Y'allternative Living</g:brand>\n" +
+        "      <g:mpn>" +
+        xmlText(mpn) +
+        "</g:mpn>\n" +
+        "      <g:identifier_exists>no</g:identifier_exists>\n" +
+        "      <g:condition>new</g:condition>\n" +
+        "      <g:product_type>" +
+        productType +
+        "</g:product_type>\n" +
+        "      <g:google_product_category>" +
+        googleCategory +
+        "</g:google_product_category>\n" +
+        apparelTags +
+        "      <g:shipping>\n" +
+        "        <g:country>US</g:country>\n" +
+        "        <g:price>" +
+        shippingRateStr +
+        "</g:price>\n" +
+        "        <g:min_handling_time>1</g:min_handling_time>\n" +
+        "        <g:max_handling_time>3</g:max_handling_time>\n" +
+        "        <g:min_transit_time>2</g:min_transit_time>\n" +
+        "        <g:max_transit_time>5</g:max_transit_time>\n" +
+        "      </g:shipping>\n" +
+        "    </item>"
+      );
+    })
+    .join("\n");
+
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n' +
+    "  <channel>\n" +
+    "    <title>Y'allternative Living Product Catalog</title>\n" +
+    "    <link>" +
+    DOMAIN_URL +
+    "/shop.html</link>\n" +
+    "    <description>Handmade small-batch salves, bath soaks, body care, and apparel from Y'allternative Living in Landrum, SC.</description>\n" +
+    (itemsXml ? itemsXml + "\n" : "") +
     "  </channel>\n" +
     "</rss>\n"
   );

@@ -5824,6 +5824,27 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     fail("IndexNow key file", indexNowKey + ".txt not found -- run npm run build-data");
   }
 
+  // 6d. Google Merchant Center XML feed (merchant-feed.xml) exists and lists all physical products.
+  var merchantFeedPath = path.join(ROOT, "merchant-feed.xml");
+  if (fs.existsSync(merchantFeedPath)) {
+    var merchantFeedContent = fs.readFileSync(merchantFeedPath, "utf8");
+    var itemMatches = merchantFeedContent.match(/<item>/g) || [];
+    if (
+      merchantFeedContent.indexOf('xmlns:g="http://base.google.com/ns/1.0"') !== -1 &&
+      itemMatches.length === 19 &&
+      merchantFeedContent.indexOf("yallternative-gift-card") === -1
+    ) {
+      ok("merchant-feed.xml lists all 19 physical products and excludes the digital gift card");
+    } else {
+      fail(
+        "merchant-feed.xml",
+        "unexpected item count (" + itemMatches.length + ") or missing Google Merchant namespace"
+      );
+    }
+  } else {
+    fail("merchant-feed.xml", "file not found -- run npm run build-data");
+  }
+
   // 7. sw.js includes /assets/js/locales-data.js and /assets/js/translator.js in ASSETS_TO_CACHE
   var swPath = path.join(ROOT, "sw.js");
   if (fs.existsSync(swPath)) {

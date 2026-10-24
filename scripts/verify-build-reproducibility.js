@@ -61,6 +61,7 @@ const targetFiles = [
   path.join(ROOT, "llms.txt"),
   path.join(ROOT, "llms-full.txt"),
   path.join(ROOT, "feed.xml"),
+  path.join(ROOT, "merchant-feed.xml"),
   path.join(ROOT, "index.html"),
   path.join(ROOT, "shop.html"),
   path.join(ROOT, "about.html"),
