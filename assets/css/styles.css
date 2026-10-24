@@ -1148,17 +1148,32 @@ section {
     color: var(--paper-dim);
   }
 
+  @container (max-width: 1050px) {
+    & .hero-actions {
+      gap: 12px;
+    }
+    & .hero-actions .btn {
+      padding: 13px 22px;
+    }
+  }
+
+  @container (max-width: 560px) {
+    & .hero-actions {
+      gap: 10px;
+    }
+    & .hero-actions .btn {
+      flex: 1 1 auto;
+      padding: 13px 20px;
+      font-size: 0.9rem;
+    }
+  }
+
   @container (max-width: 480px) {
     & .lede {
       font-size: 1rem;
       margin-bottom: 20px;
     }
-    & .hero-actions {
-      gap: 10px;
-    }
     & .hero-actions .btn {
-      padding: 13px 20px;
-      font-size: 0.9rem;
       width: 100%;
     }
   }
@@ -7807,16 +7822,22 @@ dialog.global-search-modal::backdrop {
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--hide);
-  padding: 8px 16px;
+  padding: 10px 16px;
   background: var(--ink-2);
   gap: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.global-search-header:has(.global-search-input:focus-visible) {
+  border-bottom-color: var(--whiskey);
 }
 
 .global-search-input-wrapper {
   display: flex;
   align-items: center;
   flex: 1 1 auto;
-  gap: 12px;
+  min-width: 0;
+  gap: 10px;
   position: relative;
 }
 
@@ -7827,14 +7848,22 @@ dialog.global-search-modal::backdrop {
 
 .global-search-input {
   width: 100%;
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
   font-family: var(--font-sans, inherit);
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--paper);
-  padding: 12px 0;
+  padding: 10px 4px;
+  text-overflow: ellipsis;
 }
+
+.global-search-input:focus,
+.global-search-input:focus-visible {
+  outline: none;
+}
+
 /* The dialog has its own clear and close buttons; WebKit's built-in cancel
    "x" on type=search made three of them in a row once you typed. */
 .global-search-input::-webkit-search-cancel-button,
@@ -7859,9 +7888,14 @@ dialog.global-search-modal::backdrop {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition:
     color 0.15s ease,
     transform 0.15s ease;
+}
+
+.global-search-clear-btn[hidden] {
+  display: none;
 }
 
 .global-search-clear-btn:hover {
@@ -7906,16 +7940,49 @@ dialog.global-search-modal::backdrop {
 }
 
 .global-search-chips-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .global-search-chips-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .global-search-chips-section {
+    padding: 12px 12px;
+  }
+  .global-search-chips-list {
+    gap: 6px;
+  }
+  .global-search-chips-list .search-chip {
+    padding: 8px 8px;
+    font-size: 0.72rem;
+    gap: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 359px) {
+  .global-search-chips-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .search-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 8px;
+  padding: 8px 14px;
   border-radius: 999px;
   font-size: 0.84rem;
   font-family: var(--font-sans, inherit);
@@ -7928,6 +7995,14 @@ dialog.global-search-modal::backdrop {
     border-color 0.15s ease,
     background 0.15s ease,
     color 0.15s ease;
+}
+
+.search-chip svg {
+  flex-shrink: 0;
+}
+
+.search-empty-suggestions .search-chip {
+  width: auto;
 }
 
 .search-chip:hover,

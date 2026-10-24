@@ -823,7 +823,7 @@ async function runAllSuites() {
 
       // 3. placeholder attribute
       const searchInput = new MockElement("input");
-      searchInput.setAttribute("placeholder", "Search salves, soaks, events, FAQ… (Cmd+K)");
+      searchInput.setAttribute("placeholder", "Search salves, soaks, FAQ…");
       searchInput.setAttribute("data-i18n-placeholder", "search.placeholder");
       container.appendChild(searchInput);
 
@@ -951,7 +951,7 @@ async function runAllSuites() {
       );
       assert.strictEqual(
         searchInput.getAttribute("placeholder"),
-        "Search salves, soaks, events, FAQ… (Cmd+K)",
+        "Search salves, soaks, FAQ…",
         "Placeholder restored to English"
       );
       assert.strictEqual(

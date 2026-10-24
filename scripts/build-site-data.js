@@ -8287,7 +8287,7 @@ function renderGlobalSearchModalHtml(searchConfig) {
        carries a link and, for products, an "+ Add" button, and the APG's
        listbox pattern explicitly cannot host interactive content -- see the
        setResultsGridRole() comment in assets/js/main.js (audit C, H5). */
-    '          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, events, FAQ… (Cmd+K)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
+    '          <input type="search" id="globalSearchInput" name="q" class="global-search-input" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-haspopup="grid" aria-controls="globalSearchResultsList" aria-activedescendant="" placeholder="Search salves, soaks, FAQ…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">\n' +
     '          <button type="button" class="global-search-clear-btn" id="globalSearchClearBtn" aria-label="Clear search query" hidden>\n' +
     '            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>\n' +
     "          </button>\n" +
