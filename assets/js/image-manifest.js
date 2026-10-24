@@ -1816,5 +1816,41 @@ window.YL_IMAGES = {
         }
       ]
     }
+  },
+  "assets/img/hero-apothecary.jpg": {
+    key: "assets/img/hero-apothecary.jpg",
+    width: 1200,
+    height: 896,
+    size: 802659,
+    variants: {
+      avif: [
+        {
+          width: 480,
+          file: "assets/img/hero-apothecary-480.avif"
+        },
+        {
+          width: 800,
+          file: "assets/img/hero-apothecary-800.avif"
+        },
+        {
+          width: 1200,
+          file: "assets/img/hero-apothecary.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 480,
+          file: "assets/img/hero-apothecary-480.webp"
+        },
+        {
+          width: 800,
+          file: "assets/img/hero-apothecary-800.webp"
+        },
+        {
+          width: 1200,
+          file: "assets/img/hero-apothecary.webp"
+        }
+      ]
+    }
   }
 };

@@ -83,9 +83,9 @@
     },
     {
       "key": "box.nothingPicked",
-      "text": "Nothing picked yet — select at least 3 items to unlock discount.",
+      "text": "Nothing picked yet. Select at least 3 items to unlock discount.",
       "source": "assets/js/main.js",
-      "verify": ["Nothing picked yet &mdash; select at least "],
+      "verify": ["Nothing picked yet. Select at least "],
       "note": "template plus the minimum item count"
     },
     {
@@ -508,7 +508,7 @@
     },
     {
       "key": "thankYou.body",
-      "text": "This page fills in right after a checkout finishes. If you just placed an order, your receipt is in the confirmation email from Stripe — and you can look the order up below with the reference from that email.",
+      "text": "This page fills in right after a checkout finishes. If you just placed an order, your receipt is in the confirmation email from Stripe, and you can look the order up below with the reference from that email.",
       "source": "assets/js/thank-you.js",
       "verify": [
         "This page fills in right after a checkout finishes. If you just placed an order, ",
@@ -539,7 +539,7 @@
     },
     {
       "key": "thankYou.unconfirmedLede",
-      "text": "We couldn't confirm this order from here just now. If you just checked out, your receipt is in the confirmation email from Stripe — and you can look the order up below with the reference on this page.",
+      "text": "We couldn't confirm this order from here just now. If you just checked out, your receipt is in the confirmation email from Stripe, and you can look the order up below with the reference on this page.",
       "source": "assets/js/thank-you.js",
       "verify": [
         "We couldn't confirm this order from here just now. If you just checked out, ",
@@ -944,9 +944,9 @@
     },
     {
       "key": "cart.promoLooksLikeGiftCard",
-      "text": "That looks like a gift card — enter it in the gift card box instead.",
+      "text": "That looks like a gift card. Enter it in the gift card box instead.",
       "source": "assets/js/cart.js",
-      "verify": ["That looks like a gift card — enter it in the gift card box instead."]
+      "verify": ["That looks like a gift card. Enter it in the gift card box instead."]
     },
     {
       "key": "cart.promoDisabled",

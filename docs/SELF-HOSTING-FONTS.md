@@ -60,7 +60,7 @@ top of `assets/css/styles.css` (and set the `--font-*` variables) with:
 ```
 
 > For pixel-perfect zero-CLS numbers, run the fonts through
-> `npx @capsizecss/core` (or the Fontaine plugin) — it reads the actual font
+> `npx @capsizecss/core` (or the Fontaine plugin), it reads the actual font
 > metrics and emits the exact `ascent-override` / `descent-override` /
 > `size-adjust`. The starting values above already remove most of the shift.
 

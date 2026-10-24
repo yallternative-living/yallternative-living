@@ -27,32 +27,32 @@ Netlify Functions) now live behind the same router:
 
 Everything else 404s as JSON. Every response is `Cache-Control: no-store`, and
 CORS is the apex + www allowlist with `Vary: Origin`. Snipcart is fully removed
-(see `docs/STRIPE-MIGRATION.md`) -- this Worker is what replaced it, and it needs
+(see `docs/STRIPE-MIGRATION.md`), this Worker is what replaced it, and it needs
 to actually be deployed (with real Stripe keys) before checkout works.
 
-The handlers live in `workers/routes/`; the state they sit on -- the gift-card
-ledger, the exactly-once webhook claim, the rate-limit counters -- lives in
+The handlers live in `workers/routes/`; the state they sit on, the gift-card
+ledger, the exactly-once webhook claim, the rate-limit counters, lives in
 `workers/state/`. `docs/STATE-LAYER.md` explains why that layer looks the way it
 does and what it costs on the free plan.
 
 **`netlify/functions/` no longer exists.** Its four handlers moved here, because
 the state above lives in Cloudflare Durable Objects and D1 which a Netlify
 Function cannot reach, and because audit H-23 found the Netlify free plan pauses
-_every_ project at its monthly credit cap -- the Stripe webhook included. The
+_every_ project at its monthly credit cap, the Stripe webhook included. The
 four old URLs answer `410 Gone` at the edge (see the rules in
 `scripts/build-security-headers.js`). `redeem-points` was not ported at all:
 audit C-1 found it minted real, cash-like store credit for anyone who could POST
 to it, and there is no server-side points ledger for a rebuilt version to spend
 from.
 
-`cms-auth/sveltia-auth.js` is the **CMS sign-in service** -- the permanent "Sign in
+`cms-auth/sveltia-auth.js` is the **CMS sign-in service**, the permanent "Sign in
 with GitHub" button for the Sveltia CMS product editor at `/admin`. It replaces
 Netlify's deprecated "Git Gateway / OAuth" login, so `/admin` depends on nothing
 from Netlify. It's its own separate Worker in the top-level `cms-auth/` folder
 (see the section below). Optional to deploy: Savanna can also log in immediately
 with a token ("Sign in with Token") and set this up later.
 
-`submit-form.js` is still **optional** -- the contact/review forms currently post
+`submit-form.js` is still **optional**, the contact/review forms currently post
 to Formspree directly, and this Worker is only worth deploying if you want that
 mail coming from your own domain or you outgrow Formspree's free tier.
 
@@ -65,16 +65,14 @@ files that read and wrote the same Stripe objects, so bumping it in one and not
 the others meant one side sent a shape the other could not parse. It is pinned
 once now, in `workers/routes/stripe.js`, and every caller imports it.
 
----
-
-## Why bother — the money argument
+## Why bother, the money argument
 
 **Snipcart** charges **2% per transaction _or_ a $20/month minimum**, whichever
 is higher, for shops doing under $1,000/month in sales. For a small-batch shop,
 that's effectively **$240/year of fixed overhead** on top of the payment
 gateway's own fees.
 
-**Stripe** has **no monthly fee** — just the standard per-transaction cost
+**Stripe** has **no monthly fee**, just the standard per-transaction cost
 (2.9% + 30¢). So at low volume, moving checkout to Stripe removes the $20/month
 floor entirely and you only pay when you actually sell something. That's the
 "same sales, less money" win.
@@ -87,34 +85,32 @@ Two ways to do it:
 | **Stripe Checkout + this Worker** | 1 Cloudflare Worker (free tier: 100k req/day) | Keeps a real multi-item cart. `checkout.js` validates prices server-side against `products.json` and hands Stripe a Checkout Session. |
 
 > Note: the SOTA report labeled its snippet "Payment Links" but the code was
-> actually Checkout Sessions — two different Stripe products. `checkout.js` here
+> actually Checkout Sessions, two different Stripe products. `checkout.js` here
 > is Checkout Sessions (the cart path). For true Payment Links you don't need a
 > Worker at all.
-
----
 
 ## Deploying `checkout.js`
 
 Savanna creates the Cloudflare account herself and invites Steven in
-as a Member (see `docs/SETUP-GUIDE.md` Step 3B) -- account ownership
+as a Member (see `docs/SETUP-GUIDE.md` Step 3B), account ownership
 stays hers, but the actual deploy work below is still Steven's job,
 done from inside her account. So the choice below is purely about
 which method is best for _Steven doing it_, not about avoiding a
 terminal for someone who was never going to run these commands
 regardless.
 
-**Option A (Workers Builds) is what this repo is now set up for** -- see the
+**Option A (Workers Builds) is what this repo is now set up for**, see the
 committed `workers/wrangler.toml`. The reasoning below is left intact because
 it is still the honest trade-off: Option B was written up as the safer default
-for this specific file -- it's the long-established, well-tested path, and
+for this specific file, it's the long-established, well-tested path, and
 this Worker touches Stripe secret keys and real payments, where
 favoring the most mature deploy method over the newest one is the right
 trade-off. Option A is documented as a legitimate alternative, not a
-downgrade -- reach for it if you'd genuinely rather never run
+downgrade, reach for it if you'd genuinely rather never run
 `wrangler deploy` again after initial setup, just go in with eyes open
 about its beta status.
 
-### Option B -- Wrangler CLI (fallback: well-tested, long track record)
+### Option B, Wrangler CLI (fallback: well-tested, long track record)
 
 > Use this if Workers Builds misbehaves, or for a one-off deploy without
 > waiting on a push. It reads the same committed `wrangler.toml`, so the two
@@ -125,11 +121,11 @@ about its beta status.
 3. `wrangler secret put STRIPE_SECRET_KEY` (use a **restricted** key with
    Checkout Sessions + Coupons + Promotion Codes **write**, since
    `workers/routes/stripe-webhook.js` creates those, plus Customers write and Tax
-   Settings **read** -- the Worker pins pickup orders to a market address
+   Settings **read**, the Worker pins pickup orders to a market address
    via a Customer, and reads Tax Settings to know when to start charging
    sales tax. Without Tax read it just never enables tax; nothing breaks
    loudly, so it's an easy one to miss).
-4. `wrangler deploy`. Leave `STRIPE_TAX_ENABLED` unset -- tax turns itself
+4. `wrangler deploy`. Leave `STRIPE_TAX_ENABLED` unset, tax turns itself
    on once Stripe Tax is activated in the Dashboard. See DEVELOPMENT.md
    section 8.
 5. Optionally point a route at it (`yallternativeliving.com/api/*`). Not
@@ -141,28 +137,28 @@ about its beta status.
    worth knowing going in, since that's the main thing Option A trades
    away the beta risk to avoid.
 
-### Option A -- Cloudflare Workers Builds (dashboard-only, open beta) -- **this is the configured path**
+### Option A, Cloudflare Workers Builds (dashboard-only, open beta), **this is the configured path**
 
 > **Step 1 is already done.** `workers/wrangler.toml` is committed, and
 > `npx wrangler deploy --dry-run` builds it clean (19 KiB upload, `SITE_ORIGIN`
-> bound). Everything left is dashboard clicking -- steps 2-4 below.
+> bound). Everything left is dashboard clicking, steps 2-4 below.
 
 Cloudflare's own git-integration feature (Workers Builds) auto-deploys
 on every push, the same way Netlify already does for the rest of the
-site -- confirmed to exist and to support a subdirectory root (this repo
+site, confirmed to exist and to support a subdirectory root (this repo
 isn't a single-Worker repo; `checkout.js` lives under `workers/`) via
 Cloudflare's current docs as of mid-2026. Two things worth knowing
 before picking this over Option B: Cloudflare's own docs still label
 Workers Builds "open beta," not GA, and this exact flow has not been
-run against this project's real Cloudflare/GitHub accounts -- treat it
+run against this project's real Cloudflare/GitHub accounts, treat it
 as "try this," not a guarantee.
 
 1. ~~Create a real `wrangler.toml` from `wrangler.toml.example` and commit
-   it.~~ **Done** -- see `workers/wrangler.toml`, whose header comment
+   it.~~ **Done**, see `workers/wrangler.toml`, whose header comment
    repeats the dashboard steps below so they're findable from the file
    itself.
 2. Cloudflare dashboard -> **Workers & Pages -> Create -> Import a
-   repository** (button wording may have shifted -- look for anything
+   repository** (button wording may have shifted, look for anything
    offering to connect a GitHub repo) -> authorize GitHub -> select this
    repo -> set the project root to `workers`.
 3. **Settings -> Variables and Secrets -> Add** -> `STRIPE_SECRET_KEY`,
@@ -176,12 +172,12 @@ as "try this," not a guarantee.
    "Sign in with GitHub" token, a classic token scoped `public_repo` or
    `repo`, or a fine-grained token with Contents read and write (the CMS's
    token sign-in). Anyone else is refused. Optional: `GITHUB_CLIENT_ID` (a
-   variable) and `GITHUB_CLIENT_SECRET` (a **Secret**) -- the same pair the
-   `cms-auth` Worker holds -- make the dashboard accept ONLY tokens the CMS's
+   variable) and `GITHUB_CLIENT_SECRET` (a **Secret**), the same pair the
+   `cms-auth` Worker holds, make the dashboard accept ONLY tokens the CMS's
    own OAuth app issued. Leave them unset while anyone signs in to the CMS
    with a pasted token: the pin refuses those. Set both or neither: the id
    alone refuses everyone.
-4. **Settings -> Domains & Routes.** Optional -- see Option B step 5. If you do
+4. **Settings -> Domains & Routes.** Optional, see Option B step 5. If you do
    add a route, it is `yallternativeliving.com/api/*`, not just
    `/api/checkout`: the Worker answers five paths now.
 
@@ -199,21 +195,21 @@ as "try this," not a guarantee.
    to Cloudflare with an NS record at Netlify and put the route on that,
    which also means changing the `/api/*` proxy target in
    `scripts/build-security-headers.js` and the Worker's allowed origins.
-   Audits: this is a known, accepted item -- do not re-raise it unless DNS
+   Audits: this is a known, accepted item, do not re-raise it unless DNS
    has moved.
 
-5. Every future push to `checkout.js` redeploys automatically -- no
+5. Every future push to `checkout.js` redeploys automatically, no
    step 4 of Option B (`wrangler deploy`) ever needs to run by hand
    again.
 6. **Settings -> Build.** Not required to make the Worker work, and worth
    doing anyway, because "every push" in step 5 means _every push to every
    branch_, not just `main`. Two settings:
-   - **Branch control** -- build the production branch only. A
+   - **Branch control**, build the production branch only. A
      non-production branch build runs `wrangler versions upload`, and with
      `preview_urls = false` in `wrangler.toml` the version it uploads has no
      URL and cannot be opened, so those builds produce nothing. Merges to
      `main` still deploy exactly as they do now.
-   - **Build watch paths** -- limit to `workers/*`. This Worker is built out
+   - **Build watch paths**, limit to `workers/*`. This Worker is built out
      of that directory (the project root set in step 2), so a commit touching
      only the static site, `scripts/` or `sitemap.xml` currently rebuilds and
      redeploys it for no reason.
@@ -238,14 +234,14 @@ move around), fall back to Option B.
 ### A note on "best practice" here
 
 Cloudflare's own best-practices docs are explicit that manual `wrangler
-deploy` from someone's laptop shouldn't be the long-term answer -- some
+deploy` from someone's laptop shouldn't be the long-term answer, some
 form of CI/CD should own it. Their most heavily-documented path for that
 is GitHub Actions + the official `wrangler-action` (a third option, not
 written up here since it needs a hand-authored workflow file and a
-Cloudflare API token stored as a GitHub secret -- more setup than either
+Cloudflare API token stored as a GitHub secret, more setup than either
 option above, and overkill for a single small Worker). Workers Builds
 (Option A) is Cloudflare's own answer for "I want CI/CD but don't want
-to write a workflow file" -- a real, reasonable choice, just not the
+to write a workflow file", a real, reasonable choice, just not the
 one with the longest track record, which is why Option B leads above
 for this particular file. Also skipped on purpose given this project's
 size: a separate staging environment with its own routes/secrets
@@ -253,9 +249,9 @@ size: a separate staging environment with its own routes/secrets
 reasonable to add later if this ever outgrows "one small business's
 checkout endpoint," not worth the extra accounts/complexity today.
 
-Either option: that's the whole client-side contract -- `assets/js/cart.js`
+Either option: that's the whole client-side contract, `assets/js/cart.js`
 already POSTs `{ items: [{ id, qty, variant }] }` here and redirects the
-browser to whatever Checkout URL comes back -- no further client changes
+browser to whatever Checkout URL comes back, no further client changes
 needed.
 
 Security notes already handled in the code: CORS is locked to your origins,
@@ -263,53 +259,51 @@ prices are re-derived from `products.json` (client prices are ignored),
 quantities are integer-clamped 1–99, and both `products` and `bundles` are
 searched.
 
----
-
-## Sign-in Worker (CMS login) — `../cms-auth/sveltia-auth.js`
+## Sign-in Worker (CMS login), `../cms-auth/sveltia-auth.js`
 
 This is the **permanent "Sign in with GitHub" button** for the Sveltia CMS
 product editor at `/admin` (DEVELOPMENT.md section 20, Option B). It's the
-modern replacement for Netlify's deprecated "Git Gateway / OAuth" login —
+modern replacement for Netlify's deprecated "Git Gateway / OAuth" login , 
 `/admin` no longer depends on Netlify for anything.
 
 It's a **separate Worker** from checkout, in its own **top-level `cms-auth/`
 folder** (not under `workers/`) with its own committed `wrangler.toml`, kept
 apart on purpose: the checkout Worker holds the Stripe secret and handles real
 payments, so the CMS login stays isolated from it. It also _has_ to live outside
-`workers/` — that folder is the checkout Worker's Workers Builds root, and a
+`workers/`, that folder is the checkout Worker's Workers Builds root, and a
 second `wrangler.toml` inside it breaks the checkout build. Nothing secret is
-committed here either — the GitHub client secret only ever lives as a Cloudflare
+committed here either, the GitHub client secret only ever lives as a Cloudflare
 Secret.
 
 > **Alternative that needs none of this:** Savanna can log in _today_ with
 > **"Sign in with Token"** on the `/admin` screen (a GitHub fine-grained token,
-> zero infrastructure — SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
+> zero infrastructure, SETUP-GUIDE.md Step 9 / DEVELOPMENT.md section 20
 > Option A). This Worker is the nicer, permanent login you graduate to.
 
 **Setup (once):**
 
-1. **GitHub OAuth App** — GitHub → **Settings → Developer settings → OAuth
+1. **GitHub OAuth App**, GitHub → **Settings → Developer settings → OAuth
    Apps → New OAuth App** (the short _OAuth App_ form, **not** "GitHub App").
    Homepage URL `https://yallternativeliving.com`. Copy the **Client ID**,
    generate + copy a **Client Secret**. Set the **Authorization callback URL**
    after step 2 to `<this-Worker-URL>/callback`.
-2. **Deploy `cms-auth/`** — same two paths as checkout above:
-   - **Workers Builds (dashboard):** Workers & Pages → Create → Import a
+2. **Deploy `cms-auth/`**, same two paths as checkout above:
+   - Workers Builds (dashboard): Workers & Pages → Create → Import a
      repository → this repo, project root **`cms-auth`** (checkout's root
      is `workers`; each Worker is its own Workers Builds project). Redeploys on
      every push, no `wrangler deploy` by hand.
-   - **Wrangler CLI:** `cd cms-auth && wrangler deploy`.
+   - Wrangler CLI: `cd cms-auth && wrangler deploy`.
 
    Either way, `wrangler deploy --dry-run` builds it clean first if you want to
    check. Cloudflare then shows the Worker URL, e.g.
    `https://yallternative-cms-auth.<subdomain>.workers.dev`.
 
-3. **Secrets** — this Worker → **Settings → Variables and Secrets** → add
+3. **Secrets**, this Worker → **Settings → Variables and Secrets** → add
    `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (type **Secret**) from step 1.
    `ALLOWED_DOMAINS` is already set as a plain var in `wrangler.toml` and locks
-   token issuance to this site — no other site can point its CMS at this Worker
+   token issuance to this site, no other site can point its CMS at this Worker
    and harvest tokens.
-4. **Wire the URLs together** — put the Worker URL into `admin/config.yml` as
+4. **Wire the URLs together**, put the Worker URL into `admin/config.yml` as
    `backend.base_url` (replace the `YOUR-SUBDOMAIN` placeholder), and set the
    GitHub OAuth App's callback (step 1) to `<that-URL>/callback`. They must
    match exactly. Commit `config.yml`; `/admin` now shows **Sign in with
@@ -321,13 +315,11 @@ to a window whose origin matches `ALLOWED_DOMAINS`; the callback page is
 `Cache-Control: no-store`; and the client secret is read only from a Cloudflare
 Secret (never committed).
 
----
-
 ## Deploying `submit-form.js`
 
 1. Verify your sending domain in **Resend** and create an API key.
    Free tier: 3,000 emails/month **and** 100/day.
-2. Create a **Cloudflare Turnstile** widget (free) — you'll get a site key
+2. Create a **Cloudflare Turnstile** widget (free), you'll get a site key
    (for the page) and a secret key (for the Worker).
 3. Deploy as a second Worker (`name = "yallternative-forms"`,
    `main = "submit-form.js"`) with:
@@ -363,17 +355,15 @@ costs two Resend sends. Rate limits, through `checkRateLimit`: 5 per 10 minutes
 per client IP, 3 per hour per recipient address (keyed by hash).
 `scripts/worker-submit-form.test.js` covers all of it.
 
-If you keep Formspree, you can ignore this file — it's only worth switching if
+If you keep Formspree, you can ignore this file, it's only worth switching if
 you want form mail coming from your own domain, or you outgrow Formspree's free
 submission cap.
-
----
 
 ## Turning the state layer on (do this in order)
 
 The Worker deploys from `workers/wrangler.toml` on every push to `main`
 (Workers Builds). That file now declares a D1 database whose `database_id` is a
-**placeholder**, so **`wrangler deploy` fails until step 1 is done** -- which
+**placeholder**, so **`wrangler deploy` fails until step 1 is done**, which
 would mean the next urgent checkout fix silently never ships. Do step 1 before
 the next push.
 
@@ -392,12 +382,12 @@ npx wrangler d1 execute yallternative-state --remote --file=workers/schema.sql
 ```
 
 (The Worker also applies the same statements itself at the first webhook
-request -- `workers/state/migrations.js` -- so this is belt and braces, not the
+request, `workers/state/migrations.js`, so this is belt and braces, not the
 only path.)
 
 Workshop tickets need this database. Products fall back to their static
-Stock count when D1 is missing or failing; a workshop ticket does not -- a
-seat sold with no hold in the ledger is one nothing counts -- so until
+Stock count when D1 is missing or failing; a workshop ticket does not, a
+seat sold with no hold in the ledger is one nothing counts, so until
 `STATE_DB` is bound and answering, a ticket at checkout is refused with a 503
 ("try again in a moment") and nothing is charged (`workers/routes/inventory.js`,
 `uncountedTickets`).
@@ -432,7 +422,7 @@ rate-limited by IP, all 503 without `STATE_DB`):
 
 | Route                       | Body                | Notes                                                                                                          |
 | --------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `POST /api/unsubscribe`     | token in `?t=`      | RFC 8058 one-click. The token is an HMAC of the address -- **no PII in the URL**. Also accepts `{token}` JSON. |
+| `POST /api/unsubscribe`     | token in `?t=`      | RFC 8058 one-click. The token is an HMAC of the address, **no PII in the URL**. Also accepts `{token}` JSON. |
 | `POST /api/welcome-code`    | `{email}`           | Mints one Promotion Code per address (`max_redemptions: 1`, first-order only, 45-day expiry).                  |
 | `POST /api/birthday-club`   | `{email, birthday}` | `MM/DD` only. Accepts a plain form post too and answers it with a 303 back to `thank-you.html`.                |
 | `POST /api/loyalty-balance` | `{email, token}`    | The signed `points` token from a post-purchase email. A balance is never readable by email alone.              |
@@ -440,20 +430,20 @@ rate-limited by IP, all 503 without `STATE_DB`):
 ### 2b-ii. The order history (`/orders.html`)
 
 **Nothing new to set up.** It runs on the two secrets the retention layer
-already needs -- `MAGIC_LINK_SECRET` signs the link, `RESEND_API_KEY` sends it
+already needs, `MAGIC_LINK_SECRET` signs the link, `RESEND_API_KEY` sends it
 -- plus `STATE_DB`. Both routes answer 503 when either is missing, and 404
 when the owner switches the page off in /admin (`site.enableOrderHistory`).
 
 | Route                           | Body / query | Notes                                                                                                                                                                                                                                                                                                              |
 | ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /api/orders/request-link` | `{email}`    | Rate-limited 3 per 10 minutes per client AND per address hash, plus 10 per day per address. Answers the same neutral `200` whether the address has orders, has none, bounced, or the send failed -- the email goes out behind `waitUntil`, so even the timing matches. Transactional (no unsubscribe footer): an unsubscribed address still gets it; a bounced one (`email_suppression.reason = 'bounce'`, which nothing writes yet -- there is no bounce webhook) would not. |
-| `GET /api/orders?token=`        | `?token=`    | Verifies the `orders`-purpose token, opens its sealed subject (the address hash, AES-GCM under a key derived from `MAGIC_LINK_SECRET` -- the URL never carries the bare hash), lists that hash's orders newest-first (25 at most) and the points balance when `enableLoyaltyPoints` is on, then burns the token (`burned_tokens`) last, so an error mid-read does not spend the link. Every refusal -- expired, replayed, tampered, wrong purpose -- is the same `403`. `Cache-Control: no-store`. |
+| `POST /api/orders/request-link` | `{email}`    | Rate-limited 3 per 10 minutes per client AND per address hash, plus 10 per day per address. Answers the same neutral `200` whether the address has orders, has none, bounced, or the send failed, the email goes out behind `waitUntil`, so even the timing matches. Transactional (no unsubscribe footer): an unsubscribed address still gets it; a bounced one (`email_suppression.reason = 'bounce'`, which nothing writes yet, there is no bounce webhook) would not. |
+| `GET /api/orders?token=`        | `?token=`    | Verifies the `orders`-purpose token, opens its sealed subject (the address hash, AES-GCM under a key derived from `MAGIC_LINK_SECRET`, the URL never carries the bare hash), lists that hash's orders newest-first (25 at most) and the points balance when `enableLoyaltyPoints` is on, then burns the token (`burned_tokens`) last, so an error mid-read does not spend the link. Every refusal, expired, replayed, tampered, wrong purpose, is the same `403`. `Cache-Control: no-store`. |
 
 **The token carries a SEALED SHA-256 of the address, never the address**
 (`workers/state/magic-link.js`: the `subject` claim is the hash encrypted
 with AES-GCM under a key derived from `MAGIC_LINK_SECRET`, a fresh IV per
 link), so the emailed URL, the browser history it lands in and any proxy log
-hold nothing that names the customer -- a bare hash would still be the
+hold nothing that names the customer, a bare hash would still be the
 address to anyone with a list of likely addresses to hash. The page scrubs
 it from the address bar on load (`assets/js/orders.js`). 24 hours, one use,
 burned after the list is read so an error mid-request does not spend it.
@@ -461,8 +451,8 @@ burned after the list is read so an error mid-request does not spend it.
 **Storage** is one additive table, `orders` (schema v9, `workers/state/orders.js`):
 `session_id`, `email_hash`, `payment_intent`, `created`, `amount_total`,
 `currency`, `status`, `line_items_json`, `tracking_url`. Written once per paid
-session by the webhook's `persistOrder` step -- `INSERT OR IGNORE`, so a
-redelivery writes nothing -- and updated by the hourly ship-notice sweep, which
+session by the webhook's `persistOrder` step, `INSERT OR IGNORE`, so a
+redelivery writes nothing, and updated by the hourly ship-notice sweep, which
 merges `fulfillment_status` and `tracking_url` in by PaymentIntent (a write only
 when something changed). The lines come from Stripe's line-item list with
 `price.product` expanded: `workers/checkout.js` stamps `yl_product_id`,
@@ -495,13 +485,13 @@ through which a consumer can report an adverse event; this is it.
   shape and writes nothing.
 - **The row is the record.** D1 is written first; if that fails the reporter is
   told the report did not go through. If Resend then refuses, the caller still
-  gets `{ok: true}` and the reference -- the regulatory record exists -- and the
+  gets `{ok: true}` and the reference, the regulatory record exists, and the
   refusal is logged with the reference and nothing else. The description, name,
   address and phone never reach a log line.
 - **Rows are kept for at least three years and nothing sweeps them.** That is
   MoCRA's small-business retention period (section 612: under $1M average gross
   annual sales over the prior three years). **If that three-year average ever
-  crosses $1M the period becomes six years** -- change `RECORD_RETENTION_YEARS`
+  crosses $1M the period becomes six years**, change `RECORD_RETENTION_YEARS`
   in `routes/safety-report.js`, the note on the table in `schema.sql`, the copy
   on `safety.html` and the paragraph in `privacy.html` together. It is a floor,
   not a purge date: the cron in `checkout.js` deletes from `webhook_events`,
@@ -533,12 +523,12 @@ and the codes are what customers actually type.
 | `LOYALTY_REWARD_CENTS`      | `500`                                                                        | What a payout is worth. Must match the coupon's own amount.                                                                                                                                               |
 | `RETENTION_FROM_EMAIL`      | falls back to `GIFT_CARD_FROM_EMAIL`                                         | Verified Resend sender for the retention sends.                                                                                                                                                           |
 | `SAFETY_REPORT_EMAIL`       | falls back to `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com` | Where MoCRA reaction reports are emailed.                                                                                                                                                                 |
-| `UMAMI_WEBSITE_ID`          | set (same value as the CMS)                                                  | The Umami website the webhook books each paid order's revenue against ("Order Paid" — `routes/analytics.js`). Unset -> the webhook logs once and books nothing; the site's own page views are unaffected. |
+| `UMAMI_WEBSITE_ID`          | set (same value as the CMS)                                                  | The Umami website the webhook books each paid order's revenue against ("Order Paid", `routes/analytics.js`). Unset -> the webhook logs once and books nothing; the site's own page views are unaffected. |
 
 `UMAMI_WEBSITE_ID` is the one var that is deliberately duplicated from the site
 (`assets/data/content.json` → `site.umamiWebsiteId`). The Worker has no
 filesystem and no access to the build, and revenue reporting that stopped
-because a static build changed would be the worst kind of failure — so it is
+because a static build changed would be the worst kind of failure, so it is
 pinned here and `scripts/worker-analytics.test.js` fails when the two disagree.
 It is an id, not a secret: it is on every page of the site in the tracker tag.
 
@@ -548,7 +538,7 @@ the product-card badge reads, so the badge and the credit cannot disagree.
 
 **One extra secret: `MAGIC_LINK_SECRET`.** It signs the unsubscribe tokens and
 the points-balance tokens. With it unset the Worker sends **no marketing email
-at all** -- that is intended, not a bug: an email whose unsubscribe link cannot
+at all**, that is intended, not a bug: an email whose unsubscribe link cannot
 be signed is an email that must not go out.
 
 ```bash
@@ -556,8 +546,8 @@ npx wrangler secret put MAGIC_LINK_SECRET   # 32+ random characters
 ```
 
 Rotating it invalidates every outstanding unsubscribe and points link. The
-suppression list itself is unaffected -- it is keyed on the address, not the
-token -- but old links stop resolving, so rotate only when you mean to.
+suppression list itself is unaffected, it is keyed on the address, not the
+token, but old links stop resolving, so rotate only when you mean to.
 
 **The cron.** `workers/wrangler.toml` has `[triggers] crons = ["7 * * * *"]`.
 One hourly tick runs, in order: the webhook-claim sweep, the burned-token sweep,
@@ -568,7 +558,7 @@ gated to 9am America/New_York and is idempotent per member per year, so 24 ticks
 a day still send exactly one birthday code.
 
 **Stripe webhook events.** The endpoint must be subscribed to
-`checkout.session.expired` as well as `checkout.session.completed` -- that is
+`checkout.session.expired` as well as `checkout.session.completed`, that is
 the event carrying the recovery URL. See step 4.
 
 ### 2d. The order digest and the size/scent question
@@ -578,7 +568,7 @@ best-effort, each is gated by a CMS switch, and none can stop a checkout.
 
 **The daily order digest** (`workers/routes/order-digest.js`, run from the
 hourly cron). One email a day with the pick list: per order, the session id, the
-buyer's FIRST NAME and city/state, and every line -- with bundles expanded into
+buyer's FIRST NAME and city/state, and every line, with bundles expanded into
 the products inside them and a build-your-own box expanded from the
 `custom_box_N` metadata `checkout.js` writes. A gift order carries the signed
 `/api/gift-note` print link, a local pickup names the market, and anything that
@@ -591,10 +581,10 @@ comes in more than one size or scent with nothing chosen is flagged
 - **Once a day**, via `claimDaily` in `state/job-state.js` (job `order-digest`),
   at `site.automations.orderDigestHour` in `assets/data/content.json` (default
   7, America/New_York, editable in `/admin`). 24 ticks send one email.
-- **Never twice**: the query window is 26 hours so a missed tick recovers, and
+- Never twice: the query window is 26 hours so a missed tick recovers, and
   the newest session id of each run is kept in `job_state` under
   `order-digest-last`, which is where the next run stops.
-- **Off** when `site.enableOrderDigest` is `false` -- then it does not even call
+- **Off** when `site.enableOrderDigest` is `false`, then it does not even call
   Stripe, and does not burn the day's claim.
 - **A quiet day sends nothing.** Set the var `ORDER_DIGEST_WHEN_EMPTY = "true"`
   if you would rather get a "No new orders" note than wonder whether it ran.
@@ -615,11 +605,11 @@ Stripe Dashboard. Subject: `New order $30 -- 1× <first line> +N more`.
   `/checkout/sessions/{id}/line_items` in pages of 100 under a 5-second
   deadline; if that read fails or times out the email still goes out and says
   the lines are missing, and a list with `has_more` says "+more" rather than
-  a wrong count. A Resend refusal is logged and swallowed -- it never makes
+  a wrong count. A Resend refusal is logged and swallowed, it never makes
   Stripe replay the event. Keyed `owner-order-email-<session id>` at Resend,
   so a redelivery sends one copy.
 - **What it prints where.** The address is the one Checkout collected for
-  shipping and nothing else -- an all-gift-card order has none and is marked
+  shipping and nothing else, an all-gift-card order has none and is marked
   `Digital delivery -- no shipping`, never the card's billing address. A
   `pickup_market_rejected` flag from `checkout.js` is called out. Every line
   of a gift message is quoted in the plain-text body, and a buyer name is kept
@@ -635,8 +625,8 @@ build-your-own box are each ONE line, and neither lets the shopper pick a size:
 order contains a bundle or a box whose contents have `variants`, the buyer gets
 one email opening with `site.automations.sizeConfirmationIntro`, listing what
 needs choosing and its options, with `reply_to` set to the shop address so an
-answer arrives as an ordinary reply. It is transactional -- **no unsubscribe
-link, no suppression check** -- and keyed `size-confirm-<session id>` at Resend,
+answer arrives as an ordinary reply. It is transactional, **no unsubscribe
+link, no suppression check**, and keyed `size-confirm-<session id>` at Resend,
 so a redelivered webhook asks once. A plain order, or a bundle whose contents
 have no variants, gets nothing.
 
@@ -646,7 +636,7 @@ have no variants, gets nothing.
 | `ORDER_DIGEST_WHEN_EMPTY` | unset                                                                        | `"true"` sends the digest on days with no orders too.           |
 
 Both read `assets/data/products.json` for names, a bundle's `productIds` and a
-product's `variants` -- the same file the shop pages render from, so the pick
+product's `variants`, the same file the shop pages render from, so the pick
 list cannot drift from the label. If it is unreachable the digest still goes out
 with the Stripe line names unexpanded, and the size question is simply not asked.
 
@@ -661,14 +651,14 @@ ran" marker in the `job_state` table (`state/job-state.js`), which is what
 turns twenty-four hourly ticks into one run.
 
 **Back-in-stock alerts** (`runRestockAlerts` in `routes/restock.js`, every
-tick). `POST /api/restock` -- the "Notify me when it's back" box -- stores the
+tick). `POST /api/restock`, the "Notify me when it's back" box, stores the
 address in `restock_signups` as well as emailing the owner. Each tick, every
 pending signup whose product `products.json` now shows as buyable gets one
 email opening with `site.automations.restockEmailIntro`, through
 `sendMarketingEmail` (suppression list, `List-Unsubscribe`, the visible opt-out
 line), keyed `restock-<product id>-<hash>` at Resend. `notified_at` is set
-after a successful send -- and for a suppressed address, so it is not
-reconsidered every hour -- while a Resend refusal leaves the row for the next
+after a successful send, and for a suppressed address, so it is not
+reconsidered every hour, while a Resend refusal leaves the row for the next
 tick. At most 50 rows per tick. Off when `site.enableRestockAlerts` is `false`.
 
 **Low-stock note** (`runLowStockCheck`, same file, once a day at 08:00
@@ -680,16 +670,16 @@ Nothing low means no email. Goes to `ORDER_NOTIFY_EMAIL`, then
 `site.enableLowStockAlerts` is `false`.
 
 **Market reminders** (`routes/market-alerts.js`, once a day at
-`site.automations.marketReminderHour` -- default 9, America/New_York -- job
+`site.automations.marketReminderHour`, default 9, America/New_York, job
 `market-reminders`). The events page's "Email me the next market date" form
 posts to `POST /api/market-alerts`: JSON from the fetch upgrade in `main.js`,
 or a plain form post with JavaScript off, which is answered with a 303 back to
-`events.html?market-alerts=saved` (or `=error`) -- never with the address in
+`events.html?market-alerts=saved` (or `=error`), never with the address in
 the URL. The row in `market_alert_subscribers` holds the lower-cased address,
 when it arrived, and `consent_text`: the exact sentence the form showed, so
 every subscriber's record says what they were told (the route's `CONSENT_TEXT`
 and `main.js`'s `MARKET_ALERT_CONSENT` are asserted equal by the test). The
-job reads `assets/data/events.json` -- the file the page renders from -- and
+job reads `assets/data/events.json`, the file the page renders from, and
 for every market starting TOMORROW sends each subscriber one reminder opening
 with `site.automations.marketReminderIntro`, keyed `market-<event id>-<hash>`.
 It is a marketing send: same suppression list, same unsubscribe link, one
@@ -709,12 +699,12 @@ cleanly, and any cell starting with `=`, `+`, `-` or `@` prefixed with an
 apostrophe so a reporter's description cannot run as a formula on the owner's
 machine. The subject carries the row count and the serious count; the body says
 what a serious one requires (Form FDA 3500A within 15 business days). **A month
-with no reports still sends**, with a header-only file -- an unbroken run of
+with no reports still sends**, with a header-only file, an unbroken run of
 monthly files is the evidence that the check happened. Not a marketing send: it
 goes through `sendEmail` with no unsubscribe link and no suppression check,
 keyed `reaction-export-<YYYY-MM>` at Resend. A refused send re-opens the month
 so the next tick retries, and the key means the file is never delivered twice.
-Nothing is deleted -- exporting is not archiving. Goes to `SAFETY_REPORT_EMAIL`,
+Nothing is deleted, exporting is not archiving. Goes to `SAFETY_REPORT_EMAIL`,
 then `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com`. Off when
 `site.enableReactionExport` is `false`.
 
@@ -730,10 +720,10 @@ then `RESTOCK_NOTIFY_EMAIL`, then `contact@yallternativeliving.com`. Off when
 | `restock_signups`, `market_alert_subscribers`, `job_state` (D1, schema v4); `adverse_events` (v3)   | the jobs                         | The tables. `adverse_events` is only ever read by the export and is swept by nothing. |
 
 Tests: `scripts/worker-restock.test.js`, `scripts/worker-market-alerts.test.js`
-and `scripts/worker-reaction-export.test.js` -- Node only, D1 emulated on
+and `scripts/worker-reaction-export.test.js`, Node only, D1 emulated on
 `node:sqlite`, Resend and the site JSON stubbed.
 
-### 2f. Owner alerts -- when the Worker itself breaks
+### 2f. Owner alerts, when the Worker itself breaks
 
 Every failure used to be a `console.error` into the Worker's tail log, which is
 ephemeral and which nobody reads. `workers/routes/alerts.js` (`alertOwner`)
@@ -768,7 +758,7 @@ Design points, all enforced by `scripts/worker-alerts.test.js`:
   is v4.
 - **Masked.** Any gift-card code in the subject or body is reduced to its last
   four characters.
-- **Recipient:** `site.alertEmail` in content.json (the CMS field "Emails to
+- Recipient: `site.alertEmail` in content.json (the CMS field "Emails to
   me · Where shop alerts go"), falling back to `ORDER_NOTIFY_EMAIL` ->
   `RESTOCK_NOTIFY_EMAIL` -> `contact@yallternativeliving.com`. The site read
   uses `state/site-data.js`, so an unreachable content.json falls back to the
@@ -778,7 +768,7 @@ Add a site: `alertOwner(env, ctx, { key, subject, details })` with a `key` that
 names the PROBLEM, not the occurrence (that is the dedupe unit), and a flat
 `details` object of ids. Do not await it on the money path.
 
-### 2g. The market register (Square) -- one shelf, two tills
+### 2g. The market register (Square), one shelf, two tills
 
 The shop sells at markets and pop-ups through a Square register as well as
 online. Until this existed the inventory ledger (`workers/state/inventory.js`)
@@ -788,7 +778,7 @@ still offering stock that was gone until somebody recounted by hand.
 same ledger, and makes the ledger the register's source of truth:
 
 - **Register -> site.** Square posts `payment.updated` when a payment
-  completes -- cash, card and tap alike; `source_type` is never consulted --
+  completes, cash, card and tap alike; `source_type` is never consulted --
   and `order.updated` when an order completes, which also catches a giveaway
   or a 100% comp, which has no payment at all. The Worker reads the order's
   line items, turns each Square item into a product through its **SKU**, and
@@ -797,10 +787,10 @@ same ledger, and makes the ledger the register's source of truth:
   `webhook_events` claims the event id, `square_sales` claims the order id.
 - **Refunds.** `refund.updated` (COMPLETED) puts back exactly the lines the
   sale took, once, when the ORDER has now been refunded for all it collected
-  -- the order, not the payment. A split tender is two payments for one
+, the order, not the payment. A split tender is two payments for one
   sale; refunding the card half in full is a partial refund of the sale and
   moves nothing (the first version judged this per payment and would have
-  restocked the whole order -- red team, 2026-09-10). A return the register
+  restocked the whole order, red team, 2026-09-10). A return the register
   rings up as its own order is followed to the sale it returns
   (`returns[].source_order_id`). A partial refund is about the money, not the
   goods, and moves nothing: the same reading the Stripe route gives
@@ -809,12 +799,12 @@ same ledger, and makes the ledger the register's source of truth:
   `applied` are one guarded batch, so an isolate that dies between the two
   leaves a `pending` row the next delivery resumes, and two deliveries racing
   on it move the shelf once. Restock is the same shape.
-- **Site -> register.** After any move of the shelf -- an online order paid,
-  expired or refunded, a register sale applied, the hourly reconcile -- the
+- **Site -> register.** After any move of the shelf, an online order paid,
+  expired or refunded, a register sale applied, the hourly reconcile, the
   live `available` count of every mapped product is written to Square as a
   `PHYSICAL_COUNT` for each of its item variations (Inventory API
   `BatchChangeInventory`), so the register shows the same "3 left" the site
-  does. Only counts that moved since the last push are written -- except on
+  does. Only counts that moved since the last push are written, except on
   the hourly tick, which also reads Square's own counts and rewrites any that
   drifted from the ledger, so a webhook that failed for a day or a number
   typed into the Square Dashboard heals within the hour. The same tick
@@ -831,7 +821,7 @@ same ledger, and makes the ledger the register's source of truth:
   map (`square_catalog`) is re-read from Square's catalogue every hour by the
   cron, so a SKU fixed in the Dashboard takes effect within the hour.
 - **Shortfall.** A register sale of more than the site had (a miscount, or a
-  wrongly mapped item) takes what there is, stops at zero -- and never below
+  wrongly mapped item) takes what there is, stops at zero, and never below
   the units an open online checkout is holding, which were promised first --
   and emails the owner the difference (`square-short:<product id>`).
 - **What is deliberately NOT done.** Square's own `inventory.count.updated`
@@ -839,10 +829,10 @@ same ledger, and makes the ledger the register's source of truth:
   is a loop. The site's ledger is authoritative and Square is written TO; a
   count edited in the Square Dashboard is overwritten within the hour.
   Correct a count in the CMS ("Stock count"), never in Square.
-- **Switch:** `site.enableSquareSync` in content.json (Site settings -> Shop
+- Switch: `site.enableSquareSync` in content.json (Site settings -> Shop
   -> "Sync stock with Square"). Off, verified events are acknowledged and
   ignored and nothing is pushed. Fails open to on if content.json cannot be
-  read -- a site outage must not stop market sales from counting.
+  read, a site outage must not stop market sales from counting.
 
 Setup, in the OWNER's Square account (like Cloudflare: she creates, you
 configure):
@@ -853,11 +843,11 @@ configure):
    (step 3). The calls need `ORDERS_READ`, `PAYMENTS_READ`, `ITEMS_READ`,
    `INVENTORY_READ` and `INVENTORY_WRITE`; the application's own access token
    from that page carries them all.
-3. **Webhooks -> Subscriptions -> Add** -- step 4b below. Copy the
+3. **Webhooks -> Subscriptions -> Add**, step 4b below. Copy the
    subscription's **Signature key** -> `SQUARE_WEBHOOK_SIGNATURE_KEY`.
 4. The register's **location id** (Square Dashboard -> Account & Settings ->
    Business information -> Locations, or `GET /v2/locations`) ->
-   `SQUARE_LOCATION_ID`, a `[vars]` entry in wrangler.toml -- an id, not a
+   `SQUARE_LOCATION_ID`, a `[vars]` entry in wrangler.toml, an id, not a
    secret. Without it sales still count down; the register just is not told
    what is left.
 5. **In the Square item library**, give each item variation a SKU per the
@@ -896,13 +886,13 @@ senders), plus the retention vars in step 2b (`STRIPE_*_COUPON_ID`,
 
 `MAGIC_LINK_SECRET` is also the salt for the `ip_hash` column on
 `adverse_events`. Rotating it means older and newer rows hash the same visitor
-differently -- harmless (that column only ever groups abuse), but worth knowing
+differently, harmless (that column only ever groups abuse), but worth knowing
 before anyone reads it as an identifier.
 
 `STRIPE_WEBHOOK_SECRET` is load-bearing twice over: it verifies Stripe's
 signature AND it is the HMAC key the purchased gift-card codes are derived from.
-Rotating it makes future codes derive differently -- which is fine, because
-already-issued codes live in the ledger and are never re-derived -- but a
+Rotating it makes future codes derive differently, which is fine, because
+already-issued codes live in the ledger and are never re-derived, but a
 webhook redelivery that straddles the rotation would issue a second card for the
 same purchase. Rotate when no delivery is in flight.
 
@@ -916,20 +906,20 @@ https://yallternativeliving.com/api/stripe-webhook
 
 Subscribe to exactly these five:
 
-- `checkout.session.completed` -- issues the cards an order bought and settles
+- `checkout.session.completed`, issues the cards an order bought and settles
   the hold on a card an order spent, but only once `payment_status` is `paid`;
   an unpaid completion (a delayed-notification method such as ACH) is recorded
-  as deferred and nothing is minted or debited -- but the stock and workshop
+  as deferred and nothing is minted or debited, but the stock and workshop
   spots it holds stay held (up to 14 days from checkout) until the payment
   clears or fails, instead of going back on sale after 35 minutes,
-- `checkout.session.async_payment_succeeded` -- the delayed payment cleared;
+- `checkout.session.async_payment_succeeded`, the delayed payment cleared;
   runs the same steps `completed` would have. Never fires while only card
   payment is enabled, and costs nothing to subscribe,
-- `checkout.session.async_payment_failed` -- the delayed payment did not clear;
+- `checkout.session.async_payment_failed`, the delayed payment did not clear;
   handled exactly like an expired session,
-- `checkout.session.expired` -- releases the hold and deletes the ephemeral
+- `checkout.session.expired`, releases the hold and deletes the ephemeral
   coupon an abandoned checkout leaves behind,
-- `charge.refunded` -- puts the gift-card share of an order refunded IN FULL
+- `charge.refunded`, puts the gift-card share of an order refunded IN FULL
   back on the card. A partial refund of the cash half restores nothing to the
   card. Do NOT also select `refund.created`: it fires for the same money.
 
@@ -952,35 +942,35 @@ https://yallternativeliving.com/api/square-webhook
 
 Subscribe to exactly these three:
 
-- `payment.updated` -- a payment at the register completed (cash, card and
+- `payment.updated`, a payment at the register completed (cash, card and
   tap alike); the order's items come off the shelf,
-- `order.updated` -- an order completed; catches the sale with no payment at
+- `order.updated`, an order completed; catches the sale with no payment at
   all (a giveaway or a 100% comp). A paid sale fires both, and the second is
   a no-op because the sale is claimed per order. Square documents this event
   as Beta and its payload is a summary (`order_updated.{order_id, state}`),
   which is why the Worker reads the order itself. If a $0 comp at the register
   does not turn out to fire it, adjust the Stock count by hand for comps --
   paid sales never depend on it,
-- `refund.updated` -- a refund completed; once the WHOLE order has been
+- `refund.updated`, a refund completed; once the WHOLE order has been
   refunded (every tender of a split sale) its items go back, a partial refund
   moves nothing. A return rung up as its own order is followed to the sale.
 
 Do NOT subscribe to `inventory.count.updated`: the Worker writes counts TO
 Square, and reacting to its own writes would loop. `payment.created` and
-`refund.created` are accepted if ticked -- they carry the same objects and
-hit the same per-order claim -- but are not needed.
+`refund.created` are accepted if ticked, they carry the same objects and
+hit the same per-order claim, but are not needed.
 
 Copy the subscription's **Signature key** into `SQUARE_WEBHOOK_SIGNATURE_KEY`.
 Square signs the exact notification URL above plus the raw body (HMAC-SHA256,
 base64, in `x-square-hmacsha256-signature`), and the Worker verifies against
-`SITE_ORIGIN` + `/api/square-webhook` -- never against its own `request.url`,
+`SITE_ORIGIN` + `/api/square-webhook`, never against its own `request.url`,
 which is the workers.dev hostname behind the proxy. If the subscription was
 registered under any other string, set `SQUARE_WEBHOOK_NOTIFICATION_URL` to
 it. There is no timestamp check, on purpose: unlike Stripe, Square retries
 with the ORIGINAL body and `created_at` (with exponential backoff, for up to
 24 hours, carrying `square-retry-number` and `square-retry-reason` headers),
 so a five-minute window would refuse every legitimate retry. Replay is
-defeated by the event-id claim instead -- a replayed event finds its id
+defeated by the event-id claim instead, a replayed event finds its id
 already claimed and does nothing. The 24-hour horizon is also why a 5xx from
 this route matters more than one from the Stripe route: a cause not fixed
 within a day is a sale the shelf never hears about, and the owner alert says
@@ -989,7 +979,7 @@ which order.
 ### Marking an order shipped
 
 The owner's dashboard at `/admin/fulfillment.html` does this for her (it signs
-in with GitHub through the CMS -- see the route table above). By hand, an order
+in with GitHub through the CMS, see the route table above). By hand, an order
 is marked shipped by adding metadata to its **PaymentIntent** in Stripe
 (Payments -> the payment -> Metadata -> "Edit metadata"). Three keys, all
 optional except the first:
@@ -1006,8 +996,8 @@ a Track button (`state/stripe-orders.js`), the customer gets the ship notice
 real dispatch date instead of the assumed one (`routes/retention-emails.js`).
 
 Set the status and the tracking link in the SAME save if you can. Only the
-first save sends -- the notice is recorded per order in `order_emails` so a
-later correction to the link cannot mail the customer twice -- so a tracking URL
+first save sends, the notice is recorded per order in `order_emails` so a
+later correction to the link cannot mail the customer twice, so a tracking URL
 added afterwards will show on the status page but will not have been in the
 email.
 
@@ -1033,7 +1023,7 @@ URL with Stripe directly:
 https://yallternative-checkout.y-allternative-living.workers.dev/stripe-webhook
 ```
 
-Note the missing `/api` in that form -- the proxy's `:splat` drops the prefix, so
+Note the missing `/api` in that form, the proxy's `:splat` drops the prefix, so
 the Worker's router accepts both spellings.
 
 Test mode first: run a real test-mode Checkout that buys a gift card, confirm the
@@ -1062,7 +1052,7 @@ back to an exact Durable Object counter when it does not, so the shipped
 configuration (binding commented out in `wrangler.toml`) works as-is. Enabling
 the binding trades exactness for cost: it is free and storage-free, but enforced
 per Cloudflare location rather than globally. Check whether it is offered on this
-account's free plan before relying on it -- the instructions are in
+account's free plan before relying on it, the instructions are in
 `wrangler.toml` next to the commented block.
 
 ### 7. A staging copy of the Worker (Stripe test keys)
@@ -1091,7 +1081,7 @@ What the block does and does not carry:
 
 To stand it up (from `workers/`):
 
-1. `npx wrangler deploy --env staging` -- creates the Worker. Note the
+1. `npx wrangler deploy --env staging`, creates the Worker. Note the
    `*.workers.dev` URL it prints.
 2. Secrets, in the Cloudflare dashboard: Workers & Pages ->
    `yallternative-checkout-staging` -> Settings -> Variables and Secrets ->
@@ -1099,7 +1089,7 @@ To stand it up (from `workers/`):
    the same permissions as production), `STRIPE_WEBHOOK_SECRET` (from a
    test-mode webhook endpoint pointed at
    `https://yallternative-checkout-staging.<account>.workers.dev/api/stripe-webhook`
-   -- Stripe Dashboard, toggle **Test mode**, then Developers -> Webhooks ->
+, Stripe Dashboard, toggle **Test mode**, then Developers -> Webhooks ->
    Add endpoint, same events as step 4), `RESEND_API_KEY` (the same key is
    fine; alerts and order copies then go to the staging `ORDER_NOTIFY_EMAIL`)
    and `MAGIC_LINK_SECRET` (any 32+ random characters, different from
@@ -1119,8 +1109,6 @@ To stand it up (from `workers/`):
 Tear it down with `npx wrangler delete --env staging` when the test is done;
 an idle staging Worker with a test key costs nothing but is one more thing
 with a public URL.
-
----
 
 ## What the gift-card ledger does and does not guarantee
 
@@ -1154,7 +1142,7 @@ What is still true and worth knowing:
 - **The IP a rate limit counts is the one Netlify reports.** Requests arrive
   through the proxy, so `CF-Connecting-IP` is Netlify's edge address; the first
   `X-Forwarded-For` entry is used instead, and that is client-influenced.
-  Nothing is authorised by it -- it only picks a counter bucket -- but a
+  Nothing is authorised by it, it only picks a counter bucket, but a
   determined caller can rotate buckets. Serving the Worker from a Cloudflare
   route on the apex domain would fix it.
 - **Tax treatment is unchanged.** A redemption still reaches Stripe as a
@@ -1163,8 +1151,6 @@ What is still true and worth knowing:
   something this layer can fix.
 - **Codes are immutable.** A card's Durable Object is addressed by its code, so
   reissuing a card under a new code does not carry its balance across.
-
----
 
 ## CSP reminder
 

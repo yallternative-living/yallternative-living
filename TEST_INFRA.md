@@ -18,7 +18,7 @@
 
 R5 note: the Product/Offer payload lives in `shop.html`'s `ItemList`, not on the
 19 `products/*.html` pages. Those are `noindex` doorway pages that redirect to
-`shop.html#<id>` and carry no JSON-LD at all -- putting rich data on pages that
+`shop.html#<id>` and carry no JSON-LD at all, putting rich data on pages that
 canonicalise away from themselves produced no rich results and looked like
 doorway spam.
 
@@ -29,13 +29,13 @@ real Chromium (Puppeteer) or all three Playwright engines; everything else is
 Node-only. The naming is the contract the runners glob on, and it is why the CI
 `qa` job can set `PUPPETEER_SKIP_DOWNLOAD` and still pass.
 
-- **Unit pool** -- `npm test` -> `scripts/run-test.js`, which runs BOTH of:
+- **Unit pool**, `npm test` -> `scripts/run-test.js`, which runs BOTH of:
   - `scripts/run-unit-tests.js`: every `scripts/*.test.js` that is not
     `*.browser.test.js` (53 suites), in a parallel worker pool, then two
     Node-only gates sequentially: `verify-pdp-metadata.js` (797 assertions on
     PDP OpenGraph/microdata) and `verify-build-reproducibility.js` (rebuilds
     the site five times and diffs every generated file).
-  - `scripts/qa-check.js`: 1242 static assertions -- links, images, JSON-LD,
+  - `scripts/qa-check.js`: 1242 static assertions, links, images, JSON-LD,
     pricing, CSP parity across `_headers` and `netlify.toml`,
     lockfile hygiene, markup contracts.
 
@@ -43,7 +43,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
   used to be `unit && qa-check`, so one broken unit suite meant the static gate
   never ran at all.
 
-- **Integration pool** -- `npm run test:integration` ->
+- **Integration pool**, `npm run test:integration` ->
   `scripts/run-integration-tests.js`: a fixed list of browser gates plus every
   `scripts/*.browser.test.js` (23 suites, 29 total integration suites), each on its own port or an ephemeral
   one, in a worker pool. A suite on the fixed list that has gone missing is a
@@ -57,8 +57,8 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
     there (`--root`), pins its contract (every owned file smaller and carrying
     the marker, `sw.js` and all 40 HTML pages byte-identical, a second run a
     no-op), then serves the copy and drives it: home loads with zero page
-    errors and no failed asset request -- with a positive control that throws
-    a page error and asserts the listener saw it -- the shop renders one card
+    errors and no failed asset request, with a positive control that throws
+    a page error and asserts the listener saw it, the shop renders one card
     per product, Add to Cart opens the drawer, global search returns results,
     a PDP thumbnail switches the main photo, and the language picker switches
     the nav to Spanish through the minified dictionaries. It ends by hashing
@@ -77,7 +77,7 @@ Node-only. The naming is the contract the runners glob on, and it is why the CI
   - `scripts/text-layout.browser.test.js` (ephemeral port): 20 pages x 6
     viewports (320-1440px), measuring the line boxes of every heading, button
     label, form label and accordion summary. Two gates: no string may be
-    clipped by its own box (a hard zero -- `.btn` is `nowrap` + `overflow:
+    clipped by its own box (a hard zero, `.btn` is `nowrap` + `overflow:
 hidden`, so an over-long label is cut at both ends rather than wrapped),
     and orphaned last lines are held to a measured budget so they cannot creep
     back after the `text-wrap: pretty` fixes.
@@ -98,14 +98,14 @@ hidden`, so an over-long label is cut at both ends rather than wrapped),
     for the PDP sticky bar, ritual cross-sells, search interaction, variant
     pickers, the journal, and the M1-M4 milestone stress runs.
 
-- **Smoke gate** -- `npm run test:smoke` -> `scripts/smoke-test.js`: four
+- **Smoke gate**, `npm run test:smoke` -> `scripts/smoke-test.js`: four
   stages in under three seconds, run on every CI push.
 
-- **Cross-browser gate** -- `npm run test:cross-browser` ->
+- **Cross-browser gate**, `npm run test:cross-browser` ->
   `scripts/cross-browser-check.js`: Playwright across Chromium, Firefox,
   WebKit, Mobile Safari and Mobile Chrome.
 
-- **CI** -- `.github/workflows/test.yml`. The `qa` job runs lint, format,
+- **CI**, `.github/workflows/test.yml`. The `qa` job runs lint, format,
   smoke and `npm test`. The `browser` job installs the three Playwright
   engines and runs the integration and cross-browser gates; it runs on `main`
   and whenever the `core` paths filter matches, which includes `assets/data/**`
@@ -135,9 +135,7 @@ repository:
   re-implements the engine it is testing, or requires it in a try/catch and
   skips when it is missing, reports only on itself.
 
----
-
-# Translation Architecture Migration -- test coverage
+# Translation Architecture Migration, test coverage
 
 Appended. The "What a passing suite has to mean" section above is not
 optional context for this feature: an earlier draft of this file deleted those
@@ -150,7 +148,7 @@ section is held to.
 
 - **`scripts/translator.test.js`** (unit pool, 11 suites). Requires the real
   `assets/js/translator.js`, `assets/js/locales-data.js` and every
-  `assets/js/locales/<code>.js` -- not a re-implementation -- against a mock
+  `assets/js/locales/<code>.js`, not a re-implementation, against a mock
   DOM. Covers selector injection and its ARIA contract, the full keyboard
   flow, dictionary structure (9 locales x 703 phrases), in-place translation of text nodes / `data-i18n` / `placeholder` /
   `aria-label` / `title`, glossary protection, `MutationObserver` handling,
@@ -160,7 +158,7 @@ section is held to.
   Its Spanish assertions read the shipped dictionary rather than hard-coding
   the copy: they exist to prove the ENGINE put the dictionary value in the
   right node, and a retranslation must not redden a DOM suite. Each lookup is
-  guarded -- the key must exist, non-empty, and differ from the English -- so
+  guarded, the key must exist, non-empty, and differ from the English, so
   an absent subject still fails. It also pins the language marking:
   `<html lang>` stays `"en"`, only fully translated elements are marked, mixed
   content is left alone, untranslated children under a marked ancestor are
@@ -169,9 +167,9 @@ section is held to.
 - **`scripts/translator-script-order.browser.test.js`** (integration pool, 20
   assertions). Loads `/?lang=es` with `locales-data.js` held back 1800ms by
   Puppeteer request interception and asserts the nav turns Spanish. Its first
-  four assertions are harness controls -- the request was seen, the nav has
+  four assertions are harness controls, the request was seen, the nav has
   links to assert over, the dictionaries are still in flight at the sample
-  point, and the nav is still English at that point -- because an interception
+  point, and the nav is still English at that point, because an interception
   that silently stopped matching would make every later assertion pass for the
   wrong reason. A second scenario drives the late-`YL_LOCALES` recovery path
   directly. Reverting both halves of the fix turns 20 passed / 0 failed into
@@ -182,8 +180,8 @@ section is held to.
   scenarios: an English visit requests NO `/assets/js/locales/*.js` at all and
   leaves the registry empty (the whole point of the split, and the assertion
   that fails if someone folds the phrase data back into the core or preloads
-  every language); switching to Spanish fetches exactly `es` and `en` -- `en`
-  because the matcher looks a node's text up in the English index first -- and
+  every language); switching to Spanish fetches exactly `es` and `en`, `en`
+  because the matcher looks a node's text up in the English index first, and
   a second switch to the same language re-fetches nothing; and a BLOCKED
   dictionary fetch leaves the page English, `setLanguage` returning `"en"`,
   the badge not claiming ES, and nothing written to storage. That last one is
@@ -214,7 +212,7 @@ section is held to.
   glossary terms, one `assets/js/locales/<code>.js` per locale, a size ceiling
   on the always-loaded `locales-data.js` core, `locales-data.js`,
   `locales/en.js` and `translator.js` precached in `sw.js` while the other
-  eight dictionaries deliberately are not -- and the inverse SEO assertions: no page carries an `hreflang`
+  eight dictionaries deliberately are not, and the inverse SEO assertions: no page carries an `hreflang`
   alternate, `sitemap.xml` has zero `<xhtml:link>` and zero `?lang=`, and
   `robots.txt` carries `Disallow: /*?lang=`.
 
@@ -222,7 +220,7 @@ section is held to.
   themes, 0 violations allowed.
 
 - **`scripts/i18n-new-strings.test.js`** (unit pool, 86 assertions). Pins the
-  discovery half of the translation pipeline -- see below.
+  discovery half of the translation pipeline, see below.
 
 ## The translation pipeline, and where the gate is meant to be red
 
@@ -230,23 +228,23 @@ section is held to.
 the site is already built; it never builds it.
 
     1. node scripts/build-site-data.js       build the site
-    2. npm run i18n:new -- --write           discover, key, record the basis
+    2. npm run i18n:new, --write           discover, key, record the basis
     3. translate step                        fills es/de/fr/ja/zh (separate)
     4. node scripts/i18n-claims.test.js      claims-drift pins
     5. node scripts/build-site-data.js       the four-rule gate goes green
     6. commit
 
 It drives `scripts/extract-i18n-strings.js --json` in a child process to learn
-what the translator can actually reach -- the lookup in `translator.js` is
+what the translator can actually reach, the lookup in `translator.js` is
 exact equality on a node's trimmed text, so only a real browser knows what that
-text is -- and reports three sets against `assets/data/locales/en.json`:
+text is, and reports three sets against `assets/data/locales/en.json`:
 
 - **NEW** reachable, not an English value in the dictionary. Keyed
   `auto.<camelSlug>.<6 hex of the sha1 digest>`: content-derived, so the same
   string keys the same way on every run and on every machine. The extractor
   assigns no keys at all, so there was no scheme to inherit.
 - **CHANGED** English that no longer matches the digest in
-  `assets/data/i18n-translation-basis.json` -- copy edited after it was
+  `assets/data/i18n-translation-basis.json`, copy edited after it was
   translated, i.e. five stale translations. Uses `build-site-data.js`'s own
   `digestEnglish`, imported rather than reimplemented, so this tool and
   `validateDictionaryCoverage` rule 4 can never disagree.
@@ -254,15 +252,15 @@ text is -- and reports three sets against `assets/data/locales/en.json`:
   manifest, or verbatim in a built page. Reported only. Nothing is ever
   deleted.
 
-Strings that are reachable but not for translating -- product names, INCI
-ingredients, verbatim Etsy review text, prices, filled `tpl.*` templates -- are
+Strings that are reachable but not for translating, product names, INCI
+ingredients, verbatim Etsy review text, prices, filled `tpl.*` templates, are
 reported under `skipped` with a reason derived from committed data
 (`products.json`, `site-reviews.json`, `brand-glossary.json`), never from a
 hand-kept ignore list. Two kinds of genuinely new string are reported but NOT
 written: one that only JavaScript renders and that `i18n-runtime-strings.json`
 does not declare (it would fail gate rule 1 forever), and one carrying a
 data-derived number like "Showing 20 of 20 goods" (a dead key the day the
-number moves). Both want a human -- a manifest entry, or a `tpl.*` template.
+number moves). Both want a human, a manifest entry, or a `tpl.*` template.
 
 **Between steps 2 and 3 `npm run build-data` fails, and that is correct.** The
 five other locales are deliberately left untouched: this step knows what needs
@@ -285,14 +283,14 @@ key.
 Two things an unattended run has to know: the PDP countdown renders "1 Day, 08
 Hours, 28 Mins", so one string differs between any two runs (it is always
 deferred as runtime-only, so it never reaches a file), and the extractor serves
-the tree on port 8087 -- the same port `reveal-check.js` uses -- falling back
+the tree on port 8087, the same port `reveal-check.js` uses, falling back
 to an ephemeral one if it is busy. `--base <url>` skips its server entirely and
 renders a copy somebody else is already serving.
 
 ## Step 3: the translation step, and the bot that runs the whole thing
 
 `scripts/i18n-translate.js` (`npm run i18n:translate`) fills es/de/fr/ja/zh and
-writes all seven files -- `en.json`, the five locales and
+writes all seven files, `en.json`, the five locales and
 `i18n-translation-basis.json`. Note where the English write happens: HERE, not
 in step 2. `i18n:new --write` still exists and still works, but it appends
 English keys the five locales cannot satisfy yet, which is why the build is red
@@ -300,21 +298,21 @@ between the two steps. Letting the translator write `en.json` means a key
 reaches the dictionary only when its five translations are in hand.
 
     node scripts/build-site-data.js                     build the site
-    npm run i18n:new -- --json /tmp/report.json         discover + key, writes nothing
-    npm run i18n:translate -- --report /tmp/report.json fill five locales, write seven files
+    npm run i18n:new, --json /tmp/report.json         discover + key, writes nothing
+    npm run i18n:translate, --report /tmp/report.json fill five locales, write seven files
     node scripts/build-site-data.js                     the gate goes green
     npm test
     commit
 
 **Atomicity is the rule everything else serves.** A key is written to all seven
-files or to none of them -- never "English plus the four locales that worked".
+files or to none of them, never "English plus the four locales that worked".
 A string whose German fails is not translated into four languages; it is not
 translated, and the site keeps showing the English, because the runtime
 translator falls back on any text it cannot match. Failed strings are listed in
 the JSON summary with the locale and the rule that fired.
 
 **The work set** is the union of three things: NEW (a writable entry in the
-report), MISSING (a key in `en.json` whose value in some locale is absent -- and
+report), MISSING (a key in `en.json` whose value in some locale is absent, and
 only the missing locales are asked for, so a hand-tuned translation is never
 overwritten), and CHANGED (a key whose English drifted from its basis digest; all
 five are re-translated, which does discard hand-tuning of the superseded
@@ -333,15 +331,15 @@ reviewer that passes 99% of the time and teaches the maintainer to trust it.
 ### Source parity, and why the claims table moved
 
 `scripts/lib/i18n-claims-rules.js` now holds the claims vocabulary that used to
-live inside `scripts/i18n-claims.test.js`. Three things read it -- the test, the
+live inside `scripts/i18n-claims.test.js`. Three things read it, the test, the
 pre-write check, and the model's own negative constraints, which are GENERATED
-from the same array rather than retyped -- so the prompt, the gate and the
+from the same array rather than retyped, so the prompt, the gate and the
 refusal cannot drift apart while all three report green.
 
 It also adds **source parity**: a banned word is permitted when the key's own
 English contains one of its licensed triggers. The live catalogue says "calms
 the itch underneath" and "buzz off, naturally", so a faithful fr/de/zh rendering
-IS apaise/beruhigt/舒缓 and a faithful ja/zh rendering IS 天然 -- under the old
+IS apaise/beruhigt/舒缓 and a faithful ja/zh rendering IS 天然, under the old
 rule the honest translation was the one that failed. It is not a loosening: a
 claim the English does not make is still refused in every locale, `安心` and
 `効能`/`疗效`/`功效` are licensed by nothing at all, and protected brand terms
@@ -369,7 +367,7 @@ branches are pinned in `scripts/build-site-data.test.js`.
 
 ### The engine, and the environment variables
 
-`scripts/lib/llm.js` is the repo's shared LLM client -- not this bot's private
+`scripts/lib/llm.js` is the repo's shared LLM client, not this bot's private
 one, because more bots are coming. One `fetch` at an OpenAI-shaped
 `/chat/completions` with JSON-schema structured output, so Gemini and Groq
 differ by a base URL and a model id:
@@ -381,8 +379,8 @@ differ by a base URL and a model id:
 
 | Variable                                                                           | Default                                                    | What it is                                                                                                                                                                                                                                                                |
 | ---------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY`                                                                   | —                                                          | The AI Studio key. Free tier, no billing account. Required unless `--provider mock`.                                                                                                                                                                                      |
-| `GROQ_API_KEY`                                                                     | —                                                          | Optional second vendor (`--provider groq`).                                                                                                                                                                                                                               |
+| `GEMINI_API_KEY`                                                                   |, | The AI Studio key. Free tier, no billing account. Required unless `--provider mock`.                                                                                                                                                                                      |
+| `GROQ_API_KEY`                                                                     |, | Optional second vendor (`--provider groq`).                                                                                                                                                                                                                               |
 | `I18N_MODELS`                                                                      | `gemini-3.8-flash,gemini-flash-latest`                     | Comma-separated, first is the one we mean.                                                                                                                                                                                                                                |
 | `I18N_MAX_CALLS`                                                                   | none                                                       | Optional per-run provider-call cap (owner removed the default 2026-09-04). A retry storm is bounded by the circuit breaker instead: three transient batch failures in a row pause the run for a minute, a fourth stops it and leaves the rest for the next scheduled run. |
 | `I18N_BATCH_SIZE`                                                                  | `20`                                                       | Strings per locale per call.                                                                                                                                                                                                                                              |
@@ -390,14 +388,14 @@ differ by a base URL and a model id:
 | `LLM_THINKING`                                                                     | `high`                                                     | Gemini 3.x thinking level: `minimal`, `low`, `medium`, `high`, or `none` to send no thinking field (the model default is `medium`). Vertex: `generationConfig.thinkingConfig.thinkingLevel`; OpenAI-style transports: `reasoning_effort`.                                 |
 | `VERTEX_API_KEY`                                                                   | repo secret                                                | The Google Cloud API key for `vertex`, restricted to the Vertex AI API.                                                                                                                                                                                                   |
 | `LLM_MODELS`, `LLM_MAX_CALLS`, `LLM_BASE_URL`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | see `scripts/lib/llm.js`                                   | The shared client's own names; the `I18N_*` ones win for this bot.                                                                                                                                                                                                        |
-| `LLM_MOCK_CORRUPT`                                                                 | —                                                          | Test hook. With `--provider mock`, makes the mock drop protected terms from any string containing this substring, which is how the reject-and-drop path is proved offline.                                                                                                |
+| `LLM_MOCK_CORRUPT`                                                                 |, | Test hook. With `--provider mock`, makes the mock drop protected terms from any string containing this substring, which is how the reject-and-drop path is proved offline.                                                                                                |
 
 **The model list is a list on purpose.** `gemini-3.8-flash` is pinned first,
 because a pinned id is the only way to know what produced a given commit.
 `gemini-flash-latest` is last: Google documents it as hot-swapped with every new
 release, so the day the pinned id is retired the bot keeps working instead of
-dying on a 404. It is a survival path, not an upgrade -- the alias can point at
-a preview model whose register differs -- so a run that used it says so in the
+dying on a 404. It is a survival path, not an upgrade, the alias can point at
+a preview model whose register differs, so a run that used it says so in the
 summary, in the step summary, in the commit message and on the tracking issue,
 in the imperative: **re-pin**. Re-pinning is one line of
 `.github/workflows/i18n-bot.yml`.
@@ -406,8 +404,8 @@ in the imperative: **re-pin**. Re-pinning is one line of
 
     export GEMINI_API_KEY=...            # only for a real run
     node scripts/build-site-data.js
-    npm run i18n:new -- --json /tmp/report.json > /dev/null
-    npm run i18n:translate -- --report /tmp/report.json
+    npm run i18n:new, --json /tmp/report.json > /dev/null
+    npm run i18n:translate, --report /tmp/report.json
     node scripts/build-site-data.js && npm test
 
 `--dry-run` does everything except write. `--provider mock` needs no key at all
@@ -420,14 +418,14 @@ run are worth keeping, because each of them was a defect the run exposed rather
 than a step it performed:
 
 - **The gate was wrong about CJK.** A 0.3x length floor written for alphabetic
-  targets called 20 Korean strings truncated for being Korean -- `Home` is 홈,
+  targets called 20 Korean strings truncated for being Korean, `Home` is 홈,
   `Terms of Service` is 이용약관. The floor is 0.1 for ja/zh/ko now, and a
   source under 12 characters is measured by an absolute allowance instead of a
   ratio, because `FAQ` -> `Preguntas frecuentes` is 6.67x and correct.
 - **The translate gate and the build gate disagreed.** `IDENTICAL_BY_DESIGN`
   told the build that `FAQ`, `ESC` and `{product} — {variant}` are honestly
   identical; the translate gate did not read that table and dropped them as
-  passthroughs. It reads it now -- one list, two gates.
+  passthroughs. It reads it now, one list, two gates.
 - **Proper nouns are not copy.** 100 dropped keys on one run were event names
   and towns from `events.json` and social links that are a platform's name and
   an arrow. Discovery skips those as `event-atom` and `platform-label`, so they
@@ -450,7 +448,7 @@ sharing one key order. Then, with `LLM_MOCK_CORRUPT` set to a fragment of the
 About-page paragraph so the mock would drop `Y'allternative Living` and
 `Landrum, SC` from it, the same run wrote 197 keys and listed 5 failures (one
 key x five locales, reason "protected term(s) not preserved verbatim"); that key
-was absent from all nine locales AND from the basis -- 712 keys, not 713 -- and
+was absent from all nine locales AND from the basis, 712 keys, not 713, and
 the gate was still green. Both trees were reverted afterwards.
 
 That run also found a real defect and it is worth recording why: the fixture in
@@ -467,7 +465,7 @@ made of copy the bot is about to absorb.
 touches a file the CMS writes, plus `workflow_dispatch` with a `dry_run` input
 that defaults to true. The commit step is LAST, so a failing build, gate or test
 run after the translation step has written files aborts the job and the tree
-goes away with the runner -- there is no cleanup path to get wrong. No `[skip
+goes away with the runner, there is no cleanup path to get wrong. No `[skip
 ci]` and no `[skip netlify]`: Netlify honours both and this push has to deploy.
 
 `.github/actions/setup-site` is Node + `npm ci` + a real Chrome, factored out
@@ -495,11 +493,11 @@ English.
    re-pin `I18N_MODELS` before going further); `deferredToNextRun` is 0, or plan
    for a second run.
 4. Spot-check the Japanese and Chinese by eye. Machine translation quality
-   numbers are all measured on longer, richer text than button labels -- treat
+   numbers are all measured on longer, richer text than button labels, treat
    them as optimistic upper bounds and budget a human read of ja.
 5. Run it again with `dry_run` **false**. It commits and pushes as
    `github-actions[bot]`.
-6. **Verify Netlify actually deployed that commit** -- this is the one link in
+6. **Verify Netlify actually deployed that commit**, this is the one link in
    the chain that no GitHub documentation confirms. GitHub does not start a
    _workflow run_ from a `GITHUB_TOKEN` push, and the open question is whether
    the push _webhook_ still fires for third parties. The case that it does is
@@ -510,7 +508,7 @@ English.
    at roughly 90% confidence. Settle it empirically: GitHub → Settings →
    Webhooks → the Netlify hook → Recent Deliveries, and look for a `push` with
    `sender: github-actions[bot]`. If it did not fire, the fix is a Netlify build
-   hook called from the workflow's last step -- five lines.
+   hook called from the workflow's last step, five lines.
 7. Only after step 6 should anyone treat the pipeline as unattended.
 
 ## The search-enrichment bot, and the two surfaces it writes to
@@ -540,7 +538,7 @@ This is the whole design, and it is deliberately asymmetric.
 The reasoning: FDA reads intended use off "the label, the website and
 advertising", and has cited a product NAME as evidence in warning letters, so a
 published keyword is no safer than a name. A query synonym is different in kind
-— it only routes a shopper who types "psoriasis" to the Dry, Rough Skin products
+,  it only routes a shopper who types "psoriasis" to the Dry, Rough Skin products
 instead of an empty page, and that is not a claim that anything treats
 psoriasis. The interim legal finding backing the split: FDA has said nothing
 about search terms for cosmetics, and the nearest case law treats invisible
@@ -553,7 +551,7 @@ condition / pesticide / substantiation words, `QUERY_SIDE_BANNED`,
 A legal brief on this exact line is in progress; applying it should be an edit to
 a literal, never a patch to a filter. The same arrays generate the prompt
 (`promptFragment()`) and drive the filter, so the instruction the model gets and
-the gate that judges its answer cannot drift — the same reasoning as
+the gate that judges its answer cannot drift, the same reasoning as
 `scripts/lib/i18n-claims-rules.js`.
 
 ### TODO(legal-brief): where the build and the policy currently disagree
@@ -569,8 +567,8 @@ pins it at exactly those three words, so it cannot go stale in silence.
 
 ### Regeneration, and why two runs make no diff
 
-Each entry records a digest of the copy it was generated from — name, blurb,
-description, ingredients, category, concerns — plus the policy version. A
+Each entry records a digest of the copy it was generated from, name, blurb,
+description, ingredients, category, concerns, plus the policy version. A
 product is re-enriched when it is new, when that copy changes, or when the
 policy version moves. A price edit, a stock change or a new photo costs nothing.
 Everything else is carried through verbatim, ids are serialised in alphabetical
@@ -591,9 +589,9 @@ product. Every drop is reported as `{id, item, reason}` and goes on one issue.
 ### The build has the last word
 
 Three checks, not one. Each candidate synonym is first run through BOTH of the
-build's synonym gates, one entry at a time -- `buildSearchSynonyms()` and
+build's synonym gates, one entry at a time, `buildSearchSynonyms()` and
 `assertQuerySideClean()`, the second being the merged-table gate moved into the
-rules module so the two cannot diverge -- so a word the policy missed becomes a
+rules module so the two cannot diverge, so a word the policy missed becomes a
 logged drop rather than a red deploy an hour later. Then the written file faces
 a full `node scripts/build-site-data.js`. If that still refuses the file, the
 entries it is refusing are found by binary search over product ids and shipped
@@ -603,7 +601,7 @@ refuses should already have been a screen drop. Only when the offender cannot be
 isolated, when the failure does not look like a veto of the file, when more than
 half the file would go, or when the build budget (16) runs out are the previous
 bytes restored, the build re-run so the generated files match what is on disk,
-and the run exited 2 having changed nothing -- with the entries it did isolate
+and the run exited 2 having changed nothing, with the entries it did isolate
 named. That guard is meant to be able to veto the bot, so the bot is written to
 lose the argument.
 
@@ -647,7 +645,7 @@ drops, by reason:
 
 - **No live-model run.** There is no API key on the development machine, so
   every run recorded above is `--provider mock`. What a real model actually
-  proposes — and therefore the true drop rate — is unmeasured. The filters are
+  proposes, and therefore the true drop rate, is unmeasured. The filters are
   proved; the model's taste is not.
 - **The workflow has never executed.** `.github/workflows/search-enrich.yml` is
   unverified in CI: the `queue: max` concurrency, the rebase-and-retry push (it
@@ -664,7 +662,7 @@ cell is how the last one went wrong.
 
 - **~~Dictionary coverage itself is not gated.~~** Fixed: that assertion is
   now rule 1 of `validateDictionaryCoverage`, and rules 2-4 came with it. What
-  remains uncovered is the number the audit actually cared about -- the SHARE
+  remains uncovered is the number the audit actually cared about, the SHARE
   of a rendered page that ends up translated. The gate proves every dictionary
   entry is reachable; nothing proves the reachable text is mostly in the
   dictionary. `scripts/i18n-new-strings.js` measures the gap (338 new strings
@@ -687,7 +685,7 @@ no commit, no file, no edit to her copy, and no ability to fail a deploy.
 
 The reason it exists is narrow and worth stating. The 1-2 September 2026
 compliance review found that the shop's real exposure is not the catalogue --
-that was audited once and the decisions are with the owner -- it is the next
+that was audited once and the decisions are with the owner, it is the next
 sentence she writes alone at eleven at night. "Brings the itch right down" is a
 drug claim under the FD&C Act and no regex will ever see it.
 
@@ -703,7 +701,7 @@ CMS-written data files plus the journal:
                                  automated-email intros
     assets/data/events.json      event names, types and notes
     assets/data/quiz.json        every question and answer
-    assets/data/site-reviews.json  review text (its own category -- see below)
+    assets/data/site-reviews.json  review text (its own category, see below)
                                  and the owner's replies
     assets/data/journal/*.json   title, excerpt, body, tags
 
@@ -719,7 +717,7 @@ of a report about wording.
 
 ## Two passes, and why the second one cannot be the only one
 
-1. **The rule table** -- `scripts/lib/copy-claims-rules.js`, deterministic,
+1. **The rule table**, `scripts/lib/copy-claims-rules.js`, deterministic,
    offline, free. It owns every hard term the compliance review named across
    three categories (drug/treatment, pesticide/FIFRA, unsubstantiated
    marketing). A hit is a **definite** finding. It does not depend on a model
@@ -728,8 +726,8 @@ of a report about wording.
    the same client the i18n bot uses, one `/chat/completions` with JSON-schema
    structured output, retries, the pinned-to-alias fallback and the per-run
    call cap. It is handed the rule table (so it does not re-report pass 1), the
-   brand voice, and the standing instruction that puffery -- "Miracle", "the
-   one y'all keep re-ordering" -- is not a claim. Its findings are **likely**
+   brand voice, and the standing instruction that puffery, "Miracle", "the
+   one y'all keep re-ordering", is not a claim. Its findings are **likely**
    or **possible**, never definite.
 
 If the second pass fails, is skipped, or has no key, the run still reports the
@@ -739,14 +737,14 @@ not happen. That is the whole point of doing it in that order.
 Findings are merged and deduplicated: a model finding is dropped when the rule
 table already reported a term for the same string and category and that term
 appears inside the model's quote. A model finding whose quote is not literally
-present in the string, or whose id was never sent, is dropped -- a
+present in the string, or whose id was never sent, is dropped, a
 schema-conformant hallucination is the realistic failure mode, not a 500.
 
 ## The pending decisions, which are never findings
 
-The wording the review already put in front of the owner -- "Y'all Heal Now
+The wording the review already put in front of the owner, "Y'all Heal Now
 Miracle Frankincense Salve", "Hush Y'all Magnesium Arnica Sleep Salve",
-"Backroad Recovery Epsom Salt Soak", and the bug spray's name and blurb -- is
+"Backroad Recovery Epsom Salt Soak", and the bug spray's name and blurb, is
 masked out of the scan and listed separately as "already on your list". The
 phrases are read from the live `assets/data/products.json` at run time, so the
 day she renames a product the entry disappears without anybody editing code.
@@ -756,7 +754,7 @@ is a name, not a licence, which is the same rule
 
 A republished customer review that makes a claim is its own category
 (compliance review section 4b): the wording is the customer's, but the claim is
-the shop's, and the fix is different -- leave it on Etsy, or move it off the
+the shop's, and the fix is different, leave it on Etsy, or move it off the
 product page.
 
 ## The rule table's shape, and updating it from a research brief
@@ -779,7 +777,7 @@ JSON overlay, named by `COPY_CLAIMS_TABLE` or passed to `loadTable()`:
 `add` appends, `remove` filters, a bare string inherits the category's default
 reason, and an unknown category id is an **error** rather than a silent no-op,
 because a typo in a research brief must not quietly disable a rule. The suite
-asserts that every term in the table -- including one an overlay adds -- has a
+asserts that every term in the table, including one an overlay adds, has a
 rewording to offer, so a finding is never a complaint without a suggestion.
 
 ## How the owner actually hears about it
@@ -829,7 +827,7 @@ functional and simply says, in the run summary, that the note was not emailed.
     node scripts/claims-review.js --base <ref> --head <ref> \
       --json /tmp/review.json --markdown /tmp/review.md
 
-    # a synthetic head from a directory (how the proof run works -- it never
+    # a synthetic head from a directory (how the proof run works, it never
     # writes to the repo)
     node scripts/claims-review.js --provider mock --base-dir . --head-dir /tmp/head
 
@@ -849,8 +847,8 @@ byte. The repo was not modified.
 
 - **6 changed strings in 1 file.** The other four data files and both journal
   entries were byte-identical and cost one read each and produced nothing. The
-  beard salve's live "calms the itch underneath" -- the marginal case the
-  review names -- was not reviewed, because it did not change.
+  beard salve's live "calms the itch underneath", the marginal case the
+  review names, was not reviewed, because it did not change.
 - **3 deterministic findings**, all definite: `all natural` (S3), `bites` (S4),
   `safe` (S3).
 - **1 second-pass finding**, at `likely`: "brings the itch right down", the
@@ -858,7 +856,7 @@ byte. The repo was not modified.
   ("keeps bites away") was **dropped by the merge** because the rule table had
   already reported `bites` on the same sentence and category.
 - **5 known-pending entries**, resolved from the live catalogue, all with
-  `touchedThisChange: false` -- the three product names, the bug spray's name
+  `touchedThisChange: false`, the three product names, the bug spray's name
   and its blurb appear under "already on your list" and **not** under findings.
 - The email envelope rendered with `send: true`, subject "A note about your
   wording on Porch Night Salve", recipient `y.allternative.living@gmail.com`
@@ -886,8 +884,6 @@ green in a clean worktree at HEAD with these files added.
   mock provider; nobody has yet watched `gemini-3.8-flash` answer this prompt
   with a real key. What IS proved is that the run survives whatever it says.
 
----
-
 # The 2026-09-04 research brief, as rules
 
 The brief ("Search, keywords and claims: where the line actually is") is a
@@ -905,7 +901,7 @@ trigger list can never be licensed by anything.
 | Group              | Added                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Licensed by                                                         |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Condition names    | es eccema, psoriasis, dermatitis, rosácea/rosacea, acné, insomnio, ansiedad, migraña, artritis, infección, inflamación, dolor · de Ekzem, Schuppenflechte, Psoriasis, Dermatitis, Rosazea/Rosacea, Akne, Schlaflosigkeit, Angst, Migräne, Arthritis, Infektion, Entzündung, Schmerz · fr eczéma, psoriasis, dermatite, rosacée, acné, insomnie, anxiété, migraine, arthrite, infection, inflammation, douleur · ja 湿疹, 乾癬, 皮膚炎, 酒さ, ニキビ, 不眠, 不安, 片頭痛, 関節炎, 感染, 炎症, 痛み · zh 湿疹, 银屑病, 牛皮癣, 皮炎, 玫瑰痤疮, 痤疮, 失眠, 焦虑, 偏头痛, 关节炎, 感染, 炎症, 疼痛 | **nothing**                                                         |
-| Injury             | es herida · de Wunde · fr plaie · ja 傷 · zh 伤口                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `BROKEN_SKIN` -- see below                                          |
+| Injury             | es herida · de Wunde · fr plaie · ja 傷 · zh 伤口                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `BROKEN_SKIN`, see below                                          |
 | Regulated register | es cura, alivia · fr soigner · ja 効く, 治す (de heilend/lindert/Heilmittel and zh 治疗/疗效 were already there)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | an English treatment verb, which the copy table bans in English too |
 | EU/UK              | es hipoalergénic, dermatológicamente, paraben, alérgen, clean · de hypoallergen, dermatologisch, Paraben, Allergen, clean · fr hypoallergén, dermatologiquement, parabèn, paraben, allergèn, clean · ja 低アレルギー, ノンアレルギー, 皮膚科テスト, 皮膚科医テスト, パラベン, アレルゲン, クリーン, clean · zh 低敏, 皮肤科测试, 对羟基苯甲酸酯, 尼泊金, 过敏原, clean                                                                                                                                                                                                                          | **nothing**                                                         |
 
@@ -927,7 +923,7 @@ the trigger list: "cut with shea butter" must not license a wound word.
 
 **2. es `cura` is licensed by an English treatment verb, not by nothing.**
 `footer.disclaimer` says "diagnose, treat, **cure**, or prevent" in English and
-"diagnosticar, tratar, **curar**" in Spanish -- the disclaimer denies the claims
+"diagnosticar, tratar, **curar**" in Spanish, the disclaimer denies the claims
 it names, which is the whole point of it. Source parity handles it: the Spanish
 is licensed because the English says "cure". No dictionary was edited.
 
@@ -951,7 +947,7 @@ what makes German "wunderbar" contain _Wunde_, Spanish "manicura" contain
 _cura_, Japanese "傷めない" contain _傷_, and English "cleanser" contain _clean_.
 A gate that fails on "wunderbar" is a gate somebody switches off, so each banned
 term may name the innocent longer words it hides inside, and those are stripped
-before that one term is looked for -- the same move `stripProtectedTerms()`
+before that one term is looked for, the same move `stripProtectedTerms()`
 already makes on the English. The list is short and provably innocent:
 **"Wundermittel" is not on it**, and a pin asserts it still trips.
 
@@ -959,7 +955,7 @@ already makes on the English. The list is short and provably innocent:
 
 "Never render a hedge as a promise" cannot be gated. There is no string to
 search for when "helps your skin feel softer" comes back as "makes your skin
-softer" -- the failure is a word that is _missing_. It is appended to the prompt
+softer", the failure is a word that is _missing_. It is appended to the prompt
 fragment the rules module already generates from the same arrays the gate reads,
 it tells the model to leave a sentence weaker rather than stronger where the
 language has no natural hedge, and it prints `NOT MACHINE-CHECKED` in the prompt
@@ -969,8 +965,8 @@ prompt carries it.
 ## Claims reviewer: four new categories
 
 `scripts/lib/copy-claims-rules.js`, pinned by `scripts/claims-review.test.js`
-(196 pins, up from 153). A term may now carry a `pattern` -- a regular
-expression -- with `term` kept as the label a finding quotes, because three of
+(196 pins, up from 153). A term may now carry a `pattern`, a regular
+expression, with `term` kept as the label a finding quotes, because three of
 these rules are about a shape rather than a word. Patterns run before plain
 terms so the better-explained finding wins the span; an unparseable pattern
 throws, for the same reason an unknown category id already does. The JSON
@@ -981,15 +977,15 @@ overlay can add patterns, so the next brief needs no code.
 | `monograph` [R7]       | "Temporarily protects minor cuts, scrapes and burns."                          | "Protects your hands from a long day in the garden."                |
 | `ingredient` [R7]      | "Contains calendula, known for soothing irritated skin."                       | "Made with lavender, because we like how it smells."                |
 | `collocation` [R7]     | "Soothes inflamed, irritated and itching skin." / "Calms the itch underneath." | "A soothing scent." / "A soothing soak, a calm evening."            |
-| `agency` [R3]          | "MoCRA-compliant." / "FDA-registered."                                         | -- (no safe rewording exists; the sentence goes)                    |
+| `agency` [R3]          | "MoCRA-compliant." / "FDA-registered."                                         |, (no safe rewording exists; the sentence goes)                    |
 | `marketing`, new terms | "Clean beauty, clean ingredients."                                             | "Apply with clean, dry fingers." / "gets your hands actually clean" |
-| `drug`, new terms      | "Anti-microbial and anti-bacterial."                                           | --                                                                  |
+| `drug`, new terms      | "Anti-microbial and anti-bacterial."                                           |, |
 
 The `collocation` negatives are the load-bearing pins. "Soothing" is on every
 indie safe-word list, Lush's copy is built out of it, and the shop's own
 approved rewrites use it; a reviewer that flags "soothing scent" is a reviewer
 she stops reading. It fires only when the word is pointed at a symptom or an
-inflamed body part -- which is precisely what FDA quoted at Om Botanical.
+inflamed body part, which is precisely what FDA quoted at Om Botanical.
 
 **The live-catalogue canary.** A pin asserts that **exactly one** string in
 `assets/data/products.json` trips a new category today: the beard salve's "calms
@@ -997,14 +993,14 @@ the itch underneath", which both reviews already named and which is the owner's
 call. If that count moves, either the catalogue changed or a pattern got greedy.
 
 **Republished reviews go through the same table**, as they already did --
-§ 255.2(a) converts a review into the shop's own claim -- and now reach the new
+§ 255.2(a) converts a review into the shop's own claim, and now reach the new
 categories, with the rule that actually fired kept alongside the S4B testimonial
 label. Two live reviews would report if they were edited: "No bites!!"
 (`bites`, pesticide) and "This is all natural" (`all natural`, marketing).
 
 **The second pass's category enum is generated from the table.** It used to be
 hard-coded, so a category a brief added could be flagged deterministically and
-then rejected by the schema on the model pass -- half-wired in a way nobody
+then rejected by the schema on the model pass, half-wired in a way nobody
 would notice until a report was quietly missing something.
 
 ## llms.txt: the puffery argument, narrowed
@@ -1053,13 +1049,13 @@ unchanged in shape; the third is new and belongs to nobody's model.
 | Surface                | What it is                                                  | Rule                                                                                                                                                                              |
 | ---------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. Prose               | names, blurbs, filter and category labels, URLs, alt text   | cosmetic vocabulary only                                                                                                                                                          |
-| 2. `keywords`          | published with the product in `assets/js/search-data.js`    | identical to prose, no softening — FDA has quoted a `Tags:` list as a claim, and C-657/11 holds invisibility "irrelevant"                                                         |
-| 3. `querySynonyms`     | rewrites what the shopper typed; rendered nowhere           | **lay** symptom and sensory words allowed ("itchy skin", "dry patches", "sore feet", "can't sleep") — but no named disease, no treatment verb and, since 2026-09-04, no pest word |
+| 2. `keywords`          | published with the product in `assets/js/search-data.js`    | identical to prose, no softening, FDA has quoted a `Tags:` list as a claim, and C-657/11 holds invisibility "irrelevant"                                                         |
+| 3. `querySynonyms`     | rewrites what the shopper typed; rendered nowhere           | **lay** symptom and sensory words allowed ("itchy skin", "dry patches", "sore feet", "can't sleep"), but no named disease, no treatment verb and, since 2026-09-04, no pest word |
 | 4. `medicalQueryTerms` | 40 named diseases, treatment verbs and pest/pesticide words | maps to **no product**; drives the note; never rendered as a list                                                                                                                 |
 
 **The two lists may not overlap, and three things enforce it.**
 `scripts/build-site-data.js` refuses to emit a synonym table whose key or term
-contains a `medicalQueryTerms` word — on the _merged_ table, so it covers
+contains a `medicalQueryTerms` word, on the _merged_ table, so it covers
 `content.json`'s `extraSynonyms` and the enrichment bot as well as the defaults,
 matching by whole word through the rules module's own `containsPhrase()` so
 "joint pain" is caught by "pain" and "manicure" is not caught by "cure".
@@ -1068,7 +1064,7 @@ matching by whole word through the rules module's own `containsPhrase()` so
 about a file that was hand-edited or restored from a branch, and also pins that
 the shipped router list is the full 40. `scripts/global-search.test.js` pins
 `main.js`'s own `SYNONYM_GROUPS`/`CATEGORY_TERMS` against the same list, parsed
-rather than grepped — that table's `CATEGORY_TERMS` half maps a typed phrase
+rather than grepped, that table's `CATEGORY_TERMS` half maps a typed phrase
 straight onto product ids, so `eczema: ["shea-butter", ...]` was the sharper
 half of the problem and is gone.
 
@@ -1076,7 +1072,7 @@ half of the problem and is gone.
 `TODO(legal-brief)` proposing that "wound", "infection" and "psoriasis" be
 released onto the query side so the policy would match `SEARCH_SYNONYM_BANNED`.
 Section 7(b) says the opposite: the eleven-word ban list stays **exactly** as it
-is, and those three move to surface 4 instead — with "eczema" and "insomnia",
+is, and those three move to surface 4 instead, with "eczema" and "insomnia",
 which the old policy allowed on the query side while the build refused
 "psoriasis", an asymmetry with no principle behind it.
 `QUERY_SIDE_BLOCKED_BY_BUILD_ONLY` is still computed rather than typed and is
@@ -1103,7 +1099,7 @@ page displaying a product"_; recognising them is not. Four things enforce it:
 - `scripts/search-enrich.test.js` asserts no word in it appears in the popular
   chips or anywhere in `sitemap.xml`;
 - `scripts/medical-query-router.browser.test.js` asserts no word in it appears
-  in the rendered page text, in a chip, or in the modal's suggestion UI —
+  in the rendered page text, in a chip, or in the modal's suggestion UI , 
   against a documented allowlist of the words the shop's own copy already says
   ("heal" from the `Y'all Heal Now` product name; diagnose/treat/cure/medicine
   from the footer disclaimer and the note itself).
@@ -1117,7 +1113,7 @@ found, the query with **only those tokens removed**, and the shelf to link to.
 **It is called by the ENGINES, not by the two UI call sites.** It ran in
 `render()` and in the modal's `triggerSearch()` until 2026-09-05, which left
 `searchGlobal()` and `matchesQuery()` matching a disease word for anyone who
-called them directly. Nothing a shopper could reach did that — but "nothing
+called them directly. Nothing a shopper could reach did that, but "nothing
 reaches it" is a claim about today's call sites, and surface 4's promise is that
 a `medicalQueryTerms` word maps to no product, which is a property of the engine
 or it is not a property at all. Now:
@@ -1147,14 +1143,14 @@ or it is not a property at all. Now:
 - **The `medicalOnly` guard is load-bearing.** An empty query means "match
   everything" to both engines, so without it a shopper who typed one disease
   word would have been shown the entire catalogue. With it she is shown none of
-  it, and not the "No Apothecary Items Found" panel either — that panel answers
+  it, and not the "No Apothecary Items Found" panel either, that panel answers
   a search that failed, and this search was answered.
 - **Nothing echoes the query.** The count line stops quoting the shopper's words
   back the moment a medical word is recognised, and both zero-result panels
   (which name the query in a heading) are replaced by the note. A rendered
   label is exactly what FDA and the CJEU cite.
-- The shelf link uses the shop's own concern ids — `?concern=dry-skin`,
-  `sleep-relaxation`, `sore-muscles`, `outdoor-defense` — so neither the link
+- The shelf link uses the shop's own concern ids, `?concern=dry-skin`,
+  `sleep-relaxation`, `sore-muscles`, `outdoor-defense`, so neither the link
   text ("start here", always) nor the URL can carry a condition name. A word on
   the list that matches no shelf still gets the note and lands on the shop's
   concern row, so an addition to the list can never silently lose its note.
@@ -1168,18 +1164,18 @@ or it is not a property at all. Now:
 
 | Query                 | Note                       | Products                      | Same as                        |
 | --------------------- | -------------------------- | ----------------------------- | ------------------------------ |
-| `psoriasis`           | yes, dry-skin shelf        | 0 tiles, no empty-state panel | —                              |
+| `psoriasis`           | yes, dry-skin shelf        | 0 tiles, no empty-state panel |, |
 | `wound salve`         | yes                        | 4                             | identical list to `salve`      |
 | `cure for itchy skin` | yes                        | 11                            | identical list to `itchy skin` |
-| `itchy skin`          | **no**                     | 11                            | —                              |
-| `salve`               | **no**                     | 4                             | —                              |
-| `mosquito bites`      | yes, outdoor-defense shelf | 0 tiles, no empty-state panel | —                              |
-| `mosquito`            | yes, outdoor-defense shelf | 0 tiles                       | —                              |
-| `tick`                | yes, outdoor-defense shelf | 0 tiles                       | —                              |
-| `bug spray`           | **no**                     | 4                             | —                              |
+| `itchy skin`          | **no**                     | 11                            |, |
+| `salve`               | **no**                     | 4                             |, |
+| `mosquito bites`      | yes, outdoor-defense shelf | 0 tiles, no empty-state panel |, |
+| `mosquito`            | yes, outdoor-defense shelf | 0 tiles                       |, |
+| `tick`                | yes, outdoor-defense shelf | 0 tiles                       |, |
+| `bug spray`           | **no**                     | 4                             |, |
 
 Every row above was re-measured after the router moved into the engines on
-2026-09-05 and is identical before and after — which is the whole acceptance
+2026-09-05 and is identical before and after, which is the whole acceptance
 criterion for that change.
 
 63 checks in `scripts/medical-query-router.browser.test.js`, plus 483 in
@@ -1194,8 +1190,8 @@ horizontal overflow, no clipping.
   wording against `main.js` on every build, with every routed variant in
   `verify`) but it has **no dictionary key**, so `translator.js` falls back to
   English for it. Giving it a key would mean hand-writing "diagnose, treat, cure
-  or prevent" into five languages — into the same locale files the i18n claims
-  gate is being rewritten around this week — and a legal sentence mistranslated
+  or prevent" into five languages, into the same locale files the i18n claims
+  gate is being rewritten around this week, and a legal sentence mistranslated
   into a regulated register (fr _soigner_, de _heilen_, es _curar_) is a worse
   outcome than an English one. The follow-up is one key plus five translations
   plus one re-recorded basis digest, authored with the claims gate rather than
@@ -1212,16 +1208,16 @@ horizontal overflow, no clipping.
 - **The bug spray's own copy still names the pest.** "Tell the mosquitoes to
   buzz off, naturally" is the blurb; `mosquito repellent`, `ticks` and `bites`
   are in its `keywords`, and a republished Etsy review says "No bites!!". Those
-  are surfaces 1 and 2 — the owner's file, which `search-enrichment-rules.js`
-  says in its header it never filters — and brief 7(e) already has the reviews
+  are surfaces 1 and 2, the owner's file, which `search-enrichment-rules.js`
+  says in its header it never filters, and brief 7(e) already has the reviews
   as an open decision for her. The browser suite's rendered-word allowlist names
   each with that reason rather than going red on her listing. The router stops
   the _site_ wiring the word to a jar; it cannot edit her listing, and it should
   not pretend to.
 - **"treat yourself" no longer finds the gift cards.** It was a term in the
   `gift_cards` synonym group and left with the other statutory verbs on
-  2026-09-04. It had already stopped working when the router shipped — "treat"
-  is stripped and "yourself" finds nothing — so this removed a mapping nothing
+  2026-09-04. It had already stopped working when the router shipped, "treat"
+  is stripped and "yourself" finds nothing, so this removed a mapping nothing
   could reach rather than a working query, but a shopper who types it gets a
   medical note and no products, which is a bad answer to a gift question. The
   fix is lay gift vocabulary in that group, not a re-exemption for the verb.
@@ -1230,5 +1226,5 @@ horizontal overflow, no clipping.
   "for itchy skin". The shop grid has "for" in its `STOPWORDS` and returns a
   byte-identical list; `searchGlobal()` keeps it, and the leftover connective
   moves two mid-list products past each other. Same set, different order. This
-  predates the router move — the modal passed exactly this string in before —
+  predates the router move, the modal passed exactly this string in before , 
   and the engine pin asserts the set while the browser suite asserts the list.

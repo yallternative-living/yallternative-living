@@ -878,7 +878,7 @@ window.YL_PRODUCTS = {
       "usageGuide": {
         "howToApply": "Attach to your keyring, backpack, purse, or altar space as a handheld protective talisman. Handle with positive intention.",
         "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
-        "patchTest": "Non-topical talisman artifact. Contains sealed mineral salts and dried botanicals — not for consumption or topical skin application."
+        "patchTest": "Non-topical talisman artifact. Contains sealed mineral salts and dried botanicals. Not for consumption or topical skin application."
       },
       "keywords": [
         "protection",
@@ -1310,7 +1310,7 @@ window.YL_PRODUCTS = {
       "usageGuide": {
         "howToApply": "Enter your unique digital gift card code at checkout on yallternativeliving.com to redeem toward any purchase.",
         "storage": "Digital certificate delivered instantly via email. Save or print your voucher code for safe keeping.",
-        "patchTest": "Digital credit — 100% allergen-free, valid for all products and never expires."
+        "patchTest": "Digital credit: 100% allergen-free, valid for all products and never expires."
       },
       "keywords": [
         "gift card",

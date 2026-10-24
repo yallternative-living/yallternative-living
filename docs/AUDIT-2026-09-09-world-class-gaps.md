@@ -1,4 +1,4 @@
-# World-class gap audit — 2026-09-09
+# World-class gap audit, 2026-09-09
 
 **Question asked.** "What are we missing for this website to be truly world class?"
 
@@ -41,7 +41,7 @@ gift-card ledger hold that is taken after the session exists.
 
 | Finding | Fix |
 | --- | --- |
-| The Journal was switched off: two finished posts unpublished, `journal.html` noindexed and absent from `sitemap.xml`, `feed.xml` advertised with zero items, no structured data. | `enableJournal: true`. Build now emits `Blog` + `BlogPosting` JSON-LD on `journal.html` (empty when off). Feed has 2 items, page is in the sitemap and nav (product pages included -- their header template had no Journal slot), `llms.txt` lists the posts, the 404 rules for `/journal.html` and `/feed.xml` are gone from `netlify.toml`. |
+| The Journal was switched off: two finished posts unpublished, `journal.html` noindexed and absent from `sitemap.xml`, `feed.xml` advertised with zero items, no structured data. | `enableJournal: true`. Build now emits `Blog` + `BlogPosting` JSON-LD on `journal.html` (empty when off). Feed has 2 items, page is in the sitemap and nav (product pages included, their header template had no Journal slot), `llms.txt` lists the posts, the 404 rules for `/journal.html` and `/feed.xml` are gone from `netlify.toml`. |
 | Switching it on surfaced a build bug: the injected nav link was `href="journal.html"` on `404.html`, which is served at any depth and must be root-absolute (C-5). | Root-absolute on `404.html`; `main.test.js` now asserts the link form instead of the marker being empty. |
 | Zero `Review` structured data anywhere, on a site that owns 22 verified-buyer reviews. | Product JSON-LD carries up to 10 `Review` nodes from `site-reviews.json` for that product (9 product pages). |
 | Homepage had only `LocalBusiness`. | `WebSite` with a `SearchAction` to `shop.html?q=…`, and the shop now honours `?q=`. |
@@ -89,7 +89,7 @@ already did per button).
 These are the real distance to world class. None is a bug; each is a
 capability the shop does not have. Effort is a guess; impact is not.
 
-1. **Error monitoring and alerting -- nothing exists.** Every failure in
+1. **Error monitoring and alerting, nothing exists.** Every failure in
    `workers/` is a `console.error` into Cloudflare's ephemeral tail: the
    gift-card unwind that could not expire a session (`checkout.js`), a
    Resend outage, a webhook 500ing for Stripe's three-day retry window while

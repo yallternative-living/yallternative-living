@@ -1,8 +1,8 @@
 # Project: Y'allternative Living CMS Merchandising & Compilation Expansion
 
 ## Architecture
-- **Tech Stack**: 100% Static HTML/CSS/JS with zero runtime framework dependencies.
-- **Data Pipeline**:
+- Tech Stack: 100% Static HTML/CSS/JS with zero runtime framework dependencies.
+- Data Pipeline:
   - Single Source of Truth in `assets/data/`: `content.json`, `products.json`, `events.json`, `site-reviews.json`, `journal/*.json` (one post per file), `quiz.json`, `social-feed.json`.
   - Sveltia CMS configuration in `admin/config.yml`.
   - Compiler `scripts/build-site-data.js` transforms JSON files into derived JS data objects (`assets/js/*-data.js`), replaces HTML comment markers (`<!--YL:...-->`), compiles `assets/data/footer.html` into all static HTML pages (17 built footers), compiles `products/*.html`, and updates SEO/discovery files (`sitemap.xml`, `llms.txt`).
@@ -31,28 +31,28 @@
 ## Interface Contracts
 
 ### `content.json` ↔ `admin/config.yml` ↔ `build-site-data.js` ↔ `main.js`/`cart.js`
-1. **`site.announcement`**:
+1. `site.announcement`:
    - `enabled`: boolean
    - `text`: string
    - `link`: string (optional URL/path)
    - `accent`: enum ("default", "whiskey", "moss", "lavender", "rust")
-2. **`site.seasonalNotice`**:
+2. `site.seasonalNotice`:
    - `enabled`: boolean
    - `text`: string
    - `link`: string (optional)
    - `showInCart`: boolean
    - `showInHeader`: boolean
-3. **`site.social`**:
+3. `site.social`:
    - `instagram`: string (URL)
    - `tiktok`: string (URL)
    - `facebook`: string (URL)
    - `etsy`: string (URL)
    - `pinterest`: string (URL, optional)
    - `youtube`: string (URL, optional)
-4. **`site.ritualDefaults`**:
+4. `site.ritualDefaults`:
    - `title`: string ("Botanical Pairing")
    - `subtitle`: string ("Pair this item with complementary botanicals crafted to work together.")
-5. **`products[].estimatedBatchDate`**:
+5. `products[].estimatedBatchDate`:
    - string (e.g. "Late October 2026", optional)
 6. **`assets/data/quiz.json`** (merged into `YL_CONTENT.quiz` by the build):
    - `title`: string
@@ -72,8 +72,6 @@
 - `assets/css/cart.css`: Cart drawer styles and seasonal notice styles.
 - `scripts/qa-check.js`: Static assertion gate.
 - `scripts/*.test.js`: Unit test suites.
-
----
 
 # Project: Self-Hosted Translation Architecture Migration
 
@@ -96,7 +94,7 @@ build-compiled dictionary engine.
    - **Nine locales, chosen for who can actually buy.** `workers/checkout.js`
      allows US shipping only and there is no `hreflang` layer, so a locale is
      worth what it is worth to a US resident who does not read English
-     comfortably -- not to that language's home market. That is why `es` is
+     comfortably, not to that language's home market. That is why `es` is
      Latin American rather than peninsular (and reaches Stripe as `es-419`),
      `pt` is Brazilian (`pt-BR`), and `vi`/`ko` are here at all: Vietnamese and
      Korean are two of the largest limited-English populations in the South,
@@ -108,7 +106,7 @@ build-compiled dictionary engine.
      `assets/js/locales-data.js` (~7KB: `window.YL_BRAND_GLOSSARY` and
      `window.YL_LOCALE_MANIFEST`) and `assets/js/locales/<code>.js`
      (34-43KB each), which register themselves into `window.YL_LOCALES`.
-     One bundle used to hold all of them -- 234KB parsed on every page view,
+     One bundle used to hold all of them, 234KB parsed on every page view,
      by every visitor, most of whom read the shop in English.
    - `validateLocalesAndGlossary()` fails the build when a translation drops a
      protected term the English string contains.
@@ -117,7 +115,7 @@ build-compiled dictionary engine.
      dictionaries are NOT precached: each is fetched when a shopper first
      reads the shop in that language and cached by the fetch handler, so
      switching back to a language they have used works offline. Switching
-     offline to a language this browser has never displayed does not -- the
+     offline to a language this browser has never displayed does not, the
      engine fails closed to English rather than claiming it.
    - **No SEO layer.** There is deliberately no `hreflang` injection and no
      `<xhtml:link>` in `sitemap.xml`; `robots.txt` carries
@@ -131,7 +129,7 @@ build-compiled dictionary engine.
      `SHOW_ELEMENT | SHOW_TEXT`, with the original cached on
      `node.__ylOriginalText` so English restores byte-identically.
    - `MutationObserver` on `document.body` (`childList` + `subtree` only)
-     translates dynamically injected DOM -- the cart drawer
+     translates dynamically injected DOM, the cart drawer
      (`.yl-cart-drawer`), search results, quiz, reviews. It returns
      immediately while the language is English, so English visitors pay
      nothing.
@@ -144,13 +142,13 @@ build-compiled dictionary engine.
      shipped: `es-MX` and `es-419` both land on the Latin American Spanish,
      `pt-BR`/`pt-PT` on the Brazilian, `zh-TW` on the Simplified dictionary
      (closer than English; there is no Traditional one). A DETECTED language
-     is never written to storage -- writing a guess would turn it into a
-     decision the shopper never made and could not see -- so changing the
+     is never written to storage, writing a guess would turn it into a
+     decision the shopper never made and could not see, so changing the
      device language changes the shop. A stored `en` on a Spanish-language
      phone still wins: choosing English is a choice.
    - `assets/js/main.js` injects both scripts with **`.async = false`**.
-     `defer` does nothing on a dynamically created script -- the spec sets
-     force-async -- and without the ordering the 28KB engine beat the 71KB
+     `defer` does nothing on a dynamically created script, the spec sets
+     force-async, and without the ordering the 28KB engine beat the 71KB
      dictionaries on 10 cold loads out of 10, translating nothing while still
      flipping the header badge. The core is ~7KB now, which removes the size
      half of that race; the ordering still matters because the core creates
@@ -170,7 +168,7 @@ build-compiled dictionary engine.
      changed; CSP byte parity holds; no new inline-script hash.
    - No dictionary or glossary string ever reaches `innerHTML`. Text goes
      through `node.nodeValue` / `node.textContent`; attributes through
-     `setAttribute`, and only `placeholder`, `aria-label` and `title` -- never
+     `setAttribute`, and only `placeholder`, `aria-label` and `title`, never
      `href`, `src`, `style` or `on*`. A poisoned locale can deface copy; it
      cannot execute script or create elements.
    - `?lang=` is validated against the six-code allow-list and is never
@@ -187,7 +185,7 @@ blocking fixes:
 - **Coverage is 10-21% of text nodes**, not 100%: `/` 56/264 (21.2%),
   `/shop.html` 99/961 (10.3%) under `es`. Lookup is exact string equality on
   the trimmed text, and 58% of authored dictionary entries match no string on
-  any page -- `cart.empty` is "Your cart is empty" while the DOM says "Your
+  any page, `cart.empty` is "Your cart is empty" while the DOM says "Your
   cart is empty."; `pdp.patchTest` is "Patch Test" while the DOM says "Patch
   Test:". Regenerating the dictionaries from the built markup, with a build
   gate asserting every English value appears somewhere in the site, is the
@@ -196,7 +194,7 @@ blocking fixes:
   lookup path is currently dead code and all real translation goes through the
   fragile exact-string path.
 - **`<html lang>` stays `"en"`.** Declaring the document Spanish while 79-90%
-  of it is English is a WCAG 2.1 SC 3.1.1 (Level A) failure -- a screen reader
+  of it is English is a WCAG 2.1 SC 3.1.1 (Level A) failure, a screen reader
   would apply Spanish phonetics to the English majority. Only the elements
   whose text was actually replaced are marked (55 on `/`, 98 on
   `/shop.html`), with `lang="en"` counter-marks where an untranslated element
@@ -208,7 +206,7 @@ blocking fixes:
 - **Checkout strings are out of reach.** `workers/checkout.js` returns English
   JSON error strings and hands Stripe English `display_name` and
   `terms_of_service_acceptance` text, with no `locale` passed.
-- **CLS is not zero.** `/` measures 0.0036 and `/?lang=es` 0.0094 -- the
+- **CLS is not zero.** `/` measures 0.0036 and `/?lang=es` 0.0094, the
   injected selector adds ~0.006. Both are far below the 0.1 "good" threshold,
   but "0 CLS" was never true and is not claimed here.
 - **The selector's contrast is outside the a11y gate.** Its
@@ -222,7 +220,7 @@ blocking fixes:
 ## Why there is no hreflang
 
 The migration briefly shipped `x-default` + `en` + five `?lang=` alternates on
-32 pages and 224 `<xhtml:link>` elements in `sitemap.xml` -- 165 new crawlable
+32 pages and 224 `<xhtml:link>` elements in `sitemap.xml`, 165 new crawlable
 URLs advertising five localised sites. Every claim was false: the alternates
 serve the byte-identical English file with an English `<title>` and `<meta
 description>`; each one canonicalises away from itself, which is precisely
@@ -235,7 +233,7 @@ crawl.
 asserts the absence on every page, in the sitemap, and the `Disallow` line in
 `robots.txt`. Real multilingual SEO means real per-locale pages
 (`/es/shop.html`) with translated titles, self-referential canonicals and
-reciprocal sitemap entries -- a separate project that needs ~100% dictionary
+reciprocal sitemap entries, a separate project that needs ~100% dictionary
 coverage first.
 
 ## Interface Contracts (translation)
@@ -285,7 +283,7 @@ window.YL_TRANSLATOR = {
 ## Code Layout (translation)
 - `assets/data/locales/{en,es,de,fr,ja,zh}.json`: canonical dictionaries.
 - `assets/data/brand-glossary.json`: protected terms, categories, rules.
-- `assets/js/locales-data.js`: compiled browser bundle (generated -- do not hand-edit).
+- `assets/js/locales-data.js`: compiled browser bundle (generated, do not hand-edit).
 - `assets/js/translator.js`: client runtime and selector UI.
 - `scripts/translator.test.js`: 10-suite unit gate against the shipped engine.
 - `scripts/translator-script-order.browser.test.js`: script-order race regression.

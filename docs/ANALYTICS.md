@@ -1,4 +1,4 @@
-# Analytics — Y'allternative Living
+# Analytics, Y'allternative Living
 
 Everything the shop sends to Umami, what to set up in the Umami Cloud dashboard,
 and the link-tagging convention for Instagram, Etsy and market QR codes.
@@ -7,17 +7,15 @@ Umami Cloud, website id `a134e5d8-e8e5-4a8e-90e9-c21e9dba5acb`, free **Hobby**
 plan. The id lives in two places on purpose:
 
 - the CMS (`/admin` → Site Settings → `umamiWebsiteId`, i.e.
-  `assets/data/content.json` → `site.umamiWebsiteId`) — this is what puts the
+  `assets/data/content.json` → `site.umamiWebsiteId`), this is what puts the
   tracker on every page. Clearing it removes the tracker on the next
   `npm run build-data`: nothing loads and nothing is counted.
-- `UMAMI_WEBSITE_ID` in `workers/wrangler.toml` — this is what lets the Stripe
+- `UMAMI_WEBSITE_ID` in `workers/wrangler.toml`, this is what lets the Stripe
   webhook book revenue. The Worker has no filesystem and cannot read the CMS.
 
 **Change one, change the other, in the same commit.** `npm test` fails when they
 disagree, because revenue landing in a dashboard nobody reads is exactly the kind
 of failure that goes unnoticed for months.
-
----
 
 ## 0. Defaults and why
 
@@ -30,15 +28,15 @@ guess at it.
 Every page loads one script of ours, `/assets/js/porch-light.js`, carrying the
 tracker's `data-*` attributes. That loader injects **exactly one** of two copies:
 
-1. **Direct** — `https://cloud.umami.is/script.js` with **no** `data-host-url`,
+1. **Direct**, `https://cloud.umami.is/script.js` with **no** `data-host-url`,
    so it posts straight to `gateway.umami.is` from the visitor's own browser.
-2. **First-party**, only if the direct copy fires an `error` event —
+2. **First-party**, only if the direct copy fires an `error` event , 
    `/porch-light/script.js` with `data-host-url="/porch-light"`, proxied to Umami
    by `status = 200` rewrites in `netlify.toml`, and marked
    `data-tag="fallback"`.
 
 **Why the fallback exists.** List-based blockers match **hostnames**. Both Umami
-hosts are on those lists, and the shop owner's own router blocks them at DNS —
+hosts are on those lists, and the shop owner's own router blocks them at DNS , 
 so without route 2, every visitor running a blocker or a filtering resolver
 counted exactly nothing. A `<script>` fires `error` when the request is refused
 *and* when it fails to resolve, so one handler catches both without a timer.
@@ -57,7 +55,7 @@ would be caught by the same lists' generic path rules within a release or two.
 enough to this shop that no list will ever ship a rule for it. The `/api/send`
 suffix is not a choice: the tracker hardcodes `<data-host-url>/api/send`. All of
 it is defined once, in `scripts/lib/analytics-proxy.js`, because the loader, the
-emitted tag, the rewrite rules and the CSP all have to agree — and a
+emitted tag, the rewrite rules and the CSP all have to agree, and a
 disagreement is silent in the worst way. A missing `cloud.umami.is` in
 `script-src` does not break analytics; it quietly demotes **every** visitor to
 route 2.
@@ -75,10 +73,9 @@ upstream response's own headers through on a proxy rule, and nothing in
 
 `sw.js` has an explicit skip for `/porch-light/`: the script ends in `.js`, and
 the service worker's network-first branch would otherwise refetch it with
-`cache: "reload"` on **every** page load — bypassing that 24-hour cache — and
+`cache: "reload"` on **every** page load, bypassing that 24-hour cache, and
 then keep a third-party script in this site's own cache across deploys. A test
 pins the skip.
-
 
 ### Do Not Track and Global Privacy Control are not honoured
 
@@ -101,7 +98,7 @@ ignored it would be worse than either choice; a page that quietly stopped being
 true would be worse still.
 
 The visitor-side off switch that **is** honoured, by the tracker itself, is
-`localStorage.setItem("umami.disabled", 1)` — see §5.
+`localStorage.setItem("umami.disabled", 1)`, see §5.
 
 ### Revenue comes from the server, not the browser
 
@@ -115,7 +112,7 @@ real order with real money that the Revenue report silently omitted while lookin
 complete.
 
 The client `Purchase` event still fires, as the funnel's last step, but now
-carries **no properties at all** — otherwise every order that did reach the page
+carries **no properties at all**, otherwise every order that did reach the page
 would be counted twice.
 
 ### Deliberately still not done
@@ -129,9 +126,7 @@ would be counted twice.
 - **No cart contents, no order references, no addresses**, anywhere, ever.
 - **No event property that is free text.** The before-send hook drops any value
   over 120 characters, anything that looks like an email address, and anything
-  shaped like a Stripe id — so a future call site cannot quietly publish one.
-
----
+  shaped like a Stripe id, so a future call site cannot quietly publish one.
 
 ## 1. What the site sends
 
@@ -140,14 +135,14 @@ would be counted twice.
 **`orders.html` sends nothing of its own.** The order-history page
 (`assets/js/orders.js`) fires no event: not on the link request, not on the
 list, not on Reorder. Its pageview is recorded like any other, and the
-one-time `?token=` it opens with never reaches the tracker twice over — the
+one-time `?token=` it opens with never reaches the tracker twice over, the
 tracker drops the query string before sending (`data-exclude-search`, below),
 and the page removes the token from the address bar before it settles. The
 token itself carries a hash of the address, never the address.
 
 One per page load, automatically, plus one **performance** event per page load
-(`data-performance="true"`) carrying Core Web Vitals — LCP, INP, CLS, FCP, TTFB
-and the page's duration — measured on the visitor's real device. Each pageview
+(`data-performance="true"`) carrying Core Web Vitals, LCP, INP, CLS, FCP, TTFB
+and the page's duration, measured on the visitor's real device. Each pageview
 carries the page URL, the page title, the referrer, screen size, browser
 language, and a country/region derived from an IP address Umami hashes and
 discards. No cookies, no advertising id, nothing that identifies a person.
@@ -169,7 +164,7 @@ What is added back is a short, fixed allow-list
 | `gclid` `fbclid` `msclkid` `ttclid` `li_fat_id` `twclid` | the six ad-click ids Umami's Attribution report reads automatically |
 
 The click ids are the one entry that is per-click random. They are here because
-**Facebook and Instagram append `fbclid` to ordinary organic links** — this is
+**Facebook and Instagram append `fbclid` to ordinary organic links**, this is
 not only an ads thing, and stripping it was throwing away the attribution for the
 shop's biggest referrer. They do not fragment the Pages report: Umami stores
 `url_path` and `url_query` in separate columns, so `/shop.html` stays one row.
@@ -192,31 +187,31 @@ Twenty-one from the browser, one from the server.
 | `Cart Opened`        | `itemCount`                            | The shopper opens the cart drawer deliberately         |
 | `Cart Shared`        | `itemCount`                            | The "share cart" button is used                        |
 | `Shared Cart Opened` | `itemCount`                            | Someone arrives on a `?cart=` link. `itemCount` 0 means the link had gone stale |
-| `Gift Card Applied`  | —                                      | A gift card is successfully applied to a cart          |
-| `Promo Code Applied` | —                                      | A promo code checks out against `/api/promo-preview` and is applied to a cart (the code itself is never sent) |
-| `Promo Code Rejected`| `reason`                               | A promo code is refused -- by the preview, by a re-check after the cart changed, or by checkout |
+| `Gift Card Applied`  |, | A gift card is successfully applied to a cart          |
+| `Promo Code Applied` |, | A promo code checks out against `/api/promo-preview` and is applied to a cart (the code itself is never sent) |
+| `Promo Code Rejected`| `reason`                               | A promo code is refused, by the preview, by a re-check after the cart changed, or by checkout |
 | `Checkout Start`     | `itemCount`, `subtotalCents`, `isPickup` | The checkout POST leaves the browser                 |
 | `Checkout Failed`    | `reason`                               | The Worker or the network refused the checkout         |
 | `Purchase`           | **none**                               | The funnel's last step, after `/api/order-summary` confirms the order is paid and complete |
 | `Order Paid`         | `revenue`, `currency`                  | **Sent by the Stripe webhook, not the browser.** The money |
 | `Site Search`        | `length`, `hasResults`                 | A shop search settles (the text is never sent)         |
 | `Quiz Completed`     | `result` (product id)                  | The apothecary quiz paints a recommendation            |
-| `Newsletter Signup`  | —                                      | The Kit redirect lands back with `?subscribed=1`       |
+| `Newsletter Signup`  |, | The Kit redirect lands back with `?subscribed=1`       |
 | `Restock Alert`      | `product`                              | A confirmed back-in-stock signup                       |
-| `Market Alert Signup`| —                                      | A confirmed market-reminder signup                     |
+| `Market Alert Signup`|, | A confirmed market-reminder signup                     |
 | `Outbound Click`     | `destination`                          | A link to Etsy / Instagram / TikTok / Facebook / elsewhere |
 | `404`                | `path`                                 | A dead link was followed                               |
-| `PWA Installed`      | —                                      | The site is installed as an app                        |
-| `App Updated`        | —                                      | The "new version" prompt is accepted                   |
+| `PWA Installed`      |, | The site is installed as an app                        |
+| `App Updated`        |, | The "new version" prompt is accepted                   |
 | `Language Changed`   | `language`                             | The translator switches language                       |
 
-`Checkout Failed`'s `reason` is one of a fixed set — `timeout`, `gift-card`,
+`Checkout Failed`'s `reason` is one of a fixed set, `timeout`, `gift-card`,
 `promo-code`, `network`, `no-session-url`, `rejected`, `rate-limited`,
 `server-error`, or `http-<status>`. It is never the server's own error text,
 because that text can quote something the shopper typed.
 
 `Promo Code Rejected`'s `reason` is likewise a closed set the drawer maps the
-Worker's answer onto — `unknown`, `expired`, `minimum_not_met`,
+Worker's answer onto, `unknown`, `expired`, `minimum_not_met`,
 `not_applicable`, `malformed`, `gift_card` (a gift-card string typed into the
 promo box), `gift_card_conflict` (one discount per order), `disabled` (the CMS
 switch), `rate_limited`, `unavailable`, `cart_invalid`, `rejected` (Stripe
@@ -248,23 +243,21 @@ present so it cannot vanish by accident).
 If the shop grows into the limit, drop properties before dropping events, and
 drop performance before either.
 
----
-
 ## 2. Set these up in the Umami dashboard
 
 **All by hand, once.** Umami Cloud's API is a Pro-plan feature; on Hobby there is
 no way to script any of this, so it is a checklist rather than a config file.
 Every report below is included on the free plan.
 
-**Goals** (Reports → Goals). A goal matches an event name or a URL — it cannot
+**Goals** (Reports → Goals). A goal matches an event name or a URL, it cannot
 match a property value.
 
 - `Add to Cart`
 - `Checkout Start`
-- `Order Paid` — the one that means money
+- `Order Paid`, the one that means money
 - `Newsletter Signup`
 - `Restock Alert` and `Market Alert Signup`
-- `404` — this one is a goal you want to go _down_
+- `404`, this one is a goal you want to go _down_
 
 **Funnel** (Reports → Funnel). Steps are URLs or event names, with a time window.
 The shop's funnel:
@@ -287,27 +280,25 @@ broken.
 **Revenue** (Reports → Revenue) reads the `revenue` and `currency` properties and
 needs nothing configured. It is now fed entirely by `Order Paid` from the Stripe
 webhook, off the amount Stripe actually captured, claimed once per Checkout
-Session in D1 — so a redelivered webhook, a refreshed thank-you page and a
+Session in D1, so a redelivered webhook, a refreshed thank-you page and a
 blocked tracker all book exactly the same thing: the truth, once.
 
 **Retention** (Reports → Retention) groups visitors by the day they first
 arrived. Most useful in the week after a market or a post. Read it with the
-`fallback` tag filtered **out** — see §7 for why those sessions are not really
+`fallback` tag filtered **out**, see §7 for why those sessions are not really
 sessions.
 
 **Journey** (Reports → Journey) wants three to seven steps of pages or events.
 A good first one: `/index.html` → `/shop.html` → `Product View` → `Add to Cart`.
 
 **UTM** (Reports → UTM) breaks views down by the five campaign parameters. It is
-populated straight off the landing URL, so it only ever shows what you tagged —
+populated straight off the landing URL, so it only ever shows what you tagged , 
 see §3.
 
 **Attribution** (Reports → Attribution) offers first-click and last-click, and
 reads both the UTM tags and the six click ids. Since `fbclid` now survives the
 scrubber, organic Instagram and Facebook traffic is attributable here without the
 shop buying a single ad.
-
----
 
 ## 3. Link tagging (UTM)
 
@@ -345,18 +336,16 @@ booth worked:
 https://yallternativeliving.com/?utm_source=market-qr&utm_medium=qr&utm_campaign=<market-slug>
 ```
 
-with `<market-slug>` matching the event id in `assets/data/events.json` — e.g.
+with `<market-slug>` matching the event id in `assets/data/events.json`, e.g.
 `utm_campaign=landrum-fall-market`. Print a fresh code per market rather than
 reusing one; the code costs nothing and the answer to "was that market worth it"
 is otherwise unknowable. If the QR should drop someone straight into pickup for
-that market, keep the existing `?pickup_market=` parameter on the link too — it
+that market, keep the existing `?pickup_market=` parameter on the link too, it
 still works, it is simply not reported.
 
 Shop filter links (`?category=apparel`, `?concern=eczema`) are now reported as
 well, so a story that points at one concern shows up as such in the Pages report
 without needing its own campaign tag.
-
----
 
 ## 4. After a deploy: the one check that matters
 
@@ -365,7 +354,7 @@ A local test cannot prove this. Two minutes on the live site can.
 1. Open **https://yallternativeliving.com** with DevTools on the **Network** tab.
 2. Add something to the cart.
 3. Find the `POST` that carries the event. On an ordinary browser with no
-   blocker it goes to **`https://gateway.umami.is/api/send`** — that is the
+   blocker it goes to **`https://gateway.umami.is/api/send`**, that is the
    healthy default, and it means your own IP and country reached Umami. It must
    return **200**, with **no** `Refused to connect` / `Refused to load` in the
    Console.
@@ -374,14 +363,14 @@ A local test cannot prove this. Two minutes on the live site can.
 5. **Now check the other route.** In DevTools → Network, right-click the
    `cloud.umami.is` script request → **Block request domain**, and reload. The
    POST must now go to **`/porch-light/api/send`** and return **200**, and the
-   event must still land in Realtime — this time tagged `fallback`. Unblock it
+   event must still land in Realtime, this time tagged `fallback`. Unblock it
    afterwards. Both routes are load-bearing; only testing the one your own
    browser happens to take is how half of this goes unnoticed.
 
 If step 3 goes to `/porch-light/api/send` on a browser with **no** blocker,
-something is stopping `cloud.umami.is` for you — often a DNS filter on your
-network — and every visitor behind the same filter is on the fallback too.
-If step 5 shows a 404, the proxy rule did not deploy — check `netlify.toml`.
+something is stopping `cloud.umami.is` for you, often a DNS filter on your
+network, and every visitor behind the same filter is on the fallback too.
+If step 5 shows a 404, the proxy rule did not deploy, check `netlify.toml`.
 If either step shows a CSP violation, the policy lost one of its four required
 entries; see §6.
 If a POST is 200 but Realtime is empty, see §6.
@@ -390,10 +379,8 @@ If a POST is 200 but Realtime is empty, see §6.
 purchase since this change, confirm the Revenue report shows the order's amount
 exactly once. If it shows nothing, tail the Worker log
 (`npx wrangler tail yallternative-checkout`) around the order and look for a line
-beginning `analytics:` — `bot-filtered`, `not-configured`, `timeout` and
+beginning `analytics:`, `bot-filtered`, `not-configured`, `timeout` and
 `http-…` are all reported explicitly.
-
----
 
 ## 5. Keeping your own visits out
 
@@ -406,12 +393,12 @@ localStorage.setItem("umami.disabled", 1);
 That browser stops being counted on this site, permanently, until you run
 `localStorage.removeItem("umami.disabled")`. Do it once per browser and per
 device you browse the shop from. This is the only self-exclusion Umami offers on
-the Hobby plan — dashboard IP filters start at the Pro plan.
+the Hobby plan, dashboard IP filters start at the Pro plan.
 
 **This matters more than it used to.** A DNS-blocking router used to keep the
 owner's own visits out for free. It no longer does: when the direct copy of the
 tracker fails to load, the loader falls back to serving it from the shop's own
-domain, which a domain blocker cannot see. Run the line above — it is honoured
+domain, which a domain blocker cannot see. Run the line above, it is honoured
 by the tracker itself, on either route.
 
 **Development, testing and previews.** Handled automatically. The tracker tag
@@ -427,28 +414,26 @@ attribute goes missing.
 **Pages that are never counted:** `offline.html` (the no-network fallback) and
 `/admin` (the CMS carries no tracker at all).
 
----
-
 ## 6. If the dashboard goes quiet
 
 Two routes means two ways for it to go quiet, and one of them is silent.
 
 1. **Which route is the browser taking?** Load the site with DevTools open. A
    `POST` to `gateway.umami.is` is the direct route; one to
-   `/porch-light/api/send` is the fallback. Neither, and nothing loaded at all —
+   `/porch-light/api/send` is the fallback. Neither, and nothing loaded at all , 
    check the `<script src="/assets/js/porch-light.js">` tag is on the page and
    that `data-domains` names the hostname you are actually on.
 
 2. **CSP.** Four entries, all mandatory:
    `script-src 'self' https://cloud.umami.is` and
    `connect-src 'self' https://gateway.umami.is`. Losing the `cloud.umami.is`
-   entry does **not** show up as an outage — every visitor is silently demoted
+   entry does **not** show up as an outage, every visitor is silently demoted
    to the fallback route and the dashboard keeps filling up with proxied
    sessions. Losing `gateway.umami.is` blocks every direct send with a console
    violation. `npm test` asserts each of the four separately.
 
 3. **Has Umami moved its collection host again?** Umami has moved it repeatedly
-   with no changelog and no migration notice — `analytics.umami.is`, then
+   with no changelog and no migration notice, `analytics.umami.is`, then
    `api-gateway-eu.umami.dev`, then `api-gateway.umami.dev`, now
    `gateway.umami.is` (umami-software/umami discussion #2719; still
    undocumented). Re-read the host literal out of
@@ -460,7 +445,7 @@ Two routes means two ways for it to go quiet, and one of them is silent.
 
 4. **Is `/porch-light/api/send` still a 200?** Only reachable by testing the
    fallback deliberately (§4 step 5). A 404 means the rewrite rule in
-   `netlify.toml` did not survive a deploy — `npm run build-security-headers`
+   `netlify.toml` did not survive a deploy, `npm run build-security-headers`
    regenerates it, and `scripts/analytics.test.js` asserts it exists in all
    three config files.
 
@@ -469,13 +454,11 @@ Two routes means two ways for it to go quiet, and one of them is silent.
    `workers/wrangler.toml` is set and deployed, then `npx wrangler tail` for a
    line beginning `analytics:`.
 
----
-
 ## 7. What the fallback route costs, and how to see who took it
 
 **This was verified from primary sources and then measured directly.** It does
-not stop the fallback being worth having — without it those visitors produce no
-rows at all — but it means one slice of the data is weaker than the rest, and it
+not stop the fallback being worth having, without it those visitors produce no
+rows at all, but it means one slice of the data is weaker than the rest, and it
 is worth knowing which slice.
 
 Umami builds a session id as `hash(websiteId, clientIP, userAgent, monthlySalt)`
@@ -484,7 +467,7 @@ header present in a fixed list (`src/lib/ip.ts` on `master`), and that list rank
 `cf-connecting-ip` **above** `x-nf-client-connection-ip` and `x-forwarded-for`.
 
 `gateway.umami.is` sits behind Cloudflare, whose documented behaviour is to set
-`CF-Connecting-IP` to "the client IP address connecting to Cloudflare" — which,
+`CF-Connecting-IP` to "the client IP address connecting to Cloudflare", which,
 through the proxy, is **Netlify's edge, not the shopper**. Netlify does forward
 the real visitor IP in `x-nf-client-connection-ip` (confirmed by a Netlify
 engineer on their own forum), but Umami never looks at it: `.find()` stops at
@@ -493,7 +476,7 @@ umami-software/umami issue #3579.
 
 **And it cannot be fixed by relaying it ourselves.** Umami's collection endpoint
 accepts an `ip` field in the payload with no authentication, which looked like an
-escape hatch — a Worker could read the forwarded header and stamp it in. Measured
+escape hatch, a Worker could read the forwarded header and stamp it in. Measured
 on 2026-09-02: a send carrying `payload.ip=1.1.1.1` (an Australian address) was
 recorded with country **US**, i.e. the connecting request's location. Umami Cloud
 geolocates the request, not the payload. So a Worker relay would restore nothing
@@ -505,11 +488,11 @@ budget. Ruled out.
 | Still trustworthy | Not trustworthy |
 | --- | --- |
 | Views, Pages, Referrers, Events, Goals, UTM, Attribution, **Revenue** (server-side, IP-independent) | Visitors, Visits, Bounce rate, Average visit time |
-| Browser / OS / device / screen (parsed from the User-Agent, which is forwarded intact) | Countries, Regions, Cities — these read as Netlify's edge locations |
+| Browser / OS / device / screen (parsed from the User-Agent, which is forwarded intact) | Countries, Regions, Cities, these read as Netlify's edge locations |
 | | Retention and Journey, which are built from sessions |
 
 **Visitors on the direct route are unaffected.** Their browser talks to Umami
-itself, so their IP, their session and their country are their own — exactly as
+itself, so their IP, their session and their country are their own, exactly as
 before any of this existed.
 
 ### Telling the two populations apart
@@ -520,7 +503,7 @@ tag at all. Umami records the tag on every event, so:
 - **Sessions → filter → Tag `fallback`** shows the proxied population. Their
   country and visitor counts are the ones to discount.
 - The same filter is available on every report, so any figure can be read with
-  the proxied traffic excluded — filter Tag **is not** `fallback` — or on its own.
+  the proxied traffic excluded, filter Tag **is not** `fallback`, or on its own.
 - The proportion of `fallback` events is also the shop's live **blocker rate**,
   which is a genuinely useful number and one Umami offers no other way to get.
 
@@ -538,9 +521,8 @@ Two dials, both one commit:
   `analyticsProxyRules()` in `scripts/build-security-headers.js`, and invert the
   matching assertions in `scripts/analytics.test.js` §2c and `scripts/qa-check.js`.
 - **Make the proxy the default again** (all visitors proxied, all counts
-  degraded): set `data-host-url` on the direct copy too. Not recommended — that
+  degraded): set `data-host-url` on the direct copy too. Not recommended, that
   is the arrangement this section exists to explain away.
-
 
 ## 8. Other known limits
 

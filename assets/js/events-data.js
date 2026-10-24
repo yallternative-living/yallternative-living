@@ -7,19 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "id": "rejects-market-2026-10-17",
-      "date": "2026-10-17",
-      "dateLabel": "October 17, 2026 · Saturday, 11am–5pm",
-      "name": "Rejects Market",
-      "type": "Alt Market",
-      "location": "Greer, SC",
-      "zip": "29651",
-      "venue": "The Venue at Locust Hill",
-      "address": "2309 Locust Hill Rd",
-      "emoji": "🦇",
-      "note": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill — come find our table."
-    },
-    {
       "id": "foothills-fantasy-festival-2026-10-24",
       "date": "2026-10-24",
       "dateLabel": "October 24, 2026 · Saturday, 11am–8pm",
@@ -44,7 +31,7 @@ window.YL_EVENTS = {
       "emoji": "🔮",
       "price": 60,
       "ticketUrl": "https://square.link/u/GZiFttbS",
-      "note": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
+      "note": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions and take them all home.",
       "includes": [
         "A 2 oz custom body oil you blend yourself",
         "An 8 oz botanical bath soak, your scents",
@@ -53,11 +40,24 @@ window.YL_EVENTS = {
         "The Y'allternative pop-up shop",
         "All ingredients, supplies & instruction"
       ],
-      "goodToKnow": "No experience needed — come with friends, your partner, or solo and meet some new weirdos. Spots are limited and tickets are advance only.",
+      "goodToKnow": "No experience needed. Come with friends, your partner, or solo and meet some new weirdos. Spots are limited and tickets are advance only.",
       "kind": "workshop"
     }
   ],
   "past": [
+    {
+      "id": "rejects-market-2026-10-17",
+      "date": "2026-10-17",
+      "dateLabel": "October 17, 2026 · Saturday, 11am–5pm",
+      "name": "Rejects Market",
+      "type": "Alt Market",
+      "location": "Greer, SC",
+      "venue": "The Venue at Locust Hill",
+      "address": "2309 Locust Hill Rd",
+      "zip": "29651",
+      "emoji": "🦇",
+      "note": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill. Come find our table."
+    },
     {
       "id": "gothic-punk-night-2026-10-16",
       "date": "2026-10-16",
@@ -133,7 +133,7 @@ window.YL_EVENTS = {
       "address": "121 College St",
       "emoji": "🎨",
       "url": "https://www.boomtownfestavl.com/",
-      "note": "Free downtown arts & music festival — come find our table."
+      "note": "Free downtown arts & music festival. Come find our table."
     },
     {
       "id": "spartanburg-punk-flea-market",
@@ -169,7 +169,7 @@ window.YL_EVENTS = {
       "location": "Ladson, SC",
       "zip": "29456",
       "address": "9850 Highway 78",
-      "note": "Two-day punk flea market — come find our table."
+      "note": "Two-day punk flea market. Come find our table."
     },
     {
       "id": "upstate-pride-colors-of-pride",

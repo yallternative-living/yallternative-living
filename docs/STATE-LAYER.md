@@ -1,4 +1,4 @@
-# The state layer — architecture, and the routes built on it
+# The state layer, architecture, and the routes built on it
 
 **Status: phase B done, plus the retention layer.** The bindings are live in
 `workers/wrangler.toml`, the Worker exports the Durable Object classes, and gift
@@ -13,16 +13,14 @@ customer's own order history behind a one-time emailed link (§4.10).
 **One thing has to happen before the next push to `main`:** `wrangler.toml`
 declares a D1 database whose `database_id` is a placeholder, so `wrangler deploy`
 fails until it is replaced with the id printed by `wrangler d1 create` (§5). The
-Worker itself degrades honestly if the binding is missing at runtime — checkout
-keeps working, `/api/stripe-webhook` and `/api/gift-card-balance` answer 503 —
+Worker itself degrades honestly if the binding is missing at runtime, checkout
+keeps working, `/api/stripe-webhook` and `/api/gift-card-balance` answer 503 , 
 but the deploy is the thing that breaks first.
 
 **Audience:** whoever changes this next. Read `workers/state/README.md` for the
 module contracts and `workers/README.md` for the deploy checklist; this document
 explains _why the layer looks like this_, what it costs, and what is wired to
 what.
-
----
 
 ## 1. The problem
 
@@ -48,7 +46,7 @@ a small amount of strongly consistent, server-owned state.
 
 **Gift-card balances → a Durable Object per code.** Every request for
 `YALL-GIFT50` is routed by `idFromName("YALL-GIFT50")` to the same object, in one
-location, and processed one at a time. That serialisation — not any clever SQL —
+location, and processed one at a time. That serialisation, not any clever SQL , 
 is what makes "check the balance, then take it" safe when two tabs check out at
 once. The object's SQLite storage keeps the balance, the reservations and an
 append-only ledger, updated together in one `transactionSync`.
@@ -67,7 +65,7 @@ through to the API and sanitises the result.
 
 | Option                                       | Why not                                                                                                                                                                                                                                                                                                                                            |
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Workers KV**                               | Eventually consistent — a balance read can return a stale value for up to a minute, which is a double-spend by design. The free plan also caps writes at **1,000/day**; one busy Saturday of reserve+commit traffic would exhaust it and fail silently. Disqualified twice over.                                                                   |
+| **Workers KV**                               | Eventually consistent, a balance read can return a stale value for up to a minute, which is a double-spend by design. The free plan also caps writes at **1,000/day**; one busy Saturday of reserve+commit traffic would exhaust it and fail silently. Disqualified twice over.                                                                   |
 | **Netlify Blobs**                            | Keeps the money path on Netlify, where finding H-23 already bites: the free plan is a 300-credit monthly hard cap and at zero credits **every project pauses**, webhook function included. A ledger that stops answering mid-month is worse than no ledger.                                                                                        |
 | **Supabase / Neon / PlanetScale free tiers** | All pause or sleep an idle free project (a cold start in a webhook handler risks a Stripe timeout, and a paused database silently drops the money path), all add a network hop from the Worker, all need a connection strategy Workers do not natively have, and all put customer data in a fourth vendor the privacy policy does not name (H-14). |
 | **Cloudflare Queues**                        | Not on the free plan.                                                                                                                                                                                                                                                                                                                              |
@@ -89,7 +87,7 @@ cards sold a month, and 20× the order volume in public balance/status lookups.
 | **D1 rows written** | 100,000/day (**hard-enforced daily**) | 1 claim + 1 done + 1 loyalty credit per order ≈ **105**, plus burned tokens | ~900×      |
 | D1 rows read        | 5,000,000/day                         | indexed lookups by email/event id; ~5k                                      | 1000×      |
 | D1 storage          | 500 MB per database, 5 GB total       | ~200 bytes/row; 1,000 orders/month ≈ 0.7 MB/year                            | decades    |
-| Stripe API calls    | n/a                                   | 1 per order-status lookup, 1 per checkout                                   | —          |
+| Stripe API calls    | n/a                                   | 1 per order-status lookup, 1 per checkout                                   |, |
 
 The margins are not close, which is the point: the design is chosen so that a
 bad day cannot push the shop past a hard daily limit. Two things could:
@@ -101,12 +99,12 @@ bad day cannot push the shop past a hard daily limit. Two things could:
    than the biased ~1e9 the Medium finding measured (§4.3), and enabling the
    **Rate Limiting binding** would move the counting off Durable Objects
    entirely (§6.1). As shipped, the DO counter is what runs, so a distributed
-   attacker still spends the budget one request at a time — the binding is the
+   attacker still spends the budget one request at a time, the binding is the
    answer if that ever happens.
 2. **A webhook retry storm.** Bounded by `claimEvent`: a redelivery is one
    indexed read and no writes.
 
-D1's free limits are enforced daily and **hard** — over the line, writes fail
+D1's free limits are enforced daily and **hard**, over the line, writes fail
 rather than bill. Every table here has a sweeper (`sweepOldEvents`,
 `sweepBurnedTokens`) so the row count tracks the last 30 days, not all time.
 
@@ -114,7 +112,7 @@ rather than bill. Every table here has a sweeper (`sweepOldEvents`,
 
 ### 4.1 The bindings
 
-`workers/checkout.js` — the Worker's `main` — re-exports the classes, which is
+`workers/checkout.js`, the Worker's `main`, re-exports the classes, which is
 what makes a `class_name` in a binding legal:
 
 ```js
@@ -137,7 +135,7 @@ response, CORS limited to the apex and www origins with `Vary: Origin`, `OPTIONS
 answered as a 204 preflight, and anything else a JSON 404.
 
 Netlify proxies `/api/*` to the Worker with `:splat`, which **drops the `/api`
-prefix** — `/api/order-status` arrives as `/order-status`. `routeOf()` accepts
+prefix**, `/api/order-status` arrives as `/order-status`. `routeOf()` accepts
 both spellings so the same build works behind the proxy or on a Cloudflare route.
 
 | Route                    | Request                                     | Response                                                                                                                                                                                                                                                                        |
@@ -147,11 +145,11 @@ both spellings so the same build works behind the proxy or on a Cloudflare route
 | `/api/stripe-webhook`    | Stripe event + `Stripe-Signature`           | `200 {received:true}` (`{received:true, duplicate:true}` on a redelivery); `400 {error:"Invalid signature"}`, one fixed string; `500` only when a retry would help; `503` with no state bindings                                                                                |
 | `/api/order-status`      | `{sessionId, email}`                        | `200 {found:true, status, paymentStatus, amountTotal, amountTotalCents, currency, placedAt, sessionId, items:[{name, quantity}], shipping:{city,state}, fulfillment:{status, trackingUrl, shippedAt}}`; `404 {found:false, error:"not_found"}`; `429`                           |
 | `/api/restock`           | `{email, product, website_hp}`              | `200 {success:true, message}`; `400` for an invalid address; `429`; `502` when the mailer refuses; `503` with no `RESEND_API_KEY`                                                                                                                                               |
-| `/api/unsubscribe`       | `?t=<unsub_id>.<sig>`                       | `200 {success:true, message}` — the same answer whether or not the address was known; `400 {error}` for a token that does not verify; `429`; `503` with no `STATE_DB`                                                                                                          |
+| `/api/unsubscribe`       | `?t=<unsub_id>.<sig>`                       | `200 {success:true, message}`, the same answer whether or not the address was known; `400 {error}` for a token that does not verify; `429`; `503` with no `STATE_DB`                                                                                                          |
 | `/api/welcome-code`      | `{email}`                                   | `200 {configured:true, code, expiresAt}`; `200 {configured:false}` when no coupon id is set; `400 {error}` for an unusable address; `429`; `502` when Stripe refuses; `503` with no `STATE_DB`                                                                                 |
 | `/api/birthday-club`     | `{email, birthday}` (`MM/DD`) or a form post | `200 {success:true, message}`; `400 {error}` for a bad address or anything that is not MM/DD (a year is always refused); `429`; `503`. A **form** post gets `303` to `/thank-you.html?birthday=saved` instead of JSON                                                          |
-| `/api/loyalty-balance`   | `{email, token}`                            | `200 {balance, threshold, rewardCents, pointsToReward}`; `403 {error}` for a missing, expired, wrong-purpose or wrong-address token — one message for all four; `429`; `503`                                                                                                   |
-| `/api/orders/request-link` | `{email}`                                 | `200 {ok:true, message}` — the SAME body for a known, unknown, unsubscribed or undeliverable address; `400 {error}` for an unusable address; `429` (3 per 10 min per client and per address hash); `404` when `site.enableOrderHistory` is off; `503` without `STATE_DB`/`MAGIC_LINK_SECRET` |
+| `/api/loyalty-balance`   | `{email, token}`                            | `200 {balance, threshold, rewardCents, pointsToReward}`; `403 {error}` for a missing, expired, wrong-purpose or wrong-address token, one message for all four; `429`; `503`                                                                                                   |
+| `/api/orders/request-link` | `{email}`                                 | `200 {ok:true, message}`, the SAME body for a known, unknown, unsubscribed or undeliverable address; `400 {error}` for an unusable address; `429` (3 per 10 min per client and per address hash); `404` when `site.enableOrderHistory` is off; `503` without `STATE_DB`/`MAGIC_LINK_SECRET` |
 | `GET /api/orders?token=` | `?token=` (the emailed one-time link)       | `200 {orders:[{sessionId, placedAt, amountTotalCents, currency, status, trackingUrl, items:[{name, quantity, unitCents, productId, variant, kind, reorderable}]}], loyalty:{balance, threshold, rewardCents, pointsToReward}|null}` newest first, 25 at most, the token burned on the way; `403 {error}` for every bad token, one message; `429`; `404`; `503` |
 
 | `/api/square-webhook`    | Square event + `x-square-hmacsha256-signature` | `200 {received:true, outcome}` (`{received:true, duplicate:true}` on a redelivery; `{received:true, disabled:true}` with the CMS switch off); `400 {error:"Invalid signature"}`, one fixed string; `404` until `SQUARE_WEBHOOK_SIGNATURE_KEY` is set; `500` only when a retry would help; `503` with no `STATE_DB` |
@@ -166,7 +164,7 @@ Notes that are contract, not detail:
   is real.
 - **A gift-card balance miss is one answer.** "No such code", "issued but spent"
   and "zero balance" all return the same 404 and the same sentence. A malformed
-  code is the exception — that is a typo the shopper can fix, it costs no lookup,
+  code is the exception, that is a typo the shopper can fix, it costs no lookup,
   and it reveals nothing.
 - **The restock honeypot returns the success shape**, sends nothing, and logs
   nothing. The birthday-club honeypot behaves identically.
@@ -176,7 +174,7 @@ Notes that are contract, not detail:
   form: knowing somebody's address is not authorisation to see what they spent.
 - **No unsubscribe URL contains an address.** The token is
   `<unsub_id>.<signature>` where `unsub_id` is an HMAC of the address under
-  `MAGIC_LINK_SECRET`, truncated — one-way, unguessable, and resolved back to an
+  `MAGIC_LINK_SECRET`, truncated, one-way, unguessable, and resolved back to an
   address only by `email_contacts` inside the Worker. The signature is checked
   before any database read, so the endpoint is not an enumeration oracle.
 - **The birthday club stores `MM-DD` and nothing else.** There is no year in the
@@ -184,7 +182,7 @@ Notes that are contract, not detail:
 
 Rate limits, per IP, via `checkRateLimit`: 10/min on the balance route, 5/min on
 order status and restock. The IP is the first `X-Forwarded-For` entry (Netlify's
-record of the client) falling back to `CF-Connecting-IP` — `CF-Connecting-IP`
+record of the client) falling back to `CF-Connecting-IP`, `CF-Connecting-IP`
 alone would be Netlify's edge address and put every visitor in one bucket. That
 first entry is client-influenced, which is acceptable only because nothing is
 authorised by it.
@@ -204,12 +202,12 @@ authorised by it.
 **Stripe promotion codes are out of the gift-card path entirely.** There is no
 rollover, no per-card promotion code, and the webhook never inspects
 `session.discounts`. `allow_promotion_codes` stays on the hosted page for
-MARKETING codes, and only when no gift card is applied — Stripe will not accept a
+MARKETING codes, and only when no gift card is applied, Stripe will not accept a
 session carrying both `discounts` and `allow_promotion_codes` anyway.
 
 **Codes.** `YALL-XXXX-XXXX-XXXX`: 12 symbols over Crockford base32 (no I/L/O/U),
 so 32^12 ≈ 1.15e18. 32 divides 256, so a byte maps to a symbol with no modulo
-bias — the open question in the old §7 about the 8-character, 36-symbol,
+bias, the open question in the old §7 about the 8-character, 36-symbol,
 biased derivation is closed. A purchased card's code is
 `HMAC(STRIPE_WEBHOOK_SECRET, "gift-code-<session>-<line>-<unit>")`, so a
 redelivered webhook re-derives the same string and `issue()` no-ops. Random codes
@@ -222,7 +220,7 @@ ledger started empty and stays the only place a balance has ever lived.
 
 All four are deleted. `/.netlify/functions/gift-card-balance`, `/redeem-points`,
 `/fulfill-gift-card` and `/submit-restock` answer **410 Gone** from
-`netlify.toml` (generated by `scripts/build-security-headers.js`) — 404 would
+`netlify.toml` (generated by `scripts/build-security-headers.js`), 404 would
 say "try again later"; 410 tells a cached client, a crawler and a stale service
 worker to stop asking.
 
@@ -235,8 +233,8 @@ rebuilt version to spend from. Rebuilding it is §4.5.
 Three things this document used to list as "deliberately unwired" are live:
 
 - **`workers/state/loyalty.js`** now earns and pays out. The earning rate comes
-  from `content.json`'s `site.loyaltyPointsPerDollar` — the same CMS field the
-  product-card badge reads, so the badge and the credit cannot disagree — and
+  from `content.json`'s `site.loyaltyPointsPerDollar`, the same CMS field the
+  product-card badge reads, so the badge and the credit cannot disagree, and
   the credit happens only from a verified `checkout.session.completed`, keyed on
   the order id. See §4.7.
 - **`workers/state/magic-link.js`** signs the `points` tokens the
@@ -273,7 +271,7 @@ not a subsystem.
 
 **The cron (`crons = ["7 * * * *"]`)** runs, in order: `sweepOldEvents`,
 `sweepBurnedTokens`, `sweepEmailQueue`, `runBirthdayClub`, `drainEmailQueue`.
-Every step is idempotent and independently try/caught — a birthday that cannot
+Every step is idempotent and independently try/caught, a birthday that cannot
 be minted must not stop the day-2 emails. Hourly rather than daily because the
 recovery mail wants to go out within the hour and an hourly job retries itself.
 
@@ -294,15 +292,15 @@ volume, and the template says "good, bad, or 'it's fine, I guess'" on purpose.
 | Trigger                                                      | What happens                                                                                                                                                                          |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/api/checkout` creates a session                             | `after_expiration[recovery][enabled]=true`, `consent_collection[promotions]=auto`, `consent_collection[terms_of_service]=required` + linked terms text, and `retention_product_ids` / `retention_categories` in metadata |
-| `checkout.session.completed`                                  | one `order_signals` row; queue "how to use your …" and a review request, both counted from DISPATCH — assumed 3 days out, then +4 days (CMS-adjustable) and +7 days (apparel, gift cards) or +12 days (everything else, mixed orders included). A gift-card-only order assumes no dispatch delay |
+| `checkout.session.completed`                                  | one `order_signals` row; queue "how to use your …" and a review request, both counted from DISPATCH, assumed 3 days out, then +4 days (CMS-adjustable) and +7 days (apparel, gift cards) or +12 days (everything else, mixed orders included). A gift-card-only order assumes no dispatch delay |
 | cron, hourly (`runShipNoticeSweep`)                          | list the last 45 days of PaymentIntents; for each one whose `fulfillment_status` reads shipped and is not yet in `order_emails`, send the ship notice, then re-anchor both queued rows on the real dispatch moment. No Stripe event fires for a metadata edit |
 | `checkout.session.completed`                                  | credit points on `amount_subtotal` (goods, not postage) at the CMS rate, keyed on the order id; if the balance reaches `LOYALTY_REDEEM_THRESHOLD`, debit it atomically, mint a single-use code and queue the email |
-| `checkout.session.expired`                                    | queue the recovery email at +45 minutes — **only** with a recovery URL, an address AND `consent.promotions === "opt_in"`                                                              |
+| `checkout.session.expired`                                    | queue the recovery email at +45 minutes, **only** with a recovery URL, an address AND `consent.promotions === "opt_in"`                                                              |
 | cron, 9am America/New_York                                    | mint and queue a single-use $5 code for every `birthday_club` member whose `MM-DD` is today, idempotent per member per year                                                            |
 | `POST /api/unsubscribe`                                       | add the address to `email_suppression`; every queued send for it is skipped, not retried                                                                                               |
 
 **Loyalty payout order of operations.** The debit runs FIRST, because `debit()`
-is the only atomic step — its balance check lives inside the INSERT, so two
+is the only atomic step, its balance check lives inside the INSERT, so two
 concurrent webhooks cannot both pay out. Minting after it is safe to retry: a
 repeated debit reports `duplicate` rather than spending again, and the Stripe
 idempotency key returns the SAME promotion code, so a webhook that dies between
@@ -319,7 +317,7 @@ One additive table, `analytics_sends`, and one step in the Stripe webhook.
 | `analytics_sends` | one row per thing reported to analytics from the server | PK on `<kind>:<stripe id>` |
 
 On `checkout.session.completed` with `payment_status === "paid"`,
-`workers/routes/stripe-webhook.js` books the order's revenue in Umami — an
+`workers/routes/stripe-webhook.js` books the order's revenue in Umami, an
 `Order Paid` event carrying `{ revenue, currency }` and nothing else, built by
 `workers/routes/analytics.js` from `amount_total` on the session Stripe itself
 says was paid. The browser used to do this and still fires `Purchase` as the
@@ -328,13 +326,13 @@ every shopper who closes the tab on the Stripe redirect or blocks the tracker,
 and keeping both would double-count everyone else.
 
 **Why not the `webhook_events` claim.** That claim is _released_ when a handler
-fails, so Stripe's retry can re-run every step — correct, because every step is
+fails, so Stripe's retry can re-run every step, correct, because every step is
 idempotent. An analytics send is not idempotent at the far end: Umami would book
 the same money twice and the Revenue report would overstate the shop's takings
 while looking perfectly plausible. So `analytics_sends` is keyed on the Checkout
 Session id, is taken _before_ the request, and is never released once the request
-has gone out. It is released in exactly one case — the send was never attempted
-because `UMAMI_WEBSITE_ID` is unset — so configuring the id later and replaying
+has gone out. It is released in exactly one case, the send was never attempted
+because `UMAMI_WEBSITE_ID` is unset, so configuring the id later and replaying
 the event still books the order.
 
 **What must never happen.** A failure here must not reach the webhook's response.
@@ -345,7 +343,7 @@ and the call site is deliberately outside the `failures` array the other steps
 push to.
 
 **No personal data leaves the Worker.** Not the buyer's address, not their name,
-and not the Stripe session id — that id is the token `/api/order-summary` looks
+and not the Stripe session id, that id is the token `/api/order-summary` looks
 an order up with, and it is used here only as the local claim key. The event's
 `hostname` and `url` are constants (`yallternativeliving.com`,
 `/thank-you.html`) so it lands on the same website row the browser's events do.
@@ -361,7 +359,7 @@ itself was already counted as revenue when it was bought.
    has no filesystem and must not depend on the site build.
    `scripts/worker-analytics.test.js` fails when the two disagree.
 2. Umami runs every collection request through the npm `isbot` package and
-   answers `200 {"beep":"boop"}` — recording nothing — for a User-Agent it
+   answers `200 {"beep":"boop"}`, recording nothing, for a User-Agent it
    classifies as a bot. Umami's own documented example, `Mozilla/5.0 (Server)`,
    _is_ classified as a bot. The string in `analytics.js` was chosen by testing
    candidates against the real package, and the test suite re-checks it on every
@@ -381,7 +379,7 @@ One additive table, `order_emails`, and one more hourly cron job.
 | `order_emails` | one row per transactional order email already delivered      | PK on `<kind>:<stripe id>` |
 
 The shop marks an order shipped by writing `fulfillment_status` (and usually
-`tracking_url`) onto the order's **PaymentIntent** — the same three keys
+`tracking_url`) onto the order's **PaymentIntent**, the same three keys
 `/api/order-status` has always read back. That write fires **no Stripe event**
 (there is no `payment_intent.updated`; the eight `payment_intent.*` events are
 `created`, `succeeded`, `payment_failed`, `canceled`, `processing`,
@@ -395,7 +393,7 @@ once it ships" and the returns policy told them to quote a tracking number
 nothing had sent them.
 
 **It is transactional, so it does not go through the queue.** Everything
-`drainEmailQueue` touches is a marketing send by construction — suppression
+`drainEmailQueue` touches is a marketing send by construction, suppression
 check, `List-Unsubscribe`, visible opt-out line. A tracking number is owed to
 someone who unsubscribed, so the notice goes out through `sendEmail` directly
 rather than through the marketing drain and its footer.
@@ -403,7 +401,7 @@ rather than through the marketing drain and its footer.
 **Why not the `webhook_events` claim.** That one is keyed on an _event_, and
 there is no event here. The sweep sees the same shipped order on every hourly
 pass for 45 days; `order_emails` is keyed on the PaymentIntent, so every pass
-after the first does nothing — and costs one D1 read, not a Stripe call, because
+after the first does nothing, and costs one D1 read, not a Stripe call, because
 the "already sent?" check runs before the session lookup.
 
 **Why not `analytics_sends` either.** That claim is taken _before_ the side
@@ -412,14 +410,14 @@ missing one. Here the trade runs the other way: a customer who is never told
 their parcel shipped is worse than a rare duplicate. So the row is written
 _after_ Resend accepts the message, a refusal records nothing so the next hourly
 pass simply tries again, and the Resend `Idempotency-Key` (`ship-notice-<pi id>`)
-closes the only window that leaves — two passes in flight at once.
+closes the only window that leaves, two passes in flight at once.
 
 **It also fixes the post-purchase clock.** The how-to-use and review emails are
 about a thing somebody is holding, but they were scheduled from `placed_at`:
 "how to get the most out of your salve" landed 2.5 days after checkout while the
 shipping policy still promised dispatch within 1–3 _business_ days, so a Friday
 order was asked about a jar that had not been packed. They are now measured from
-dispatch — assumed at 3 days (the top of that stated window) when the order is
+dispatch, assumed at 3 days (the top of that stated window) when the order is
 queued, then corrected by `reanchorOrderSequence` the moment the ship notice
 goes out. A gift-card-only order skips the assumption entirely: it was delivered
 by the same webhook that recorded it.
@@ -433,7 +431,7 @@ One additive table, `orders`, and two routes (`workers/routes/orders.js`).
 | `orders` | one row per paid Checkout Session: address HASH, PaymentIntent, date, total, status, lines, tracking | PK on `session_id`; the sweep's UPDATE is conditional |
 
 **Why a copy, when Stripe is the record.** `/api/order-status` is one order
-at a time and needs the `cs_…` reference plus the address for every lookup —
+at a time and needs the `cs_…` reference plus the address for every lookup , 
 right for a single order, useless for "what have I bought here?". Stripe has
 no cheap "every session for this address" query, and `order_signals` (§4.6)
 holds product ids and categories for the email sequence, not quantities, unit
@@ -445,8 +443,8 @@ uses (memoised per session, with `price.product` expanded so the `yl_product_id`
 comes back). An unpaid completion writes nothing; a redelivery writes nothing.
 
 **No address is stored.** `email_hash` is the same SHA-256 `order_signals`
-carries. The one thing that needs the address — the points balance, whose
-ledger is keyed by email — reads it back from `order_signals` by hash
+carries. The one thing that needs the address, the points balance, whose
+ledger is keyed by email, reads it back from `order_signals` by hash
 (`emailForHash`). The magic link carries that hash as its `subject` claim
 (`magic-link.js` grew a `subject` alternative to `email`; a token carrying both
 is malformed even when signed), so the emailed URL holds no PII, and
@@ -456,17 +454,17 @@ is malformed even when signed), so the emailed URL holds no PII, and
 known address, an unknown one, an unsubscribed one and one whose email Resend
 refused; the send runs behind `ctx.waitUntil`, so the response time is the
 same too. The only other answers are a malformed address (400), the rate
-limit (429 — 3 per 10 minutes per client AND per address hash, both via
+limit (429, 3 per 10 minutes per client AND per address hash, both via
 `checkRateLimit`, fail-open like every other public read), the CMS switch
 (404) and a missing binding (503).
 
 **The link.** `signToken({subject: hash, purpose: "orders", ttlSeconds:
 86400})`, sent through `sendEmail` (transactional: no unsubscribe footer,
-but `isSuppressed` is checked first — someone who opted out of marketing has
+but `isSuppressed` is checked first, someone who opted out of marketing has
 asked not to be written to, and this is mail they did not strictly need).
-`GET /api/orders` verifies purpose and signature, then `burnToken` — the same
+`GET /api/orders` verifies purpose and signature, then `burnToken`, the same
 `burned_tokens` row the points flow uses, swept by the hourly cron once it
-would have expired anyway — and only then reads. A second click is a 403
+would have expired anyway, and only then reads. A second click is a 403
 with the same message every other refusal gets.
 
 **Tracking.** `emailShipNotice` (§4.9) calls `mergeShipment` BEFORE its
@@ -496,7 +494,7 @@ truth, so both tills sell off one shelf:
   refunded -> `addOnHand` of exactly the recorded lines. Per-payment judgement
   would have restocked a whole split-tender sale when one tender came back
   (red team, 2026-09-10).
-- **Exactly once, twice over -- and crash-safe.** `webhook_events` claims the
+- **Exactly once, twice over, and crash-safe.** `webhook_events` claims the
   event id (with `sq_` and the UUID's hyphens stripped); `square_sales` claims
   the ORDER id, because a split tender is two payments for one sale and a paid
   sale fires both `payment.updated` and `order.updated`. The claim is a
@@ -519,16 +517,16 @@ truth, so both tills sell off one shelf:
   is why an unchanged hour with Square agreeing costs no write; the count
   read is why a day of failed webhooks or a number typed into the Square
   Dashboard heals within the hour. Square's `inventory.count.updated` is not
-  subscribed to -- the ledger is authoritative, Square is written to, a loop
+  subscribed to, the ledger is authoritative, Square is written to, a loop
   is not built.
 - **Catalogue age.** `site-data.js`'s product index carries `fetchedAt` from
   the origin `Date` header, and every seeder of the ledger passes it to
-  `syncInventory` -- the Square route and `GET /api/inventory` alike -- so an
+  `syncInventory`, the Square route and `GET /api/inventory` alike, so an
   isolate holding a 300-second-old cached `products.json` cannot reseed a row
   back past an owner correction (the guard the 2026-09-09 red team added for
   checkout, extended to the other readers on 2026-09-10).
 - **Signature.** HMAC-SHA256 over the registered notification URL + raw body,
-  base64 -- verified against `SITE_ORIGIN` + `/api/square-webhook` (the URL
+  base64, verified against `SITE_ORIGIN` + `/api/square-webhook` (the URL
   Square was given; the proxy means `request.url` is the wrong string). No
   timestamp tolerance, because Square's retries carry the original body;
   replay is defeated by the event-id claim.
@@ -569,24 +567,24 @@ Then, by hand:
   `checkout.session.completed`, `checkout.session.expired` and `charge.refunded`.
   Copy the signing secret into `STRIPE_WEBHOOK_SECRET`. That URL reaches the
   Worker through the Netlify proxy, which **must forward the raw body
-  unchanged** — the signature is computed over the exact bytes. If Stripe reports
+  unchanged**, the signature is computed over the exact bytes. If Stripe reports
   signature failures, suspect that first; the fallback is to register
   `https://yallternative-checkout.y-allternative-living.workers.dev/stripe-webhook`
   directly (note the missing `/api`: the proxy's `:splat` drops the prefix, and
   the router accepts both).
   The old Netlify endpoint stays enabled until the Worker has processed real
-  events, then is deleted — both can run at once for **observation only**,
+  events, then is deleted, both can run at once for **observation only**,
   because `claimEvent` makes double processing impossible only _within_ one
   deployment.
 - **Cloudflare → the Worker → Settings → Bindings.** Confirm `GIFT_CARD_LEDGER`,
   `RATE_LIMIT_COUNTER` and `STATE_DB` appear after the first deploy.
 - **Cloudflare → Workers & Pages → the Worker → Settings → Domains & Routes.**
   Optional. Traffic reaches the Worker through Netlify's `/api/*` proxy today, so
-  no route is required. Adding `yallternativeliving.com/api/*` removes the hop —
+  no route is required. Adding `yallternativeliving.com/api/*` removes the hop , 
   and the Medium finding about `*.workers.dev` still stands: if that subdomain is
   ever released, whoever claims it receives the traffic.
 - **Netlify.** The proxy rule and the `BLOCKED_PATHS` 404 rules are generated by
-  `scripts/build-security-headers.js`, not hand-written — that script rewrites
+  `scripts/build-security-headers.js`, not hand-written, that script rewrites
   `netlify.toml` on every deploy, so an edit made directly there vanishes. Also
   **delete the old function environment variables** (`STRIPE_SECRET_KEY`,
   `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `RESTOCK_NOTIFY_EMAIL`,
@@ -604,16 +602,16 @@ Neither can be checked from the repository.
 1. **Is the Rate Limiting binding available on this account's Free plan?**
    `workers/state/rate-limit.js` uses `env.RATE_LIMITER` when it exists and falls
    back to the exact Durable Object counter when it does not, so both cases work
-   — but which one is running decides the DO request budget in §3. Check
+, but which one is running decides the DO request budget in §3. Check
    Cloudflare → the Worker → Settings → Bindings for a "Rate limiting" binding
    type. If it is not offered, either accept the DO cost on public endpoints or
    drop rate limiting on the balance route to a cheap in-isolate heuristic and
    rely on a longer gift-card code.
 2. **What Netlify plan is this site on? (finding H-23.)** The free plan is a
-   300-credit monthly hard cap — production deploys at 15 credits each, and every
-   Sveltia CMS save triggers one — and at zero credits _every project pauses_,
+   300-credit monthly hard cap, production deploys at 15 credits each, and every
+   Sveltia CMS save triggers one, and at zero credits _every project pauses_,
    including any function still on the money path. Moving `/api/*` to the Worker
-   is what makes that survivable, and that migration is now done — no function
+   is what makes that survivable, and that migration is now done, no function
    remains on the money path. Still worth confirming the plan and putting a card
    on file: a paused project still takes the static site down, CMS saves
    included.
@@ -626,7 +624,7 @@ Neither can be checked from the repository.
   webhook redelivery re-derives the same string. See §4.3.
 - **RPC or fetch?** _Still open, deliberately._ The Durable Objects are addressed
   over `fetch` because that is what lets `scripts/worker-state.test.js` drive
-  real instances with plain `node` — `cloudflare:workers`' `DurableObject` base
+  real instances with plain `node`, `cloudflare:workers`' `DurableObject` base
   class cannot be imported outside the runtime. Switching to RPC is a small
   change and slightly cheaper per call; it would cost the ability to test the
   ledger without miniflare. Not worth it at this volume.

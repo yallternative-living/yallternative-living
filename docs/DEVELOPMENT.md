@@ -1,7 +1,7 @@
-# Y'allternative Living — website
+# Y'allternative Living, website
 
 A fast, dependency-free, static website for **Y'allternative Living**
-(Landrum, SC) — handmade salves, soaks, body care and apparel, sold on
+(Landrum, SC), handmade salves, soaks, body care and apparel, sold on
 Etsy and at Upstate SC farmers markets / Pride events.
 
 ## 🌸 Savanna's Quick-Start Guide
@@ -12,66 +12,62 @@ Hey Savanna! Welcome to your website. I put this quick guide together at the top
 
 I've set up a simple **Website Dashboard** where you can edit the site's content using friendly forms (so you never have to touch a text editor or type any code):
 
-- **Where to go:** `https://<your-deployed-domain>/admin` (this link will work once the site is live)
-- **What you can do here:**
-  - **Products:** Add new items, change prices, update descriptions, ingredients, or inventory levels.
-  - **Markets & Events:** Add upcoming market dates or move past dates to "recent appearances."
-  - **FAQ List:** Change the customer questions and answers.
-  - **Shop Info:** Edit the shop description or banner texts.
-- **How it works:** When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
-- **For technical setup (if you want me to walk you through it):** See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
+- Where to go: `https://<your-deployed-domain>/admin` (this link will work once the site is live)
+- What you can do here:
+  - Products: Add new items, change prices, update descriptions, ingredients, or inventory levels.
+  - Markets & Events: Add upcoming market dates or move past dates to "recent appearances."
+  - FAQ List: Change the customer questions and answers.
+  - Shop Info: Edit the shop description or banner texts.
+- How it works: When you make changes and click **Save**, the system automatically sends the updates to the website. The live site will rebuild and update itself in about a minute or two.
+- For technical setup (if you want me to walk you through it): See [Section 20 (CMS Auth Setup)](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 2. Checklist to Launch Your Store (Linking Your Tools)
 
-To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site. **For the click-by-click version of every step below (exact menu paths, a fill-in-the-blank handoff sheet at the end), see [docs/SETUP-GUIDE.md](SETUP-GUIDE.md)** — this list is just the summary.
+To start taking payments, sending newsletters, or moderating reviews directly on the site, you'll need to create accounts on these external platforms and link them to the site. **For the click-by-click version of every step below (exact menu paths, a fill-in-the-blank handoff sheet at the end), see [docs/SETUP-GUIDE.md](SETUP-GUIDE.md)**, this list is just the summary.
 
-1. **[ ] Hosting & Domain (Netlify):** Connect your GitHub account to host the site for free and point your custom domain. (Setup steps in [Section 12](#12-deployment)).
-2. **[ ] Customer Checkout & Credit Cards (Stripe + Cloudflare):** Two accounts, not one — but you create both yourself, same as everything else on this list. **(a)** Sign up for Stripe and grab a secret key — same as any account here. **(b)** Sign up for Cloudflare too, then invite me in as a Member. That key doesn't do anything by itself: it has to be installed on a small piece of backend code (`workers/checkout.js`) that also has to be _deployed_ inside your Cloudflare account using a command-line tool called Wrangler — that part is genuinely my job, not a form to fill out. Ask me to run it once you've invited me in. (Full steps in [Section 8](#8-the-shopping-system-explained) and `workers/README.md`.)
-3. **[ ] Email Newsletters (Kit):** Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
-4. **[ ] Contact Form, Customer Reviews & Restock Alerts (Formspree):** Create three separate forms — contact messages, new customer reviews, and "email me when it's back" signups from sold-out products — each sent directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
-5. **[ ] Gift Card Emails (Resend):** Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one — not optional. (Setup steps in `workers/README.md`.)
-6. **[ ] Customer Live Chat (Tawk.to - Optional):** Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
-7. **[ ] Store Management (Sveltia CMS):** Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
+1. [ ] Hosting & Domain (Netlify): Connect your GitHub account to host the site for free and point your custom domain. (Setup steps in [Section 12](#12-deployment)).
+2. [ ] Customer Checkout & Credit Cards (Stripe + Cloudflare): Two accounts, not one, but you create both yourself, same as everything else on this list. **(a)** Sign up for Stripe and grab a secret key, same as any account here. **(b)** Sign up for Cloudflare too, then invite me in as a Member. That key doesn't do anything by itself: it has to be installed on a small piece of backend code (`workers/checkout.js`) that also has to be _deployed_ inside your Cloudflare account using a command-line tool called Wrangler, that part is genuinely my job, not a form to fill out. Ask me to run it once you've invited me in. (Full steps in [Section 8](#8-the-shopping-system-explained) and `workers/README.md`.)
+3. [ ] Email Newsletters (Kit): Collects customer email addresses from the signup box in the footer so you can send them updates. (Setup steps in [Section 13](#13-newsletter-signup-explained)).
+4. [ ] Contact Form, Customer Reviews & Restock Alerts (Formspree): Create three separate forms, contact messages, new customer reviews, and "email me when it's back" signups from sold-out products, each sent directly to your email inbox. (Setup steps in [Section 16](#16-on-site-review-submissions-explained)).
+5. [ ] Gift Card Emails (Resend): Required for the built-in gift-card system (item 2's checkout Worker uses it) to actually email a redeemable code once someone buys one, not optional. (Setup steps in `workers/README.md`.)
+6. [ ] Customer Live Chat (Tawk.to - Optional): Adds a small chat bubble to the bottom of the pages so customers can ask you questions. (Setup steps in [Section 19](#19-live-chat-explained)).
+7. [ ] Store Management (Sveltia CMS): Log in to your secure admin panel with GitHub to manage products and content. Log in **today** with a GitHub token ("Sign in with Token"), or set up the permanent one-click "Sign in with GitHub" button. **Netlify is not involved** (its old Git Gateway login is deprecated). See [Section 20](#20-product-editor-sveltia-cms-at-admin-explained).
 
 ### 3. Setting Up Your Website Name (Domain Name)
 
 When you're ready to buy your own custom web address (like `yallternativeliving.com`), just let me know. I've already wired up a script that will automatically update the entire site to use your new address in one click. You or I can follow the steps in [Section 10](#10-seo--ai-agent-optimization-already-in-place) to run it!
 
----
-
 This file is both **maintenance documentation** for whoever edits the
 site later, and the **build spec** every page in the site follows, so
 keep it in sync if you change the design system.
 
----
-
 ## 1. Brand facts (source: the business's own Facebook page & Etsy shop)
 
-- **Name:** Y'allternative Living
-- **Positioning:** Queer-owned • Southern-raised • Alt-inspired. "Handmade
+- Name: Y'allternative Living
+- Positioning: Queer-owned • Southern-raised • Alt-inspired. "Handmade
   self-care. Scrubs, soaks & scents for the black sheep & bold hearts.
   Taking up space & smelling AMAZING."
-- **Location:** Landrum, SC (Upstate South Carolina). Sells at local
+- Location: Landrum, SC (Upstate South Carolina). Sells at local
   farmers markets and Pride events (e.g. Upstate Pride).
-- **Founder:** Savanna
-- **Email:** y.allternative.living@gmail.com
-- **Etsy shop:** https://www.etsy.com/shop/YallternativeLivinCO — 4.9★ (33 ratings)
-- **Facebook:** https://www.facebook.com/p/Yallternative-Living-61577943406316/ (308 followers)
-- **Instagram:** https://www.instagram.com/yallternativeliving
-- **TikTok:** https://www.tiktok.com/@yallternativeliving
-- **Voice:** warm, funny, a little irreverent, proudly Southern and
+- Founder: Savanna
+- Email: y.allternative.living@gmail.com
+- Etsy shop: https://www.etsy.com/shop/YallternativeLivinCO, 4.9★ (33 ratings)
+- Facebook: https://www.facebook.com/p/Yallternative-Living-61577943406316/ (308 followers)
+- Instagram: https://www.instagram.com/yallternativeliving
+- TikTok: https://www.tiktok.com/@yallternativeliving
+- Voice: warm, funny, a little irreverent, proudly Southern and
   proudly queer. Not corporate. Think "goth meets Southern meets your
   favorite cousin who makes soap." Never mock the customer; the edge is
   self-aware, not mean.
 
-All product names/prices/images live in `assets/data/products.json` —
+All product names/prices/images live in `assets/data/products.json` , 
 the real, canonical, hand/CMS-edited catalog (edit it directly, or
-through the no-code product editor at `/admin`, see section 20) — and
+through the no-code product editor at `/admin`, see section 20), and
 were pulled directly from the shop's live Etsy listings.
 `assets/js/products-data.js` is the exact same data, auto-generated by
 `scripts/build-site-data.js` and wrapped in a `window.YL_PRODUCTS = ...`
 assignment so the site actually loads it with zero network request and
-zero fetch()/CORS complications, even off `file://` — **never hand-edit
+zero fetch()/CORS complications, even off `file://`, **never hand-edit
 that file directly**, your changes will just get overwritten the next
 time the build script runs.
 
@@ -152,7 +148,7 @@ onto Netlify or uploading via any host's file
 manager. There is now one _optional, dev-time-only_ tool (`npm install`
 
 - `scripts/optimize-images.js`, see section 15) for regenerating
-  responsive photo variants -- it never touches how the live site loads,
+  responsive photo variants, it never touches how the live site loads,
   it just pre-generates files that get deployed alongside everything else.
 
 **Code style (dev-time only, also optional):** `npm install` also pulls
@@ -172,26 +168,26 @@ npm run format:check     # Prettier, fails without writing (what CI runs)
 HTML, CSS, JSON, and markdown in this project are intentionally left to
 hand-formatting, not Prettier's opinions.
 
-## 3. Design system (do not hand-roll new colors/fonts — use these)
+## 3. Design system (do not hand-roll new colors/fonts, use these)
 
 Everything routes through CSS custom properties in `assets/css/styles.css`,
 themed for **dark (default) and light mode** via `[data-theme]` + a
 `prefers-color-scheme` fallback, toggled with zero flash by `main.js`.
 
-- `--ink / --ink-2 / --ink-3` — background layers (elevated dark grey in
-  dark mode, warm paper in light mode — never pure `#000`/`#fff`)
-- `--paper / --paper-dim` — text (primary / muted)
-- `--hide` — hairline borders (leather brown)
-- `--whiskey` / `--whiskey-dim` — amber accent
-- `--rose` / `--rose-dim` — wine/rose accent (primary CTA color)
-- `--pride` — 6-stop rainbow gradient, used **sparingly** as a small
-  accent (underline on the active nav link, a rule under the hero) —
+- `--ink / --ink-2 / --ink-3`, background layers (elevated dark grey in
+  dark mode, warm paper in light mode, never pure `#000`/`#fff`)
+- `--paper / --paper-dim`, text (primary / muted)
+- `--hide`, hairline borders (leather brown)
+- `--whiskey` / `--whiskey-dim`, amber accent
+- `--rose` / `--rose-dim`, wine/rose accent (primary CTA color)
+- `--pride`, 6-stop rainbow gradient, used **sparingly** as a small
+  accent (underline on the active nav link, a rule under the hero) , 
   never as a full background wash
 - `--font-display` (Fraunces, a warm variable serif) for all headings;
   `--font-body` (Figtree, a warm humanist sans) for everything else.
   Fraunces replaced an earlier choice (Rye, a wood-type western/saloon
   face) that read as Texas/Wild-West-coded rather than
-  Upstate-SC-Southern. Figtree replaced Jost for the body font -- Jost
+  Upstate-SC-Southern. Figtree replaced Jost for the body font, Jost
   is a fine typeface, but it's become the default "indie brand starter
   kit" sans on Squarespace-style sites, which cut against the goal of
   not reading as templated.
@@ -204,7 +200,7 @@ themed for **dark (default) and light mode** via `[data-theme]` + a
   scroll. Add `.reveal` to any section child you want animated in.
 - Page-specific one-off styling belongs in a `<style>` block at the
   bottom of that page's `<head>`, scoped with a page-prefixed class
-  (e.g. `.about-*`, `.contact-*`) — never edit shared tokens per-page.
+  (e.g. `.about-*`, `.contact-*`), never edit shared tokens per-page.
 
 ## 4. Required `<head>` boilerplate (every page)
 
@@ -268,7 +264,7 @@ themed for **dark (default) and light mode** via `[data-theme]` + a
 
 ## 5. Required scripts + header (right after `<body>`, on every page)
 
-No inline cart script needed anymore — the on-site cart (`cart.js`) is a
+No inline cart script needed anymore, the on-site cart (`cart.js`) is a
 regular `defer`red script tag alongside the others near the end of the page
 (see section 8), not something that has to load first. `<body>` just opens
 straight into the skip link and header. Swap the `class="active"` onto
@@ -327,7 +323,7 @@ whichever nav link matches the current page; the others should have no
 </body>
 ```
 
-Note the wishlist heart icon isn't in this markup — it's injected at
+Note the wishlist heart icon isn't in this markup, it's injected at
 runtime by `main.js` (`initWishNavButton`) as the very first child of
 `.nav-cta`, so on a live page the final left-to-right order is: heart
 (wishlist) → cart (opens the on-site cart drawer) → theme toggle →
@@ -335,10 +331,10 @@ runtime by `main.js` (`initWishNavButton`) as the very first child of
 
 ## 6. Required footer + closing scripts (every page, before `</body>`)
 
-**The footer is single-source now — don't hand-edit it on individual
+**The footer is single-source now, don't hand-edit it on individual
 pages.** The entire `<footer class="site-footer">...</footer>` block is
 byte-identical across all 7 pages, so it lives in exactly one file,
-`assets/data/footer.html` (everything _inside_ the `<footer>` tag —
+`assets/data/footer.html` (everything _inside_ the `<footer>` tag , 
 the outer tag itself is added by the build). To change anything in the
 footer (a new social link, the real Kit newsletter form URL, a policy
 tweak, an added tracking snippet), edit `assets/data/footer.html` once,
@@ -352,7 +348,7 @@ That regenerates `index.html`, `shop.html`, `about.html`, `contact.html`,
 `events.html`, `privacy.html`, and `404.html` by replacing each page's
 existing `<footer class="site-footer">...</footer>` block wholesale with
 the current contents of `assets/data/footer.html`. No per-page marker
-comments are needed — the replacement regex anchors on the
+comments are needed, the replacement regex anchors on the
 `site-footer` class, so the small `<footer>` tags inside review
 quote-cards are never touched. The copyright year is still filled in
 live by `main.js` (`getFullYear()`), so it stays correct without a
@@ -379,15 +375,15 @@ after the footer, before `</body>`:
 Notes:
 
 - `<main id="main">` opens in the header block above and is closed
-  right before the footer — everything page-specific goes between them.
+  right before the footer, everything page-specific goes between them.
 - Every internal link inside the footer is a relative path
   (`shop.html`, not `/shop.html`) so the site works from a subfolder or
   `file://` with no server.
-- These `<script>` tags are required on every page — `products-data.js`
+- These `<script>` tags are required on every page, `products-data.js`
   and `image-manifest.js` are the catalog + responsive-image data,
   `main.js` powers the theme toggle, mobile nav, scroll reveal, and (on
   `index.html`/`shop.html`) the product grid, and `cart.js` is what makes
-  the Add to Cart buttons and cart drawer actually work (section 8) —
+  the Add to Cart buttons and cart drawer actually work (section 8) , 
   leaving it off a new page means clicking Add to Cart there does nothing.
   You'll also need `<link rel="stylesheet" href="assets/css/cart.css">` in
   the `<head>` alongside `styles.css` (section 4) for the drawer to be
@@ -396,24 +392,24 @@ Notes:
 ## 7. Content already researched (use real facts, never placeholders)
 
 15 real products across 5 categories (apparel, salves & balms, body &
-skin, soaks, potions & spellwork) — full list with prices, blurbs and
+skin, soaks, potions & spellwork), full list with prices, blurbs and
 Etsy links in `assets/data/products.json` (the canonical source, editable
-by hand or via `/admin` — see section 20). Two real Etsy review
+by hand or via `/admin`, see section 20). Two real Etsy review
 snippets worth quoting on the homepage:
 
-> "second purchase, works well. good scent." — Eric, Etsy review
-> "Smells GREAT! Haven't tried it yet, but look forward to using it :)" — Leese, Etsy review
+> "second purchase, works well. good scent.", Eric, Etsy review
+> "Smells GREAT! Haven't tried it yet, but look forward to using it :)", Leese, Etsy review
 
 Shop stats: **4.9★ average, 33 ratings (22 of them with written text, republished on /reviews.html), 1 year on Etsy.**
 
 ## 8. The shopping system, explained
 
-The site sells directly — a real "Add to Cart" button, a real on-site cart,
-and a real checkout — using an **on-site cart the site owns**
+The site sells directly, a real "Add to Cart" button, a real on-site cart,
+and a real checkout, using an **on-site cart the site owns**
 (`assets/js/cart.js`) that hands off to **[Stripe Checkout](https://stripe.com/payments/checkout)**
 (Stripe's own hosted payment page) for the actual card entry. This replaced
 Snipcart (see `docs/STRIPE-MIGRATION.md` for the full history of that switch)
-specifically to drop Snipcart's $20/month minimum — Stripe only charges a
+specifically to drop Snipcart's $20/month minimum, Stripe only charges a
 per-transaction fee (2.9% + 30¢), nothing monthly. Etsy stays visible
 everywhere as a trust signal (reviews, sale count, a direct listing link on
 every product) but is no longer the only way to buy.
@@ -430,23 +426,23 @@ every product) but is no longer the only way to buy.
 - Clicking Add to Cart opens a slide-out drawer (`cart.js`, styled by
   `assets/css/cart.css`) showing every line item, a free-shipping progress
   meter, one-click upsells, and a Checkout button. Everything is stored in
-  the visitor's own browser (`localStorage`) until they check out — no
+  the visitor's own browser (`localStorage`) until they check out, no
   account, no backend, syncs across open tabs.
 - The **"Saved For Later"** wishlist drawer (heart icon on every
   product card; saves to the visitor's own browser via `localStorage`,
-  key `yl-wishlist` — separate from the cart) has its own "Add to
+  key `yl-wishlist`, separate from the cart) has its own "Add to
   Cart" button per saved item, plus a "View Cart & Checkout" button at
   the bottom, so saving something and buying it later both happen
   without leaving the site.
 - Clicking Checkout POSTs the cart to a small backend piece (a Cloudflare
   Worker, `workers/checkout.js`) that re-derives every price from
-  `assets/data/products.json` itself — it never trusts whatever price the
-  browser sent — then redirects to a real Stripe-hosted payment page. Order
+  `assets/data/products.json` itself, it never trusts whatever price the
+  browser sent, then redirects to a real Stripe-hosted payment page. Order
   confirmation happens on `thank-you.html`.
 - Order-integrity note: since prices are re-derived server-side from
   `assets/data/products.json` on every checkout attempt, there's no
   separate manifest file to keep in sync (unlike Snipcart's old
-  `snipcart-products.json`) — **any time you change a price** in the
+  `snipcart-products.json`), **any time you change a price** in the
   Website Dashboard (`/admin`) or by hand-editing `products.json`, the
   next build (`node scripts/build-site-data.js`) picks it up automatically
   and the very next checkout charges the new price. Nothing extra to
@@ -455,12 +451,12 @@ every product) but is no longer the only way to buy.
   (`/api/stripe-webhook`, implemented in `workers/routes/stripe-webhook.js`) that emails the recipient a
   redeemable code once payment actually completes, using
   **[Resend](https://resend.com)** to actually send that email (a separate
-  free account/API key from Stripe -- see Part B below). See section 18.
+  free account/API key from Stripe, see Part B below). See section 18.
 - Shipping: a flat $10 charge applies below a $40 order subtotal, free above
   it (matches the "Free shipping on orders over $40" banner already on
   every page). This is a hardcoded starting default in `workers/checkout.js`
   (look for `freeShippingThresholdCents`/`flatShippingRateCents` near the
-  top) — Snipcart used to own this from its own dashboard; there's no
+  top), Snipcart used to own this from its own dashboard; there's no
   dashboard here, so adjust those two numbers directly in the file if real
   rates differ, then redeploy the Worker.
 - Taxes: **built, and switches itself on.** There's nothing to deploy and
@@ -471,7 +467,7 @@ every product) but is no longer the only way to buy.
 
   **In the Stripe Dashboard** (Savanna, or whoever handles the business's
   taxes): set a head-office address under Tax → Settings, then add a
-  registration under Tax → Registrations for South Carolina — and any other
+  registration under Tax → Registrations for South Carolina, and any other
   state where enough sales accumulate to create an obligation. Stripe's
   Tax → Monitoring page watches those thresholds for you. Whether a
   registration is required at all is a tax question, not a technical one;
@@ -481,7 +477,7 @@ every product) but is no longer the only way to buy.
   Why the probe exists instead of just always sending `automatic_tax`:
   calling it while Tax is still `pending` makes Stripe **reject the entire
   Checkout Session**. A premature "on" doesn't quietly skip the tax line, it
-  breaks every purchase. Everything uncertain therefore resolves to _off_ —
+  breaks every purchase. Everything uncertain therefore resolves to _off_ , 
   probe unreachable, key lacking Tax read scope, unexpected response. An
   order that should have charged tax is a bookkeeping problem; an order
   Stripe refuses to create is a lost sale.
@@ -490,7 +486,7 @@ every product) but is no longer the only way to buy.
   `"true"` forces tax on (skips the probe), `"false"` or `"off"` is a kill
   switch for stopping collection faster than a Dashboard change allows.
   Omit it for the automatic behaviour. Note the probe needs the Stripe key
-  to carry **Tax Settings read** access — a restricted key without it fails
+  to carry **Tax Settings read** access, a restricted key without it fails
   closed, which looks like "tax never turns on."
 
   Once on, the Worker sends `automatic_tax[enabled]=true`, creates a Customer
@@ -499,11 +495,11 @@ every product) but is no longer the only way to buy.
   product tax code instead of leaning on the account default: gift cards
   `txcd_10502000`, apparel `txcd_30011000`, everything else
   `txcd_99999999`, with shipping tagged `txcd_92010001` so states that tax
-  delivery charges get it right. Stripe Tax is a paid add-on — check
+  delivery charges get it right. Stripe Tax is a paid add-on, check
   [current pricing](https://stripe.com/tax/pricing) before flipping it on.
 
   **Which address the rate comes from:** South Carolina uses
-  destination-based sourcing — the rate follows the point of delivery, not
+  destination-based sourcing, the rate follows the point of delivery, not
   the seller's location, and that includes local county add-ons of 1–3% on
   top of the 6% state rate. So an order shipped to Charleston is rated at
   Charleston's combined rate, not Landrum's. This works correctly already:
@@ -513,7 +509,7 @@ every product) but is no longer the only way to buy.
   correct outcome for a business with nexus only in SC.
 
   _Market pickup is handled too._ A pickup order is delivered at the market,
-  so that county's rate applies — not the buyer's home county. Stripe's
+  so that county's rate applies, not the buyer's home county. Stripe's
   purpose-built feature for this (performance locations) isn't supported by
   Checkout Sessions, so the Worker takes the route that is: it creates a
   Stripe Customer already carrying the market's address, passes that
@@ -522,7 +518,7 @@ every product) but is no longer the only way to buy.
 [address]=never` stops the billing address from displacing it afterward.
 
   For this to work, the market needs a **ZIP code** filled in under
-  _Markets, Fairs & Pride Dates_ in the CMS — Stripe needs country, state,
+  _Markets, Fairs & Pride Dates_ in the CMS, Stripe needs country, state,
   and a 5-digit ZIP to resolve a US jurisdiction. The state is read off the
   end of the `location` string (`"Flat Rock, NC"` → `NC`), so out-of-state
   markets work without a separate field.
@@ -531,7 +527,7 @@ every product) but is no longer the only way to buy.
   blocking a sale: no ZIP recorded, a `pickupMarket` label that doesn't match
   the calendar, `events.json` unreachable, or the Customer create failing.
   The label is re-derived server-side from `events.json` and compared, never
-  trusted — the same rule prices follow — so a forged label can't pin an
+  trusted, the same rule prices follow, so a forged label can't pin an
   order to a cheaper jurisdiction. All of these paths are covered in
   `scripts/backend-functions.test.js`.
 
@@ -540,13 +536,13 @@ every product) but is no longer the only way to buy.
   pickup dropdown. Change one and change the other; the test suite pins both.
 
   **Discounts and tax together:** Stripe rates the subtotal _after_
-  discounts, which is the right answer for this site's own markdowns — a
+  discounts, which is the right answer for this site's own markdowns, a
   bundle's `discountPercent` and the custom box's 10% are already baked into
   the price sent to Stripe, and a sale price is a genuinely lower price, so
   tax should follow it down. The imperfect case is gift cards: see
   [Section 18](#18-digital-gift-cards-explained).
 
-**What you (Savanna) still need to do — I can't do this part for you,
+**What you (Savanna) still need to do, I can't do this part for you,
 since it requires creating an account and entering real payment details,
 and none of it could be tested against a real Stripe account in the
 environment this was built in.**
@@ -555,7 +551,7 @@ environment this was built in.**
 
 1. [Sign up for a Stripe account](https://dashboard.stripe.com/register)
    (no fee to sign up; you only pay the per-transaction rate once you're
-   live). Stripe starts you in **Test mode** — a toggle in the dashboard —
+   live). Stripe starts you in **Test mode**, a toggle in the dashboard , 
    where nothing touches a real card until you flip it.
 2. Under **Developers → API keys**, grab a **secret key**. A _restricted_
    key limited to Checkout Sessions + Coupons + Promotion Codes write
@@ -566,13 +562,13 @@ environment this was built in.**
 
 This is the part that's more setup than Snipcart used to be (Snipcart
 needed zero servers; Stripe Checkout needs these two small pieces to create
-sessions and handle gift cards) — but full step-by-step instructions are in
+sessions and handle gift cards), but full step-by-step instructions are in
 `workers/README.md`, written for exactly this handoff:
 
 3. Deploy `workers/checkout.js` to Cloudflare Workers (free tier is plenty
    for a shop this size) with your Stripe secret key and site domain.
 4. Sign up for a free **[Resend](https://resend.com)** account and grab an
-   API key -- this is what actually sends the gift-card email, and it's
+   API key, this is what actually sends the gift-card email, and it's
    easy to miss since it's not a Stripe or Netlify product. Set the three
    secrets the Worker needs in Cloudflare Workers settings (**Settings → Variables and Secrets**:
    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and
@@ -582,42 +578,42 @@ sessions and handle gift cards) — but full step-by-step instructions are in
 
 **C. Store details**
 
-5. **Currency** — every price on the site (and the `priceCurrency: "USD"`
+5. **Currency**, every price on the site (and the `priceCurrency: "USD"`
    already in the JSON-LD) assumes USD; nothing to configure on Stripe's
    side for a US-only shop.
-6. **Notification email** — Stripe's dashboard sends its own payment
+6. **Notification email**, Stripe's dashboard sends its own payment
    receipts/notifications automatically once live; check
    **Settings → Business settings → Public details** for the name/email
    customers see.
 
-**D. Growth features (optional, but worth doing — see
+**D. Growth features (optional, but worth doing, see
 `website-gap-analysis.md`)**
 
-7. **First-order discount code** — Stripe supports Coupons + Promotion
+7. **First-order discount code**, Stripe supports Coupons + Promotion
    Codes directly (the same mechanism the gift-card system uses
-   for gift-card redemption codes) — create one in
+   for gift-card redemption codes), create one in
    **Product catalog → Coupons**, and since `workers/checkout.js` already
    sets `allow_promotion_codes: true`, any code you create there is
    immediately usable at checkout with no code changes.
-8. **Abandoned cart recovery** — Stripe doesn't have Snipcart's built-in
+8. **Abandoned cart recovery**, Stripe doesn't have Snipcart's built-in
    abandoned-cart email sequence. This would need to be built separately
    (e.g. a scheduled check against `localStorage`-persisted carts isn't
    possible server-side since carts never leave the browser until checkout
-   — a real abandoned-cart feature would need its own design).
+, a real abandoned-cart feature would need its own design).
 
 **E. Before trusting this with real money**
 
-9. Run a full test-mode purchase end to end — regular product, a product
-   with variants, and a gift card — using
+9. Run a full test-mode purchase end to end, regular product, a product
+   with variants, and a gift card, using
    [Stripe's test card numbers](https://docs.stripe.com/testing). Confirm
    the order redirects to `thank-you.html` correctly, and confirm the
    gift-card webhook actually fires and the email arrives with a working
    code (this specifically could not be verified in the sandbox this was
-   built in — it's the one piece that genuinely needs a live test).
+   built in, it's the one piece that genuinely needs a live test).
 10. Only after that: swap in your **live** Stripe secret key on the Worker
     and re-deploy.
 
-Etsy still fully works as a second sales channel in parallel — nothing
+Etsy still fully works as a second sales channel in parallel, nothing
 here removes or blocks the "or view the listing on Etsy" links.
 
 ## 8a. Backend surface: every endpoint, every environment variable
@@ -633,7 +629,7 @@ request.
 | `/api/checkout` -> `workers/checkout.js`                          | Cloudflare Worker (Netlify proxies the path) | `POST`                       | Re-prices the cart server-side from `products.json`, applies volume tiers and gift-card discounts, creates the Stripe Checkout session.          | Origin-allowlisted. Never trusts a client price. Holds `STRIPE_SECRET_KEY`.                 |
 | `/api/stripe-webhook` -> `workers/routes/stripe-webhook.js`       | Cloudflare Worker                            | `POST` (Stripe webhook only) | Mints the redemption code, emails recipient, settles redemptions, restores balance on refund, cleans up ephemeral coupon on expired session.     | Verifies HMAC-SHA-256 signature against `STRIPE_WEBHOOK_SECRET`. Exactly-once claims in D1. |
 | `/api/gift-card-balance` -> `workers/routes/gift-card-balance.js` | Cloudflare Worker                            | `POST` (preferred) and `GET` | Looks a gift-card code up and returns its current and original amount from the Durable Object ledger.                                            | Origin-allowlisted, `Cache-Control: no-store`.                                              |
-| `/api/promo-preview` -> `workers/routes/promo-preview.js`         | Cloudflare Worker                            | `POST`                       | `{code, items}` -> whether a Stripe promotion code works for this cart and the estimated discount, priced by checkout's own `priceCart`. Checkout then looks the code up again and attaches it to the session (`discounts[0][promotion_code]`); a gift card takes that one slot instead. | Origin-allowlisted, rate-limited 5/min per client, curated copy only -- no Stripe text or ids. Honours `site.enablePromoCodes`. |
+| `/api/promo-preview` -> `workers/routes/promo-preview.js`         | Cloudflare Worker                            | `POST`                       | `{code, items}` -> whether a Stripe promotion code works for this cart and the estimated discount, priced by checkout's own `priceCart`. Checkout then looks the code up again and attaches it to the session (`discounts[0][promotion_code]`); a gift card takes that one slot instead. | Origin-allowlisted, rate-limited 5/min per client, curated copy only, no Stripe text or ids. Honours `site.enablePromoCodes`. |
 | `/api/restock` -> `workers/routes/restock.js`                     | Cloudflare Worker                            | `POST`                       | Records restock notification interest and dispatches notifications via Resend.                                                                   | Origin-allowlisted, sanitized inputs.                                                       |
 | `/api/order-status` -> `workers/routes/order-status.js`           | Cloudflare Worker                            | `POST`                       | `{sessionId, email}` -> one real order from Stripe, for `order-status.html`. A wrong email and an unknown id answer the same 404.                    | Origin-allowlisted, 5/min per IP, never returns the street address or the email.            |
 | `/api/orders/request-link` -> `workers/routes/orders.js`          | Cloudflare Worker                            | `POST`                       | `{email}` -> emails a one-time link to `orders.html`. The same neutral 200 for every address (see section 22).                                   | 3 per 10 min per client and per address hash; suppression list honoured; no PII in the link. |
@@ -647,28 +643,28 @@ _(Note: The legacy `/.netlify/functions/` routes have been completely retired an
 In the Stripe dashboard, the webhook pointing at
 `https://yallternativeliving.com/api/stripe-webhook` must be subscribed to **all five**:
 
-- `checkout.session.completed` — delivers the gift card and settles a
+- `checkout.session.completed`, delivers the gift card and settles a
   redemption, **only when `payment_status` is already `paid`**. A card
   payment is; a delayed-notification method (ACH, SEPA) is not, and the
   handler records the session as deferred and does nothing else.
-- `checkout.session.async_payment_succeeded` — the delayed payment cleared;
+- `checkout.session.async_payment_succeeded`, the delayed payment cleared;
   runs exactly the steps `completed` would have. Harmless to subscribe when
   no such method is enabled: it never fires.
-- `checkout.session.async_payment_failed` — the delayed payment did not
+- `checkout.session.async_payment_failed`, the delayed payment did not
   clear; treated like an expired session (hold released, coupon deleted).
-- `checkout.session.expired` — deletes the ephemeral coupon minted when a gift
+- `checkout.session.expired`, deletes the ephemeral coupon minted when a gift
   card was pre-applied to an abandoned checkout and releases the hold. Without
   it, every abandoned gift-card checkout leaves a permanent coupon in the
   Stripe account.
-- `charge.refunded` — restores the gift-card share of an order **refunded in
+- `charge.refunded`, restores the gift-card share of an order **refunded in
   full**. A partial refund of the cash half restores nothing to the card: the
   charge is the cash, and "give $10 back" is not "give $10 back twice". Do
   **not** also subscribe `refund.created`: it fires for the same money, and
   the handler deliberately ignores it.
 
 The ship notice ("your order is on its way") is deliberately **not** on this
-list. Stripe fires no event when PaymentIntent metadata is edited — there is no
-`payment_intent.updated`, checked against Stripe's event list 2026-09-04 — so
+list. Stripe fires no event when PaymentIntent metadata is edited, there is no
+`payment_intent.updated`, checked against Stripe's event list 2026-09-04, so
 `runShipNoticeSweep` in `workers/routes/ship-notice.js` sends it from the
 hourly cron instead. See "Marking an order shipped" in `workers/README.md` for
 the three metadata keys and the within-the-hour timing.
@@ -684,7 +680,7 @@ and Secrets):
 | `STRIPE_TAX_ENABLED` | no       | `"true"` turns Stripe Tax on. Off today; several tax caveats in section 18 only bite once it is on. |
 | `SITE_ORIGIN`        | no       | Overrides the success/cancel URL origin. Defaults to the live domain.                               |
 
-Set on the **Cloudflare Worker** (Settings -> Variables and Secrets) — the Worker routes read these from `env`:
+Set on the **Cloudflare Worker** (Settings -> Variables and Secrets), the Worker routes read these from `env`:
 
 | Name                    | Used by                                         | Required | Notes                                                                                                        |
 | ----------------------- | ----------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
@@ -704,7 +700,7 @@ Set on the **CMS auth Worker** (`cms-auth/sveltia-auth.js`):
 | ---------------------- | --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GITHUB_CLIENT_ID`     | Cloudflare Secret                 | yes      | From the GitHub OAuth App.                                                                                                                                                                        |
 | `GITHUB_CLIENT_SECRET` | Cloudflare Secret                 | yes      | Never in the repo.                                                                                                                                                                                |
-| `ALLOWED_DOMAINS`      | `cms-auth/wrangler.toml` `[vars]` | yes      | Comma-separated **bare hosts**, no scheme and no port — the Worker compares the full opener origin and prefixes `https://` itself. Empty means no login can succeed (it fails closed on purpose). |
+| `ALLOWED_DOMAINS`      | `cms-auth/wrangler.toml` `[vars]` | yes      | Comma-separated **bare hosts**, no scheme and no port, the Worker compares the full opener origin and prefixes `https://` itself. Empty means no login can succeed (it fails closed on purpose). |
 | `GITHUB_HOSTNAME`      | optional var                      | no       | GitHub Enterprise only.                                                                                                                                                                           |
 
 The OAuth scope is **not** configurable and the caller's `?scope=` is ignored:
@@ -712,7 +708,7 @@ the Worker always requests `public_repo`, which is all the CMS needs to commit
 to this public repository. If the repository is ever made private that must
 become `repo`.
 
-## 9. Events page — how to add a market or fair
+## 9. Events page, how to add a market or fair
 
 `events.html` reads from `assets/js/events-data.js`. To add a real,
 confirmed date:
@@ -722,10 +718,10 @@ confirmed date:
 3. Fill in `date` (YYYY-MM-DD, used for sorting), `dateLabel` (however
    you want it displayed), `name`, `type`, `location`, and optionally a
    `url` (an event page, Facebook event, etc.).
-4. Save. The page picks it up automatically — no other file changes
+4. Save. The page picks it up automatically, no other file changes
    needed.
 
-Only put confirmed dates in `upcoming` — real customers may plan to
+Only put confirmed dates in `upcoming`, real customers may plan to
 show up in person. When a market or fair has passed, move its object
 into the `past: [ ... ]` array instead (drop the `date`/keep a
 `dateLabel`) so it becomes a "Recent Appearances" entry.
@@ -740,9 +736,9 @@ into the `past: [ ... ]` array instead (drop the `date`/keep a
   `BreadcrumbList` structured data on every inner page.
 - A full `Product`/`ItemList` JSON-LD block on `shop.html` covering all
   15 listings (name, image, price, category, and a direct link to buy)
-  — this is what lets Google show rich product results.
+, this is what lets Google show rich product results.
 - `FAQPage` structured data on `contact.html`, generated from the real
-  Q&A copy already on that page (not invented separately — if you edit
+  Q&A copy already on that page (not invented separately, if you edit
   the visible FAQ text, update the matching JSON-LD block right above
   it in the `<head>` so they stay in sync, same as any other duplicated
   content on this site).
@@ -759,14 +755,14 @@ describe accurately," not "block AI crawlers":
   GPTBot/OAI-SearchBot/ChatGPT-User, Anthropic's ClaudeBot/
   Claude-SearchBot/Claude-User, Perplexity's PerplexityBot/
   Perplexity-User, Google-Extended, CCBot, Bingbot) in addition to the
-  wildcard `Allow: /` that already covered them — explicit rather than
+  wildcard `Allow: /` that already covered them, explicit rather than
   just implicit, so intent reads unambiguously to anyone auditing the
   file. If you ever want to block AI _training_ specifically while still
   allowing AI _search/citation_ crawlers, that's the distinction between
   e.g. `GPTBot`/`Google-Extended` (training) vs. `OAI-SearchBot`/
-  `Claude-SearchBot`/`Perplexity-User` (live answer citations) — for now
+  `Claude-SearchBot`/`Perplexity-User` (live answer citations), for now
   all are allowed.
-- **`llms.txt`** at the site root — a plain-Markdown summary of the
+- **`llms.txt`** at the site root, a plain-Markdown summary of the
   business, its pages, and its full product catalog, following the
   community "llms.txt" convention for helping AI assistants/agents
   describe a site accurately instead of guessing (not an official
@@ -775,7 +771,7 @@ describe accurately," not "block AI crawlers":
   the live source of truth for pricing, and explicitly warns against
   reading product names like "Miracle" or "Heal" as medical claims.
 
-**Auto-adapt pipeline — the important part:** almost everything above
+**Auto-adapt pipeline, the important part:** almost everything above
 that mentions specific products (the shop JSON-LD, `products-data.js`,
 `llms.txt`'s product list) is **generated, not hand-written** by
 `scripts/build-site-data.js`. Run this one command from inside `site/`
@@ -786,21 +782,21 @@ node scripts/build-site-data.js
 ```
 
 It regenerates everything derived from the four canonical source files
-in `assets/data/` — `products.json`, `events.json`, `site-reviews.json`,
-and `content.json` (the single source of truth for each — see section
+in `assets/data/`, `products.json`, `events.json`, `site-reviews.json`,
+and `content.json` (the single source of truth for each, see section
 20 for how they're edited): `assets/js/products-data.js`,
 `events-data.js`, and `site-reviews-data.js`; `shop.html`'s Product/ItemList
 JSON-LD block; `contact.html`'s FAQPage JSON-LD + visible FAQ prose;
 `index.html`/`about.html`'s page copy; every page's shared `<footer>`
 (see section 6); `sitemap.xml`; `robots.txt`; and `llms.txt`. It's safe
-to run as many times as you want — it only ever overwrites those
+to run as many times as you want, it only ever overwrites those
 generated files, never the four source JSON files themselves, your
 copy, or your photos. This is the SQL-style single-source-of-truth
 pattern: edit a data file once (by hand or via `/admin`), run one
 script, everything downstream updates.
 
 **Why the direction flipped mid-project:** earlier versions of this site
-had it backwards — `products-data.js` was canonical and `products.json`
+had it backwards, `products-data.js` was canonical and `products.json`
 was the generated copy. That changed once the Sveltia CMS product editor
 (section 20) entered the picture: a CMS can only write plain JSON/YAML,
 not a hand-rolled `.js` file with a `window.YL_PRODUCTS = ...` wrapper,
@@ -817,7 +813,7 @@ URL). **Once a real domain exists, going live is a one-line change, not
 a find-and-replace:** open `scripts/build-site-data.js`, find the
 `var DOMAIN = "https://your-domain-here.com";` line near the top, and
 replace it with the real domain. Then run `node scripts/build-site-data.js`
-once — it detects the domain is no longer the placeholder and
+once, it detects the domain is no longer the placeholder and
 automatically uncomments the canonical/og:url tags, and rewrites
 Plausible's `data-domain` plus every JSON-LD `@id`/`url`/`image`/
 breadcrumb field to the real domain, across all 7 pages, `sitemap.xml`,
@@ -825,39 +821,39 @@ and `robots.txt`, in one pass. No manual per-file editing needed.
 
 ## 11. Updating the site later
 
-- **Add/edit a product:** either use the no-code product editor at
-  `/admin` (section 20 — the easiest path, no text editor needed and no
+- Add/edit a product: either use the no-code product editor at
+  `/admin` (section 20, the easiest path, no text editor needed and no
   build step to remember), or hand-edit the `products` array in
   `assets/data/products.json` directly (it's the single source of
-  truth — never hand-edit `assets/js/products-data.js`, that file is
+  truth, never hand-edit `assets/js/products-data.js`, that file is
   auto-generated and your changes would just get overwritten). Drop a
   new photo in `assets/img/`. If you edited `products.json` by hand,
-  then run `node scripts/build-site-data.js` from inside `site/` — this
+  then run `node scripts/build-site-data.js` from inside `site/`, this
   regenerates `products-data.js`, `shop.html`'s Product JSON-LD,
   `sitemap.xml`, and `llms.txt` all in one step (see section 10). (If you
   used `/admin` instead, the site's own deploy step does this for you
-  automatically — see section 12 and section 20.) The checkout Worker
+  automatically, see section 12 and section 20.) The checkout Worker
   (`workers/checkout.js`) re-derives every price straight from the live
   `products.json` on the deployed site at checkout time, so this isn't
-  quite as strict a requirement as it used to be — but skipping the
+  quite as strict a requirement as it used to be, but skipping the
   rebuild still means the shop page itself keeps showing the old price
   until the next deploy, which is confusing even if checkout would charge
   correctly. Treat it as a required part of editing a product by hand.
-- **Add/edit an event:** either use `/admin` (section 20) or hand-edit
+- Add/edit an event: either use `/admin` (section 20) or hand-edit
   `assets/data/events.json` directly, then run
-  `node scripts/build-site-data.js` — this regenerates
+  `node scripts/build-site-data.js`, this regenerates
   `assets/js/events-data.js` from it (see section 9 for the event
   fields themselves).
-- **Change colors/fonts:** edit the CSS custom properties at the top of
-  `assets/css/styles.css` — every page updates automatically, in both
+- Change colors/fonts: edit the CSS custom properties at the top of
+  `assets/css/styles.css`, every page updates automatically, in both
   dark and light mode, including the on-site cart drawer (`cart.css`
   reads the same custom properties).
-- **Deploy:** see section 12 below.
+- Deploy: see section 12 below.
 
 ## 12. Deployment
 
 **A real build command is now required** (this changed once the Sveltia
-CMS product editor at `/admin` entered the picture — see section 20): a
+CMS product editor at `/admin` entered the picture, see section 20): a
 CMS commit only updates `assets/data/products.json`, and everything
 derived from it (`products-data.js`, `shop.html`/`contact.html`'s
 JSON-LD, `sitemap.xml`, `llms.txt`) needs regenerating on every deploy,
@@ -877,29 +873,29 @@ and `optimize-images.js` requires **sharp**, a devDependency, while
 `minify-assets.js` requires **esbuild**, another. The minifier is the last
 step on purpose: it shrinks `assets/js/*.js`, `assets/js/locales/*.js` and
 `assets/css/*.css` in place inside Netlify's publish directory and nothing it
-writes is ever committed -- the repository stays readable source, which is
+writes is ever committed, the repository stays readable source, which is
 what every test runs against. It never touches `sw.js` or any HTML, and file
 names do not change. `scripts/minified-build.browser.test.js` is the proof
 that the minified tree still runs the shop. Netlify installs
-devDependencies by default, which is why this works — but a host or CI job
+devDependencies by default, which is why this works, but a host or CI job
 configured with `--omit=dev` (or `NODE_ENV=production`) makes the optimizer
 degrade silently and ship full-size photos. `scripts/qa-check.js` asserts that
 the build command and the dependency install stay paired.
 
 Netlify is the sole static hosting platform for the site, pre-wired with the build command:
 
-- **Netlify** — `netlify.toml` is configured (the build command
+- **Netlify**, `netlify.toml` is configured (the build command
   above, long-cache headers for images/CSS/JS, security headers, and a
   CSP that allows Umami/Tawk + the `/admin`
-  CMS — Stripe itself needs no CSP entry, see section 8). Connect
+  CMS, Stripe itself needs no CSP entry, see section 8). Connect
   a GitHub repo for auto-deploys on every push (drag-and-drop onto
   [app.netlify.com/drop](https://app.netlify.com/drop) also still works,
   but skips the build step, so `/admin` edits won't take effect until
-  you redeploy some other way — connecting a repo is the better option
+  you redeploy some other way, connecting a repo is the better option
   now that a CMS is in the picture). Publish directory is `.`.
-- **Vercel** — Retired. `vercel.json` has been removed from the repository
+- **Vercel**, Retired. `vercel.json` has been removed from the repository
   to maintain Netlify as the sole static hosting platform.
-- **GitHub Pages** — no longer wired up. There was a
+- **GitHub Pages**, no longer wired up. There was a
   `.github/workflows/deploy-pages.yml` that built and published to Pages
   on every push to `main`, but Pages was never actually enabled on the
   repo (**Settings → Pages → Source** was never set to "GitHub Actions"),
@@ -913,26 +909,26 @@ Netlify is the sole static hosting platform for the site, pre-wired with the bui
   workflow from git history.
 
 **Deploying requires a real GitHub repo** now that `/admin`'s
-Sveltia CMS backend is GitHub-based (section 20) — if this project isn't
+Sveltia CMS backend is GitHub-based (section 20), if this project isn't
 in a GitHub repo yet, that's the actual first step, before any of the
 above.
 
 **The backend is a separate deploy from the static site.** The entire backend
 (checkout session creation, Stripe webhook processing, gift-card ledger, and
-restock routing) runs as a unified Cloudflare Worker in `workers/` — it
+restock routing) runs as a unified Cloudflare Worker in `workers/`, it
 deploys to Cloudflare Workers independently, while Netlify serves only the
 static frontend and proxies `/api/*` requests to the Worker. Netlify has no
 serverless functions. See section 8 and `workers/README.md` for deploy steps.
 
 Also included:
 
-- **`404.html`** — a custom not-found page (Netlify detects this filename automatically, zero config needed).
-- **`.gitignore`** — excludes `node_modules/`, OS junk, logs, local
+- **`404.html`**, a custom not-found page (Netlify detects this filename automatically, zero config needed).
+- **`.gitignore`**, excludes `node_modules/`, OS junk, logs, local
   `.env`/`.env.*` files (with `!.env.example`), `.vercel/`, `.netlify/` and
   `.claude/`. The `.env` entries matter more here than on a normal project:
   Netlify publishes the repository root (`publish = "."`), so a committed
   `.env` would be downloadable from the live domain. (This paragraph claimed
-  those entries existed for months before they did — they do now.)
+  those entries existed for months before they did, they do now.)
 
 **Whichever host you pick, remember to also:** deploy the checkout Worker
 
@@ -944,7 +940,7 @@ Also included:
 
 Every page's footer has a real, working email signup box (`.footer-signup`)
 using **[Kit](https://kit.com)**, formerly ConvertKit (free tier: 10,000
-subscribers, no credit card required — chosen over Mailchimp's 500-contact
+subscribers, no credit card required, chosen over Mailchimp's 500-contact
 free cap and Buttondown's 100-subscriber cap, and its plain-HTML embed +
 dashboard-configurable post-signup redirect need zero JavaScript to work,
 matching the rest of this site's philosophy). The markup is a plain
@@ -956,7 +952,7 @@ is never navigated away to Kit's site.
 
 - A honeypot field (`footer_website`) that's invisible and untabbable for
   real visitors. `main.js` silently drops the submission client-side if
-  it's filled in (a sign of a bot) — no account or backend needed for this.
+  it's filled in (a sign of a bot), no account or backend needed for this.
   With JavaScript off, the field just stays blank for real people and the
   form still posts normally straight to Kit.
 - The signup posts via `fetch` with `Accept: application/json` and checks
@@ -964,8 +960,8 @@ is never navigated away to Kit's site.
   submission; a rejection or a network failure restores the button and
   says plainly that the person is **not** subscribed, offering the real
   mailbox instead. This used to pass `mode: "no-cors"`, which makes the
-  response opaque — `res.ok` is always false and the promise resolves no
-  matter what Kit said — so the old code showed "you're on the list" for
+  response opaque, `res.ok` is always false and the promise resolves no
+  matter what Kit said, so the old code showed "you're on the list" for
   every outcome, including rejected submissions. Kit answers preflight
   with `access-control-allow-origin: *`, so the plain CORS request works
   and the response can actually be read.
@@ -978,7 +974,7 @@ is never navigated away to Kit's site.
 - The same signup box appears identically in the footer of all seven
   pages (including `privacy.html`), verified byte-for-byte identical.
 
-**Setup status:** steps 1-5 below are **done** — the Kit account and form
+**Setup status:** steps 1-5 below are **done**, the Kit account and form
 exist and `site.kitFormAction` is set to
 `https://app.kit.com/forms/9867317/subscriptions`, propagated into every
 page's footer by the build. They are kept as the record of how it was
@@ -1003,7 +999,7 @@ wired, and as the recipe if the form is ever rebuilt.
    that the email actually lands in your Kit subscriber list.
 
 Nothing about the honeypot or confirmation JS needs to change once you do
-this — they're driven entirely by the form's real action URL and Kit's
+this, they're driven entirely by the form's real action URL and Kit's
 own redirect setting, not by anything hardcoded to a fake key.
 
 ### Delivering the 10% welcome code
@@ -1018,7 +1014,7 @@ alone; both together is better, because the page gives it to them instantly
 and the email gives them something to find later, when they are actually
 ready to buy.
 
-**Approach A — automated email from Kit. Blocked: needs a paid Kit plan.**
+**Approach A, automated email from Kit. Blocked: needs a paid Kit plan.**
 It would be one automation inside Kit, triggered when someone subscribes to
 form `9867317`, sending a single welcome email containing the code, firing
 after the visitor confirms.
@@ -1057,7 +1053,7 @@ is in it for them. Avoid describing page mechanics ("on the next page") --
 the reader is in an inbox and has no page in front of them yet. Keep the code
 itself out of the confirmation email regardless (see below).
 
-**Approach B — a welcome page on this site. Built and live.**
+**Approach B, a welcome page on this site. Built and live.**
 `welcome.html` shows the code and links into the shop. It is `noindex,
 nofollow` and deliberately absent from the sitemap: it is a landing spot
 for people arriving from a confirmation link, not a page to be found in
@@ -1075,7 +1071,7 @@ points anywhere else (it was `shop.html`), confirmed subscribers never see
 the page and the code is undelivered.
 
 Whichever is built, the code string must not be hardcoded in more than one
-place — put it in `assets/data/content.json` under `site.*` so `/admin` can
+place, put it in `assets/data/content.json` under `site.*` so `/admin` can
 edit it and the build propagates it, exactly as `kitFormAction` works.
 
 **Do not put the code in the confirmation email.** If it is visible before
@@ -1090,30 +1086,30 @@ promotion code is the practical guard.
 
 ## 14. Privacy policy page
 
-**`privacy.html`** — a plain-language privacy policy, explicitly framed
+**`privacy.html`**, a plain-language privacy policy, explicitly framed
 as not legal advice, written to accurately reflect what this specific
 site does: theme preference and the "Saved For Later" wishlist live only
 in browser `localStorage` and never touch a server; the cart lives
 on-site too, but checkout itself happens on a page hosted by
 [Stripe](https://stripe.com) (linked out to
 [Stripe's own privacy policy](https://stripe.com/privacy) rather than
-restating it) — card details are entered there, never on this site's own
+restating it), card details are entered there, never on this site's own
 servers; page-view analytics run through [Umami](https://umami.is), a
 cookieless analytics tool (no cookie-consent banner needed as a result);
 the email newsletter signup is described generically (no specific
 provider named, to stay accurate regardless of whether Kit is still the
 provider); Etsy is disclosed honestly as a linked third party. No
 compliance claims (GDPR/CCPA/cookie-consent) are made since none of that
-machinery exists on the site — it just offers to help with rights
+machinery exists on the site, it just offers to help with rights
 requests case-by-case via email. Uses the same head boilerplate,
 header/footer, and JSON-LD pattern as the other six pages, linked from
-every footer. Last updated 2026-07-16 — **have an actual lawyer review
+every footer. Last updated 2026-07-16, **have an actual lawyer review
 this before treating it as a real legal document**, especially if the
 shop starts collecting more customer data than it does today (e.g. if
 Stripe's dashboard is configured to also handle marketing consent, or if
 a database of customer order history gets added later).
 
-### Analytics — see `docs/ANALYTICS.md`
+### Analytics, see `docs/ANALYTICS.md`
 
 Every event the site sends, its properties, the Umami dashboard setup, and the
 UTM naming convention for Instagram / Etsy / market QR codes live in
@@ -1123,18 +1119,18 @@ UTM naming convention for Instagram / Etsy / market QR codes live in
   `localStorage.setItem("umami.disabled", 1)` in the browser console on the live
   site. That browser stops being counted until you run
   `localStorage.removeItem("umami.disabled")`. Once per browser, per device.
-  It is the only self-exclusion Umami offers on the free plan — and since the
+  It is the only self-exclusion Umami offers on the free plan, and since the
   tracker is now served first-party (below), it is the only one that works at
   all: a DNS-blocking router no longer keeps your own visits out.
 - **The tracker is loaded direct first, proxied only as a fallback.** Pages load
   `assets/js/porch-light.js`, which injects `https://cloud.umami.is/script.js`
-  and — only if that fires an `error` — `/porch-light/script.js` with
+  and, only if that fires an `error`, `/porch-light/script.js` with
   `data-host-url` and `data-tag="fallback"`. The proxy paths are `status = 200`
   rewrites generated by `scripts/build-security-headers.js` from the constants in
   `scripts/lib/analytics-proxy.js`, and the tag in every page's `<head>` is built
   from the same file. **The CSP must allow all four of**
   `script-src 'self' https://cloud.umami.is` and
-  `connect-src 'self' https://gateway.umami.is` — dropping the `cloud.umami.is`
+  `connect-src 'self' https://gateway.umami.is`, dropping the `cloud.umami.is`
   entry does not break analytics, it silently demotes every visitor to the proxy,
   where their session id and country become Netlify's. `npm test` asserts each
   entry separately. `docs/ANALYTICS.md` §0 and §7 have the whole trade-off.
@@ -1143,7 +1139,7 @@ UTM naming convention for Instagram / Etsy / market QR codes live in
   must match `site.umamiWebsiteId` in `assets/data/content.json`; a test enforces it.
 - **Local and preview traffic is already excluded.** The tracker tag carries
   `data-domains`, so it disables itself on anything that is not the production
-  hostname — `localhost`, the `127.0.0.1` port the Puppeteer suites serve on, and
+  hostname, `localhost`, the `127.0.0.1` port the Puppeteer suites serve on, and
   Netlify deploy previews included. Do not remove that attribute to "test
   analytics locally": a single integration run would otherwise post hundreds of
   page views into the real dataset, and Umami's bot filter does not catch
@@ -1156,9 +1152,9 @@ Two changes, both aimed at real Core Web Vitals wins, not just theory:
 **Responsive AVIF & WebP images.** Image assets now render as optimized
 `<picture>` elements serving next-generation AVIF (with WebP fallback) to phones and desktops.
 
-- **Product Photos:** Rendered dynamically at runtime by `pictureHTML()` in `assets/js/main.js` reading from the manifest.
-- **Static Editorial Images (hero, bio, logos, etc.):** Compiled and statically injected at build time by `node scripts/build-site-data.js` parsing clean outer HTML comments (e.g., `<!--YL:home.heroImage-->...<!--/YL:home.heroImage-->`).
-- **Format & Skip Support:** Supports JPEGs and PNGs. The optimizer (`scripts/optimize-images.js`) caches processed images and runs in milliseconds on subsequent builds by comparing file sizes, completely avoiding deployment timeouts. Real stats: AVIF brings up to **89% smaller** payloads for mobile devices!
+- Product Photos: Rendered dynamically at runtime by `pictureHTML()` in `assets/js/main.js` reading from the manifest.
+- Static Editorial Images (hero, bio, logos, etc.): Compiled and statically injected at build time by `node scripts/build-site-data.js` parsing clean outer HTML comments (e.g., `<!--YL:home.heroImage-->...<!--/YL:home.heroImage-->`).
+- Format & Skip Support: Supports JPEGs and PNGs. The optimizer (`scripts/optimize-images.js`) caches processed images and runs in milliseconds on subsequent builds by comparing file sizes, completely avoiding deployment timeouts. Real stats: AVIF brings up to **89% smaller** payloads for mobile devices!
 
 **How to add a new photo and keep this working:**
 
@@ -1168,7 +1164,7 @@ Two changes, both aimed at real Core Web Vitals wins, not just theory:
 3. npm run optimize-images   (or: node scripts/optimize-images.js to generate the modern variants; it only processes new/modified files).
 ```
 
-That's it — the new photo gets the same responsive treatment
+That's it, the new photo gets the same responsive treatment
 automatically. If step 3 never happens, nothing breaks: the site falls back to the original image path for any image missing from the manifest.
 `sharp` (the only dependency, see `package.json`) is dev-time only and
 never ships to the deployed site.
@@ -1191,7 +1187,7 @@ Fonts CSS2 API with a modern desktop User-Agent string, pull the
 
 The homepage hero photo and the "Our Story" founder photo both also get
 an explicit `<link rel="preload" as="image">` in their page's `<head>`,
-since each is that page's LCP (largest contentful paint) element —
+since each is that page's LCP (largest contentful paint) element , 
 telling the browser to fetch it immediately instead of discovering it
 only once it parses down to the `<picture>` tag in the body.
 
@@ -1199,27 +1195,27 @@ only once it parses down to the `<picture>` tag in the body.
 
 `shop.html` has a "Customer Reviews" section (below the product grid and
 the wholesale CTA) where visitors can leave their own review, right on
-the site — a second, independent channel alongside the Etsy reviews
+the site, a second, independent channel alongside the Etsy reviews
 shown in the trust line up top. The two are kept **deliberately separate**
 and never mathematically combined: Etsy's 4.9★/32-reviews number is
 real, verified-purchase data; site-submitted reviews are just whoever
 filled out a form. Folding the second into the first would misrepresent
 both to customers and to Google (the `aggregateRating` JSON-LD on this
-page is reserved for genuine Etsy data only — see section 10).
+page is reserved for genuine Etsy data only, see section 10).
 
 **How it works, end to end:**
 
 1. A visitor fills out the review form (name, email, optional product,
    star rating, review text) and submits it.
 2. The form posts to **[Formspree](https://formspree.io)** (free tier:
-   50 submissions/month, no credit card required — chosen for the same
+   50 submissions/month, no credit card required, chosen for the same
    reason as Kit above: a plain `<form action="...">` that needs zero
    backend code, matching this site's whole philosophy). Every
    submission lands as an email in Savanna's inbox. **Nothing is
    published automatically.**
 3. Savanna reads the email and decides whether it's real and
    appropriate. If yes, she (or a follow-up Claude session) adds it as
-   one plain object to the array in `assets/js/site-reviews-data.js` —
+   one plain object to the array in `assets/js/site-reviews-data.js` , 
    see that file's header comment for the exact shape. No build step
    needed; it's loaded directly like `products-data.js`.
 4. `main.js` renders every entry in that array as a review card (same
@@ -1228,7 +1224,7 @@ page is reserved for genuine Etsy data only — see section 10).
    section shows a plain "no reviews yet" message instead of an empty
    grid.
 5. `npm test` validates every entry's shape (rating 1–5, required
-   fields, `productId` matches a real product if set) — a typo gets
+   fields, `productId` matches a real product if set), a typo gets
    caught by CI instead of shipping broken.
 
 **Why moderation is manual, not automatic:** publishing arbitrary
@@ -1236,10 +1232,10 @@ visitor-submitted text straight to a live business page with no human
 review is a real spam/abuse/legal risk. This mirrors the same rule
 already applied to the automated Etsy sync (`scripts/apply-etsy-
 snapshot.js`), which never auto-adds a new product or auto-removes one
-either — anything that reaches the live site as "real" content gets a
+either, anything that reaches the live site as "real" content gets a
 person's eyes on it first.
 
-**What you (Savanna) still need to do — I can't do this part for you,
+**What you (Savanna) still need to do, I can't do this part for you,
 since it requires creating an account:**
 
 1. [Sign up for a free Formspree account](https://formspree.io) and
@@ -1253,12 +1249,12 @@ since it requires creating an account:**
    lands in your inbox.
 6. When you want to publish a review, add it to
    `assets/js/site-reviews-data.js` by hand (or ask for help in a Claude
-   session) — see that file's comment for the exact format — then
+   session), see that file's comment for the exact format, then
    refresh the page (or redeploy). No other file changes needed.
 
 The honeypot spam guard and CSP (`form-action` in `scripts/build-
 security-headers.js`, which regenerates `_headers` and
-`netlify.toml`) already allow `formspree.io` — nothing else to configure
+`netlify.toml`) already allow `formspree.io`, nothing else to configure
 there.
 
 ## 17. Shop-page search, bundles, and inventory signals
@@ -1268,12 +1264,12 @@ new accounts (unlike gift cards/live chat below):
 
 **Search.** A plain client-side search box (`#shopSearch`, wired in
 `buildFilters()` in `main.js`) filters the visible grid by name, blurb,
-and category as you type — no search service needed for a 15-product
+and category as you type, no search service needed for a 15-product
 catalog. Combines with the existing category pills and sort, not
 instead of them.
 
-**Quick FAQ.** The site has exactly one FAQ — a `faq` array in
-`assets/data/products.json` (edit directly, or via `/admin` — section 20) — and `scripts/build-site-data.js` generates both `contact.html`'s
+**Quick FAQ.** The site has exactly one FAQ, a `faq` array in
+`assets/data/products.json` (edit directly, or via `/admin`, section 20), and `scripts/build-site-data.js` generates both `contact.html`'s
 FAQPage JSON-LD and its visible Q&A prose (`#faq` section) from it, so
 there's only ever one place to add, edit, or reorder a question.
 `shop.html` doesn't keep its own copy anymore; it just links to
@@ -1284,13 +1280,13 @@ that `shop.html` hasn't quietly grown its own duplicate accordion again.
 
 **Bundles / gift sets.** `assets/data/products.json`'s `bundles` array
 combines real existing products at a discount. Bundles never carry
-their own `price` field — it's always computed fresh from the current
+their own `price` field, it's always computed fresh from the current
 component-product prices (never a hand-set number, so it can't drift),
 both in the browser (`main.js`'s `bundlesHTML()`, for display) and again
 server-side in `workers/checkout.js` (for the actual charge, so a
-tampered client price is never trusted — see section 8). The three
+tampered client price is never trusted, see section 8). The three
 bundles shipped today are a **starting point I put together, not
-a finished merchandising decision** — review the products, the 10%
+a finished merchandising decision**, review the products, the 10%
 discount, and the copy before treating them as final. To add a new
 bundle: use `/admin` (section 20), or copy one of the existing objects
 in that array by hand, pick 2+ real product IDs, set a
@@ -1298,16 +1294,16 @@ in that array by hand, pick 2+ real product IDs, set a
 
 **Inventory signals.** `products.json` supports an optional `stock`
 field per product (see `admin/config.yml`'s hint text, or
-`products-data.js`'s generated header comment) — omit it entirely
+`products-data.js`'s generated header comment), omit it entirely
 (the default for every product today) and nothing changes; set a real
 number and the product card shows a honest "Only N left"/"Sold out"
 badge and the cart drawer caps quantity at that number
 (`data-item-max-quantity`, enforced by `cart.js`). This is
-**manually maintained**, not synced from Etsy automatically — I
+**manually maintained**, not synced from Etsy automatically, I
 deliberately didn't wire it to the "X left" numbers Etsy shows, since
 that's a separate inventory pool from this site's own checkout and would
 be misleading. There's no dashboard-driven automatic option here the way
-Snipcart used to offer one — Stripe doesn't have an equivalent built-in
+Snipcart used to offer one, Stripe doesn't have an equivalent built-in
 inventory feature, so this manually-set field is the actual long-term
 mechanism now, not a stopgap.
 
@@ -1317,7 +1313,7 @@ mechanism now, not a stopgap.
 
 **Custom Stripe-integrated checkout by default.** The Digital Gift Card is fully integrated as a featured item inside the catalog (`products.json`). When a user clicks "Configure Card" on the shop grid, it triggers a state-of-the-art native `<dialog id="giftCardModal">` modal. This modal allows customers to choose preset amounts ($10, $25, $50, $100, $200) or enter a custom amount (from $10 to $500). They can fill out custom purchase fields (Recipient Email, Sender Name, and an optional Message) and add the gift card directly to the on-site cart, alongside any physical products, checking out in one Stripe session.
 
-Fulfillment is automatic, not manual: once payment completes, the Stripe webhook handler in `workers/routes/stripe-webhook.js` (listening at `/api/stripe-webhook`, see section 8) generates a redemption code, registers it in the Durable Object ledger, and emails it to the recipient via Resend — Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout to redeem it.
+Fulfillment is automatic, not manual: once payment completes, the Stripe webhook handler in `workers/routes/stripe-webhook.js` (listening at `/api/stripe-webhook`, see section 8) generates a redemption code, registers it in the Durable Object ledger, and emails it to the recipient via Resend, Savanna doesn't have to read orders and hand-create anything. The recipient later enters that code at checkout to redeem it.
 
 **Balances ARE tracked now.** This section used to say gift cards had no
 balance tracking; that has not been true since the ledger landed. A partial
@@ -1327,14 +1323,14 @@ balance, and shoppers can look a card up themselves:
 returns the code's current and original amounts from the Durable Object ledger. See the endpoint reference in
 section 8a.
 
-**Gift cards and sales tax — a known gap, only relevant once tax is on.**
+**Gift cards and sales tax, a known gap, only relevant once tax is on.**
 This site redeems a gift card as a Stripe Promotion Code (an `amount_off`
 coupon), which means Stripe classifies a redemption as a _discount_ and
 rates the reduced amount. Tax law generally treats a gift card as a _payment
 method_ instead: tax the full price, then let the card pay part of the total
 including that tax. Combined with the fact that gift cards are correctly
 untaxed at purchase (tax code `txcd_10502000`), an order paid entirely with
-a gift card currently collects no sales tax at either end — purchase or
+a gift card currently collects no sales tax at either end, purchase or
 redemption. Nobody is over-charged; the shortfall would land on Savanna at
 filing time.
 
@@ -1346,13 +1342,13 @@ cheapest first:
 1. **Accept and reconcile.** Stripe's tax reports show the gift-card orders;
    account for the difference manually at filing time. Fine at low volume,
    and it costs nothing.
-2. **Tax gift cards at purchase** — change `TAX_CODE_GIFT_CARD` in
+2. **Tax gift cards at purchase**, change `TAX_CODE_GIFT_CARD` in
    `workers/checkout.js` to `txcd_99999999`. This collects roughly the right
    _total_ tax, just at the wrong moment and from the buyer rather than the
    recipient. Most states specifically prohibit taxing a gift-card sale, so
    check before choosing this.
 3. **Replace coupons with real stored-value balances**, so a redemption is
-   applied after tax rather than before. Correct, and much more work — it
+   applied after tax rather than before. Correct, and much more work, it
    means a balance-tracking backend (the gift-card ledger Durable Object in
    `workers/state/` is the natural home for it).
 
@@ -1361,7 +1357,7 @@ cheapest first:
 **[Tawk.to](https://www.tawk.to) is LIVE.** This section used to describe an
 inert placeholder; it is not one. Real property and widget IDs are set in
 `assets/data/content.json` (`site.tawkToPropertyId`, `site.tawkToWidgetId`) and
-the widget loads on all 15 top-level pages. **Someone has to answer it** — an
+the widget loads on all 15 top-level pages. **Someone has to answer it**, an
 unanswered chat bubble looks worse than no chat at all. To take it back down,
 blank those two fields in the Website Dashboard (`/admin` → Page Wording →
 Global Site Assets & Configurations); the script block is only emitted when
@@ -1374,7 +1370,7 @@ processor that sees visitor IP and page URL, so it is named in `privacy.html`.
 **The steps that were originally needed to turn it on (kept for reference):**
 
 1. [Sign up for a free Tawk.to account](https://www.tawk.to).
-2. From Administration → Chat Widget, copy your real embed script —
+2. From Administration → Chat Widget, copy your real embed script , 
    it has your real property ID and widget ID baked into the `src` URL.
 3. Enter the property ID and widget ID in the Website Dashboard (`/admin` → Page Wording → Global Site Assets & Configurations → Tawk.to Property ID / Widget ID) or in `assets/data/content.json` under `site.tawkToPropertyId` and `site.tawkToWidgetId`.
 4. Set your availability hours in the Tawk.to dashboard so it shows
@@ -1382,7 +1378,7 @@ processor that sees visitor IP and page URL, so it is named in `privacy.html`.
    looking staffed 24/7 when no one's actually watching it.
 
 **Before you turn this on, decide whether you actually want it
-staffed** — unlike Stripe/Kit/Formspree, live chat has an ongoing
+staffed**, unlike Stripe/Kit/Formspree, live chat has an ongoing
 cost (someone has to answer it, or it just becomes an unanswered
 inbox that looks worse than no chat at all). The placeholder ships
 inert on purpose so that decision stays yours, not a default.
@@ -1392,31 +1388,31 @@ inert on purpose so that decision stays yours, not a default.
 Everything in sections 7/9/17/18 above that says "edit `products.json`
 by hand" now has a friendlier alternative: a real, no-code editing UI at
 `/admin` on the deployed site, built on **[Sveltia CMS](https://sveltiacms.app)**
-— a form for editing products, bundles, the FAQ, and shop info that
+,  a form for editing products, bundles, the FAQ, and shop info that
 edits the real `assets/data/products.json` file in the GitHub repo, no
 text editor or JSON syntax required. Since 2026-09-08 it runs Sveltia's
 editorial workflow (`publish_mode: editorial_workflow` in
 `admin/config.yml`): **Save** commits to a `cms/...` branch and opens a
 pull request, further saves pile onto that branch, and **Publish** merges
-it into `main` -- so one Netlify build per finished edit rather than one
+it into `main`, so one Netlify build per finished edit rather than one
 per keystroke-and-save. The comment above that line in the config says why.
 
 **Why Sveltia over Decap CMS** (the older, much more widely-known
 option this space defaults to): Decap is still functional but is now in
 low-maintenance mode, and its authentication layer depended on
 Netlify Identity, which Netlify deprecated. Sveltia is a newer,
-actively-developed rewrite of the same idea — lighter (no React, much
+actively-developed rewrite of the same idea, lighter (no React, much
 smaller bundle), a modernized editing UI, and it doesn't depend on the
 deprecated Netlify Identity service. It reads the exact same
 `config.yml` format Decap popularized, so switching later (either
 direction) wouldn't require re-learning a schema.
 
-**Honest disclosure — this is pre-1.0 software.** Sveltia's own docs
+**Honest disclosure, this is pre-1.0 software.** Sveltia's own docs
 say so directly: _"Stable Version Not Yet Available... there might
 still be breaking changes before the stable 1.0 release."_ That's a
 real risk, in the same category as this project's other third-party
 dependencies (Decap/Netlify Identity's own deprecation is exactly the
-kind of thing that can happen to a pre-1.0 tool too) — worth knowing
+kind of thing that can happen to a pre-1.0 tool too), worth knowing
 before treating `/admin` as a permanent, unchanging fixture. If a future
 breaking release ever changes `config.yml`'s field syntax, that file
 (and this DEVELOPMENT.md section) would need a re-check against Sveltia's
@@ -1424,27 +1420,27 @@ current docs at that time.
 
 **What's already built and wired in (nothing left for me to do here):**
 
-- `admin/index.html` — the exact CDN-loader snippet from Sveltia's own
-  docs (no local install, no build step — it loads `sveltia-cms.js`
+- `admin/index.html`, the exact CDN-loader snippet from Sveltia's own
+  docs (no local install, no build step, it loads `sveltia-cms.js`
   straight from unpkg.com).
-- `admin/config.yml` — the full field schema, mapped 1:1 to every real
+- `admin/config.yml`, the full field schema, mapped 1:1 to every real
   field in `assets/data/products.json` (shop info, categories, products
-  — including variants/ratings/stock/ingredients — bundles, and the
+, including variants/ratings/stock/ingredients, bundles, and the
   FAQ). Every field has a plain-English hint where the underlying data
   has a rule worth knowing (e.g. "don't rename a product's `id` once
   it's had real orders," "bundle price is always computed, never
-  hand-set"). Nothing was invented — if a field isn't in this file, it
+  hand-set"). Nothing was invented, if a field isn't in this file, it
   isn't part of the real catalog schema.
-- `cms-auth/` — the self-hosted GitHub login Worker
+- `cms-auth/`, the self-hosted GitHub login Worker
   (`sveltia-auth.js` + `wrangler.toml`) for the permanent "Sign in with
   GitHub" button (Option B under authentication below). Written and
   committed; it just needs the one-time deploy + GitHub OAuth App in that
   same section. Nothing secret is in the repo. (It's a top-level folder,
   deliberately not under `workers/`, so it doesn't share the checkout
-  Worker's Workers Builds root — see its `wrangler.toml` header.)
+  Worker's Workers Builds root, see its `wrangler.toml` header.)
 - A path-scoped CSP for `/admin/*` in `_headers` and
   `netlify.toml` (separate from, and more permissive than, the main
-  site's strict CSP — see the `adminCsp` comment in
+  site's strict CSP, see the `adminCsp` comment in
   `scripts/build-security-headers.js` for exactly what it allows and
   why). The OAuth login popup (Option B) needs no CSP change: it's a
   `window.open` navigation to the login Worker plus a `postMessage` back,
@@ -1455,20 +1451,20 @@ current docs at that time.
 - `npm test` validates `config.yml`'s structure (backend type, the file
   path, and that every real `products.json` key has a matching field)
   and checks `products-data.js` stays a fresh, faithful mirror of
-  `products.json` — so a schema drift or a missed rebuild gets caught
+  `products.json`, so a schema drift or a missed rebuild gets caught
   the same way every other freshness check on this site does.
 
 **What you (Savanna/Steven) still need to do:**
 
-1. **GitHub Repository Access:** The repository currently lives under Steven's personal GitHub account, and Savanna now has access as a collaborator. If you ever choose to transfer the repository directly to Savanna's own GitHub account in the future (GitHub → repo → Settings → "Transfer ownership"), make sure to update `admin/config.yml`'s `backend.repo` to the new `owner/repo-name` and commit the change (otherwise Sveltia CMS won't be able to save edits, and `npm test` will flag the mismatch).
+1. GitHub Repository Access: The repository currently lives under Steven's personal GitHub account, and Savanna now has access as a collaborator. If you ever choose to transfer the repository directly to Savanna's own GitHub account in the future (GitHub → repo → Settings → "Transfer ownership"), make sure to update `admin/config.yml`'s `backend.repo` to the new `owner/repo-name` and commit the change (otherwise Sveltia CMS won't be able to save edits, and `npm test` will flag the mismatch).
 2. **Set up authentication.** Two real options. **Do NOT use Netlify's
-   old "Git Gateway / OAuth" — Netlify deprecated it** (that is the exact
+   old "Git Gateway / OAuth", Netlify deprecated it** (that is the exact
    dead end the earlier version of this doc sent people to; the CMS login
    kept landing on Netlify's "This feature is deprecated" warning). Sveltia
    does not need Netlify for login at all. Pick one:
 
-   - **Option A — Personal Access Token ("Sign In with Token"). Instant,
-     zero infrastructure — use this to log in today.** No OAuth app, no
+   - **Option A, Personal Access Token ("Sign In with Token"). Instant,
+     zero infrastructure, use this to log in today.** No OAuth app, no
      Worker, no Netlify dashboard step. On GitHub, go to **Settings →
      Developer settings → Personal access tokens → Fine-grained tokens →
      Generate new token**, scope it to **only this repository** with
@@ -1483,28 +1479,28 @@ current docs at that time.
      expires (just generate a fresh one). Perfect for getting Savanna
      editing right now; Option B is the nicer long-term login.
 
-   - **Option B — Self-hosted GitHub OAuth on Cloudflare Workers (the
+   - **Option B, Self-hosted GitHub OAuth on Cloudflare Workers (the
      permanent "Sign in with GitHub" button).** This is the modern
      replacement for the deprecated Netlify path, and it reuses the
      Cloudflare Workers setup this site already runs for checkout. The
      login Worker lives in the repo at **`cms-auth/`**
-     (`sveltia-auth.js` + `wrangler.toml`) — a clean-room build of the
+     (`sveltia-auth.js` + `wrangler.toml`), a clean-room build of the
      canonical [Sveltia CMS Authenticator](https://github.com/sveltia/sveltia-cms-auth).
      One-time setup (Steven does this once):
-     1. **Create a GitHub OAuth App** — GitHub → **Settings → Developer
+     1. **Create a GitHub OAuth App**, GitHub → **Settings → Developer
         settings → OAuth Apps → New OAuth App**. This is the short
         **"OAuth App"** form; it is **not** the long "GitHub App" form
-        (that's the wrong thing — if you land on a page asking for a
+        (that's the wrong thing, if you land on a page asking for a
         "Webhook", per-resource "Repository permissions", and a generated
         `.pem` key, back out; you want plain _OAuth Apps_). Set
         **Homepage URL** to `https://yallternativeliving.com`. Create it,
         copy the **Client ID**, then **Generate a new client secret** and
         copy that. You'll set the **Authorization callback URL** in step 4,
         once step 2 gives you the Worker URL.
-     2. **Deploy `cms-auth/`** to Cloudflare — already deployed to
+     2. **Deploy `cms-auth/`** to Cloudflare, already deployed to
         `https://yallternative-cms-auth.y-allternative-living.workers.dev`
         (in the `y-allternative-living` Cloudflare account).
-     3. **Add the two secrets** — in that Worker's Cloudflare dashboard
+     3. **Add the two secrets**, in that Worker's Cloudflare dashboard
         (or via `wrangler secret put GITHUB_CLIENT_ID` and
         `wrangler secret put GITHUB_CLIENT_SECRET` in `cms-auth/`), add
         `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` as **Secrets** (from step 1).
@@ -1516,7 +1512,7 @@ current docs at that time.
         `https://yallternative-cms-auth.y-allternative-living.workers.dev/callback`.
         These must match exactly.
         After that, `/admin` provides a 1-click **Sign in with GitHub** button and
-        nobody has to manually paste tokens. The Worker never touches catalog data — it only
+        nobody has to manually paste tokens. The Worker never touches catalog data, it only
         performs the OAuth handshake and hands the browser an authentication token; the client
         secret lives securely as a Cloudflare Secret, never in the repository.
 
@@ -1529,27 +1525,27 @@ current docs at that time.
    saving publishes via the editorial workflow pull request. On deploy,
    `node scripts/build-site-data.js` compiles the catalog into `assets/data/products.json`
    and regenerates the static site.
-4. **Test with something low-stakes first** — e.g. edit one product's
+4. **Test with something low-stakes first**, e.g. edit one product's
    `blurb` by a word, save, confirm the live site updates after the
    deploy finishes, then move on to real catalog changes.
 
 **Local testing, before any of the above exists:** Sveltia CMS also has
 a **local backend mode** for testing the editor UI against a local git
 clone with zero authentication at all (useful for trying out the field
-layout before a real GitHub repo/OAuth setup exists) — see
+layout before a real GitHub repo/OAuth setup exists), see
 [Sveltia's "Working with a Local Git Repository" docs](https://sveltiacms.app/en/docs/start)
 for the current steps, since this wasn't set up or verified as part of
 this project (it needs a real local git repo, which this project didn't
 have during development).
 
-**Uploaded images get a leading slash; existing ones don't — this is
+**Uploaded images get a leading slash; existing ones don't, this is
 harmless.** Sveltia's `public_folder` setting requires a leading `/`
 (`/assets/img`), so any new photo uploaded through `/admin` gets stored
 as `/assets/img/whatever.jpg` in `products.json`, while all 15 existing
 product photos use the old, slash-less `assets/img/whatever.jpg` form.
 Both resolve to the exact same file when the browser loads them, and
 `npm test`'s image-path check already accounts for this (it matches the
-`assets/img/...` substring regardless of a leading slash) — nothing to
+`assets/img/...` substring regardless of a leading slash), nothing to
 fix here, just don't be surprised if you notice the inconsistency
 browsing the raw JSON.
 
@@ -1560,19 +1556,19 @@ The site includes optional birthday capture on the footer newsletter form (`asse
 **Data Flow:**
 
 1. Submissions pass `fields[birthday]` in standard `MM/DD` format (e.g. `06/14`) to `site.kitFormAction` (ConvertKit/Kit form endpoint).
-2. **Kit Custom Field Setup (TODO for Savanna / Steven):**
+2. Kit Custom Field Setup (TODO for Savanna / Steven):
    - In the Kit Dashboard → **Subscribers** → **Custom Fields**, create a text field named `birthday`.
    - In Kit → **Automations** → **Visual Automations**, create a date-triggered rule:
      - Trigger: _Date occurs on Custom Field `birthday`_ (or _1st day of birth month_).
      - Action: _Send Email Sequence: Birthday Treat_.
-3. **Birthday Treat Email Configuration:**
+3. Birthday Treat Email Configuration:
    - Write a warm birthday greeting from Savanna.
    - Provide a $5 digital voucher code (e.g. `YALL-BDAY-5OFF`) or auto-applied shop link (`https://yallternativeliving.com/shop.html?promo=YALL-BDAY-5OFF`).
 
 > **Not "50 bonus Alt-Points".** Alt-Points are switched off end to end: nothing
 > ever credited them (the only balance was the shopper's own `localStorage`),
-> and `/.netlify/functions/redeem-points` — which used to mint a real Stripe
-> promotion code on the word of the caller alone — now answers `410 Gone`. The
+> and `/.netlify/functions/redeem-points`, which used to mint a real Stripe
+> promotion code on the word of the caller alone, now answers `410 Gone`. The
 > earn copy, the drawer counter and the redeem button are gone from the cart.
 > Do not offer points as a birthday reward until a server-side ledger exists
 > that can verify a balance and record a spend atomically. A voucher code is a
@@ -1581,7 +1577,7 @@ The site includes optional birthday capture on the footer newsletter form (`asse
 ## 22. Your Orders (`orders.html`): order history without accounts
 
 **The gap it fills.** `order-status.html` needs the `cs_…` reference AND the
-email for every lookup — the right privacy posture for one order, and useless
+email for every lookup, the right privacy posture for one order, and useless
 to a repeat buyer who wants to see what they bought last time, order it again,
 or check where a parcel is without digging out a receipt. Accounts and
 passwords would fix that at the cost of a password database to lose. A magic
@@ -1592,11 +1588,11 @@ unsubscribe links) and `RESEND_API_KEY`.
 
 1. The shopper types the email they ordered with on `orders.html`. The page
    POSTs `{email}` to `/api/orders/request-link` and shows the confirmation
-   from `content.json` (`orders.confirmation`) — the same wording for every
+   from `content.json` (`orders.confirmation`), the same wording for every
    address, because the Worker's answer is the same for every address.
 2. If the shop has orders for that address (and it is not on the suppression
    list), the Worker mints a 24-hour, single-use token whose subject is the
-   SHA-256 of the address — never the address — and emails
+   SHA-256 of the address, never the address, and emails
    `orders.html?token=…` through Resend.
 3. Clicking it, `assets/js/orders.js` reads the token, removes it from the
    address bar (`history.replaceState`), and GETs `/api/orders?token=…`. The
@@ -1605,7 +1601,7 @@ unsubscribe links) and `RESEND_API_KEY`.
    balance when the loyalty switch is on. A second click is a 403 and the
    form comes back with a note.
 4. **Reorder** resolves each line's `productId` and `variant` against the live
-   catalog (`window.YL_PRODUCTS`) and calls `window.YLCart.addItems` — the
+   catalog (`window.YL_PRODUCTS`) and calls `window.YLCart.addItems`, the
    same door the shop's own buttons use, so pricing stays server-side at
    checkout. Gift cards, build-your-own boxes and gift sets with per-member
    choices are listed but not re-added; sold-out options are skipped and the
@@ -1616,12 +1612,12 @@ written by the webhook once per paid session and updated with tracking by the
 hourly ship-notice sweep. `docs/STATE-LAYER.md` §4.10 has the design and the
 reasons; `workers/README.md` §2b-ii has the routes and limits.
 
-**What the owner controls.** Everything the page says — small line, headline,
-intro, email label and hint, button text, confirmation — is under **Site
+**What the owner controls.** Everything the page says, small line, headline,
+intro, email label and hint, button text, confirmation, is under **Site
 Settings → Your Orders page** in `/admin` (`content.json` `orders.*`), and the
 whole feature is one switch, **Shop · Show the Your Orders page**
 (`site.enableOrderHistory`, default on). Off hides every link to the page
-(footer, thank-you page, order-status page — the `.orders-history-link`
+(footer, thank-you page, order-status page, the `.orders-history-link`
 selector in `FEATURE_SELECTORS`), the page shows an "email us" note, and both
 routes answer 404.
 
@@ -1631,7 +1627,7 @@ sends no analytics event (`docs/ANALYTICS.md`). The page is `noindex` and
 absent from `sitemap.xml`. `scripts/worker-orders.test.js` pins neutrality,
 both rate limits, mint/verify/burn, cross-address isolation, the list shape,
 the tracking merge and the webhook write; `scripts/orders-page.browser.test.js`
-drives the page with the Worker mocked — form, neutral confirmation (the DOM
+drives the page with the Worker mocked, form, neutral confirmation (the DOM
 after a known and an unknown address is byte-identical), list rendering,
 token scrubbing, and a Reorder into the real cart.
 

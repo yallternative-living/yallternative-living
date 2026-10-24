@@ -725,10 +725,10 @@ section {
       "opsz" 40,
       "wght" 420;
 
-    /* "Living" inherits the same styling as "Y'allternative" appearing on the same line with a small left margin acting as a space. */
+    /* "Living" inherits the same styling as "Y'allternative" appearing on the same line separated by a real space character. */
     & small {
       display: inline;
-      margin-left: 0.25em;
+      margin-left: 0;
       font-family: inherit;
       font-size: inherit;
       letter-spacing: inherit;
@@ -1104,13 +1104,13 @@ section {
   container-type: inline-size;
 }
 .hero {
-  min-height: 55dvh; /* dynamic viewport height accounts for dynamic browser chrome */
+  position: relative;
   display: flex;
   align-items: center;
-  padding: 80px 0 60px;
+  padding: 64px 0;
   background:
-    radial-gradient(ellipse at 20% 20%, rgba(181, 73, 91, 0.18), transparent 55%),
-    radial-gradient(ellipse at 80% 80%, rgba(201, 138, 75, 0.14), transparent 55%), var(--ink);
+    radial-gradient(ellipse 55% 65% at 78% 50%, rgba(214, 155, 92, 0.08), transparent 70%),
+    var(--ink);
   border-bottom: 1px solid var(--hide);
 
   /* @container, not @media: `.hero-grid` stacks off `.hero-frame`'s inline
@@ -1122,73 +1122,36 @@ section {
      two-column padding and min-height, mismatched (rendered audit M2). */
   @container (max-width: 900px) {
     min-height: auto;
-    padding: 32px 0 36px;
+    padding: 36px 0 40px;
   }
   @container (max-width: 480px) {
-    padding: 24px 0 28px;
+    padding: 26px 0 32px;
   }
 
-  /* The global h1 size (clamp(1.65rem, 5vw, 3.2rem)) is set for a full-width
-     heading, but this one lives in the 1.3fr column of .hero-grid -- roughly
-     60% of the container -- so it was running out of words long before it ran
-     out of column. Measured on the live page: at 1440px the title held two
-     lines of 571px and 492px inside a 785px column (73% of the widest line
-     filled, `text-wrap: balance` splitting the leftover evenly), and between
-     roughly 900px and 1100px it needed a *third* line at ~75% fill, because
-     the string is a hair too long to sit in two at 5vw.
-
-     Sizing it to its own column instead of to the viewport fixes both: 4.6vw
-     with a 4.25rem cap fills 88-97% of the widest line from 1200px up and
-     holds the 900-1100px band to two lines at 96-98%. The 4.25rem cap is what
-     the widest case wants -- .container stops growing at 1320px, so above
-     ~1500px the column is a fixed 785px and the type must stop growing too.
-
-     Scoped to .hero-grid, not .hero: 404, welcome and thank-you also use
+  /* Scoped to .hero-grid, not .hero: 404, welcome and thank-you also use
      .hero (as .tight-hero) with a full-width h1 and their own sizes
      (.thank-you-title); a bare `& h1` was overriding those too (red-team M-1). */
   & .hero-grid h1 {
-    margin-bottom: 0.5em;
-    font-size: clamp(2.5rem, 4.6vw, 4.25rem);
+    margin-bottom: 0.45em;
+    font-size: clamp(2.25rem, 4vw, 3.65rem);
+    line-height: 1.1;
 
-    /* Below 900px .hero-grid stacks and the h1 gets the whole container. The
-       first pass restored the global 5vw here on the theory that a full-width
-       column needs no help; measured, it did: 62% fill on every tablet width
-       (an iPad at 806-834px held two lines of ~450px and ~390px in a 727-755px
-       column, the lede running wider than the headline above it) and 59-60%
-       at 520-640px. The column doubled at the stack but the type did not
-       grow to meet it. 7.5vw fills 88-93% from 390px to 900px, still on two
-       lines at every width (8.4vw tipped tablets and 390-430px phones into
-       three); phones go from 26.4px to 29-32px. 320px is unchanged at three
-       lines -- the string has no two-line break there below legibility. */
     @container (max-width: 900px) {
       font-size: clamp(1.65rem, 7.5vw, 4.25rem);
     }
   }
   & .lede {
-    font-size: 1.15rem;
-    max-width: 78ch;
-    margin-bottom: 22px;
+    font-size: 1.125rem;
+    line-height: 1.68;
+    max-width: 50ch;
+    margin-bottom: 32px;
+    color: var(--paper-dim);
   }
 
-  /* The hero stays left-aligned at every width, same as the desktop
-     layout. It briefly centred the h1/lede/buttons below 900px on the
-     premise that ".shop-hero-header already centers itself here" -- but
-     that rule is `align-items: center`, which centres flex items on the
-     CROSS axis (vertically). It has no justify-content, so the eyebrow
-     and rating row stayed hard left. The result on a phone was a
-     left-aligned eyebrow sitting above a centred headline and a centred
-     three-line paragraph: the exact mismatch the centring was meant to
-     fix. Centred body copy is also the harder thing to read, since every
-     line starts at a different x.
-
-     The buttons go full-width instead of centred: two CTAs of very
-     different label lengths ("Shop Salves, Soaks & More" vs "Read Our
-     Story") look ragged however they're aligned, and matching their
-     width settles that while giving each a bigger tap target. */
   @container (max-width: 480px) {
     & .lede {
       font-size: 1rem;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
     & .hero-actions {
       gap: 10px;
@@ -1203,12 +1166,12 @@ section {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: 1.3fr 0.7fr;
-  gap: 48px;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 56px;
   align-items: center;
 
   @container (max-width: 1050px) {
-    grid-template-columns: 1.2fr 0.8fr;
+    grid-template-columns: 1.1fr 0.9fr;
     gap: 40px;
   }
 
@@ -1224,6 +1187,11 @@ section {
   flex-wrap: wrap;
   align-items: center;
   margin-top: 8px;
+
+  & .btn-outline {
+    background-color: transparent;
+    border-color: var(--hide);
+  }
 }
 
 .tag {
@@ -1245,55 +1213,35 @@ section {
 .hero-art {
   position: relative;
   justify-self: end;
+  width: 100%;
 
-  /* Once the grid stacks, the copy above this stays hard left (see the note
-     on .hero) -- so the photo does too. Centring it under a left-aligned
-     headline, lede and button row put one element on a different axis from
-     the other four, and on an iPad-width screen a 320px portrait floating in
-     the middle of a 727px column read as misplaced rather than deliberate.
-     Sharing the left edge makes the hero one column. (Widening the centred
-     photo instead was tried: at 460px it became the tallest thing on the
-     screen and pushed the value strip a full viewport down.) */
   @container (max-width: 900px) {
     margin: 0 0 16px;
     justify-self: start;
+    max-width: none;
   }
 
   & picture {
     display: block;
-    max-width: 320px;
+    width: 100%;
 
-    /* Once the grid stacks, a fixed-width portrait pinned to the left edge
-       left most of the row empty and read as misplaced (owner screenshot,
-       2026-09-04, and the same thing at tablet width). The stacked hero
-       fills the column instead, like every stacked hero layout: on a phone
-       the portrait runs full width at its own aspect (~470px tall at 390px
-       wide), and on the wider 481-900px band -- where a full-width portrait
-       would be ~950px tall and push everything below it a screen down -- it
-       is cropped to 4:3 with the framing kept on the face and the shirt
-       print (object-position). There is no longer an edge to misalign. */
     @container (max-width: 900px) {
       max-width: none;
       width: 100%;
     }
   }
   & img {
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-    border: 1px solid var(--hide);
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 10px;
+    box-shadow: 0 24px 52px -14px rgba(0, 0, 0, 0.6);
 
     @container (max-width: 900px) {
       width: 100%;
       height: auto;
-    }
-    @container (min-width: 481px) and (max-width: 900px) {
-      /* Square, not 4:3: the face and the shirt print span ~80% of the
-         portrait's height, and a 4:3 window shows only 56% of it -- it cut
-         the top of the head AND the bottom of the print. A square shows
-         75%, framed from the eyes down so the print stays whole. */
-      aspect-ratio: 1 / 1;
-      object-fit: cover;
-      object-position: 50% 34%;
     }
   }
 }
@@ -1305,13 +1253,18 @@ section {
   gap: 8px 12px;
   margin-top: 8px;
   margin-bottom: 16px;
+
+  & .eyebrow {
+    margin-bottom: 0;
+  }
 }
 
 .hero-separator {
   color: var(--paper-dim);
   margin: 0;
-  font-weight: bold;
+  font-weight: 400;
   font-size: 0.85rem;
+  opacity: 0.5;
 
   @media (max-width: 600px) {
     display: none;
@@ -1325,20 +1278,19 @@ section {
   gap: 6px;
   font-size: 0.82rem;
   color: var(--paper-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
 
   & .stars {
     color: var(--whiskey);
     letter-spacing: 1px;
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     display: inline-flex;
     align-items: center;
   }
 
   & b {
-    color: var(--paper);
-    font-weight: 700;
+    color: var(--paper-dim);
+    font-weight: 500;
   }
 
   & .rating-text {
@@ -1356,8 +1308,8 @@ section {
   & .container {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 28px;
-    padding: 36px 24px;
+    gap: 32px;
+    padding: 36px 32px;
 
     @container (max-width:820px) {
       grid-template-columns: repeat(2, 1fr);
@@ -1371,7 +1323,7 @@ section {
 
 .value-item {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-start;
 
   & .glyph {
@@ -1401,6 +1353,7 @@ section {
   }
   & p {
     font-size: 0.86rem;
+    line-height: 1.55;
     margin: 0;
   }
 }

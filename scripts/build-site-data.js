@@ -4036,7 +4036,20 @@ function buildSiteData() {
       itemCondition: "https://schema.org/NewCondition",
       availability: availability,
       url: DOMAIN + "/products/" + p.id + ".html",
-      seller: { "@type": "Organization", name: "Y'allternative Living" }
+      seller: {
+        "@type": "Organization",
+        "@id": DOMAIN + "/#business",
+        name: "Y'allternative Living",
+        url: DOMAIN + "/",
+        alternateName: [
+          "Yallternative Living",
+          "YallternativeLiving",
+          "Y'allternativeLiving",
+          "Y'allternative Livin'",
+          "Yallternative Livin",
+          "YallternativeLivinCO"
+        ]
+      }
     };
     const offers =
       range.low === range.high
@@ -4059,7 +4072,12 @@ function buildSiteData() {
       sku: p.sku || p.id,
       mpn: p.mpn || p.sku || p.id,
       category: CATEGORY_LABEL[p.category] || p.category,
-      brand: { "@type": "Brand", name: "Y'allternative Living" },
+      brand: {
+        "@type": "Brand",
+        "@id": DOMAIN + "/#brand",
+        name: "Y'allternative Living",
+        alternateName: ["Yallternative Living", "YallternativeLiving", "Y'allternativeLiving"]
+      },
       offers: offers
     };
     // Only attach aggregateRating when this SPECIFIC product has its own real
@@ -5475,7 +5493,19 @@ function buildSiteData() {
     "User-agent: Claude-User\nAllow: /\n\n" +
     "User-agent: PerplexityBot\nAllow: /\n\n" +
     "User-agent: Perplexity-User\nAllow: /\n\n" +
+    "User-agent: Grok\nAllow: /\n\n" +
+    "User-agent: GrokBot\nAllow: /\n\n" +
+    "User-agent: GrokAgent\nAllow: /\n\n" +
+    "User-agent: xAI-Grok\nAllow: /\n\n" +
+    "User-agent: xAI-Bot\nAllow: /\n\n" +
     "User-agent: Google-Extended\nAllow: /\n\n" +
+    "User-agent: Applebot-Extended\nAllow: /\n\n" +
+    "User-agent: Meta-ExternalAgent\nAllow: /\n\n" +
+    "User-agent: Meta-ExternalFetcher\nAllow: /\n\n" +
+    "User-agent: DuckAssistBot\nAllow: /\n\n" +
+    "User-agent: YouBot\nAllow: /\n\n" +
+    "User-agent: Amazonbot\nAllow: /\n\n" +
+    "User-agent: cohere-ai\nAllow: /\n\n" +
     "User-agent: CCBot\nAllow: /\n\n" +
     "User-agent: Bingbot\nAllow: /\n\n" +
     "Sitemap: " +
@@ -5563,7 +5593,7 @@ function buildSiteData() {
   const llmsTxt =
     "# Y'allternative Living\n\n" +
     "> Queer-owned, Southern-raised handmade self-care -- small-batch salves, soaks, body care and apparel out of Landrum, SC. Sold directly on this site and on Etsy, plus in person at farmers markets and Pride events around Upstate SC and beyond.\n\n" +
-    "Y'allternative Living is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average across 33 ratings on its Etsy shop (a separate sales channel from this site).\n\n" +
+    "Y'allternative Living (also searched as Yallternative Living, YallternativeLiving, Y'allternativeLiving, Y'allternative Livin', and YallternativeLivinCO) is a small, queer-owned business run by founder Savanna out of Landrum, South Carolina (the Upstate SC / Blue Ridge foothills region). Everything is handmade in small batches. As of mid-2026 the shop has a 4.9-star average on its Etsy shop (a separate sales channel from this site).\n\n" +
     "## Pages\n\n" +
     "- [Shop](" +
     DOMAIN +
@@ -5712,6 +5742,7 @@ function buildSiteData() {
     "> If anything here disagrees with that JSON file or the shop page, treat the JSON as truth.\n\n" +
     "## Merchant identity\n\n" +
     "- **Name**: Y'allternative Living\n" +
+    "- **Alternate spellings / handles**: Yallternative Living, YallternativeLiving, Y'allternativeLiving, Y'allternative Livin', Yallternative Livin, YallternativeLivinCO, @yallternativeliving\n" +
     "- **What it is**: Queer-owned, Southern-raised, small-batch handmade self-care -- salves, soaks, body care, and apparel.\n" +
     "- **Location**: Landrum, South Carolina, USA (Upstate SC / Blue Ridge foothills)\n" +
     "- **Website**: " +
@@ -6525,7 +6556,17 @@ function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
   const range = variantPriceRange(product || {});
   const seller = {
     "@type": "Organization",
-    name: "Y'allternative Living"
+    "@id": dom + "/#business",
+    name: "Y'allternative Living",
+    url: dom + "/",
+    alternateName: [
+      "Yallternative Living",
+      "YallternativeLiving",
+      "Y'allternativeLiving",
+      "Y'allternative Livin'",
+      "Yallternative Livin",
+      "YallternativeLivinCO"
+    ]
   };
 
   let offers;
@@ -7711,9 +7752,7 @@ function renderEtsyProofHtml(shop) {
     "</span> " +
     "<strong>" +
     Number(shop.rating).toFixed(1) +
-    " out of 5</strong> across " +
-    shop.reviewCount +
-    ' ratings on <a href="' +
+    ' out of 5</strong> &middot; <a href="' +
     escapeHtml(url) +
     '" target="_blank" rel="noopener noreferrer">our Etsy shop<span class="sr-only"> (opens in new tab)</span></a>' +
     (shop.sales ? " &middot; " + shop.sales + "+ orders" : "") +
@@ -8188,7 +8227,7 @@ function renderSiteHeaderHtml(manifest, opts) {
     "        " +
     logoPictureHtml("assets/img/logo.png", m, "mobile") +
     "\n" +
-    '        <span class="brand-word">Y\'allternative<small>Living</small></span>\n' +
+    '        <span class="brand-word">Y\'allternative <small>Living</small></span>\n' +
     "      </a>\n" +
     '      <ul class="nav-links" id="navLinks">\n' +
     '        <li><a href="/index.html">Home</a></li>\n' +
@@ -8755,7 +8794,16 @@ function journalWording(journalData) {
 function journalOrgNode(dom) {
   return {
     "@type": "Organization",
+    "@id": dom + "/#business",
     name: "Y'allternative Living",
+    alternateName: [
+      "Yallternative Living",
+      "YallternativeLiving",
+      "Y'allternativeLiving",
+      "Y'allternative Livin'",
+      "Yallternative Livin",
+      "YallternativeLivinCO"
+    ],
     url: dom + "/",
     logo: { "@type": "ImageObject", url: dom + "/assets/img/logo.png" }
   };

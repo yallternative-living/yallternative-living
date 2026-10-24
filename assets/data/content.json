@@ -90,7 +90,7 @@
   "home": {
     "heroTitle": "Self-Care For The Black Sheep & Bold Hearts",
     "heroText": "For anybody who's ever been told they're a little too much: taking up space and smelling amazing was always the plan.",
-    "heroImage": "assets/img/unisex-tshirt.jpg",
+    "heroImage": "assets/img/hero-apothecary.jpg",
     "featureImage": "assets/img/shea-butter.jpg",
     "badges": {
       "badge1Title": "Handmade in Small Batches",
@@ -131,7 +131,7 @@
     "heroTitle": "Part Alt, Part Grit, All Heart",
     "heroIntro": "This is the part where we're supposed to sound polished and corporate. Instead, here's the truth: just a girl, a stove full of salves, and a whole lot of us who never fit neatly into one box. Come on in.",
     "bioHeading": "Hey Y'all, I'm Savanna",
-    "bio": "I'm the hands, the nose, and most days the mouth behind Y'allternative Living. Every salve, soak, and scrub gets mixed, poured, and labeled by hand right in Landrum, SC. No factories, no focus groups. Just me, my kitchen, and an unreasonable number of jars.\n\nGrowing up in these foothills, you get handed sweet tea in one hand and a church potluck plate in the other. If you're anything like me, you spend years thinking you have to pick a side: country or alternative, Southern or strange. Turns out, this dirt raised a whole quiet army of us: alt kids working the peach stand, emo kids who still say \"y'all,\" queer folks who never left because this is home too. Backroads, porch lights, and sweet tea still run through everything I make here—eyebrow-raising parts included. Y'allternative Living is for every one of us who got tired of choosing.\n\nWhat started as small batches of soaks and salves a little over a year ago has grown into a proper apothecary. Showing up face-to-face is part of the job, not an afterthought. I built this so people like us have handmade self-care made with them in mind. Creating honest goods was always the whole mission statement.",
+    "bio": "I'm the hands, the nose, and most days the mouth behind Y'allternative Living. Every salve, soak, and scrub gets mixed, poured, and labeled by hand right in Landrum, SC. No factories, no focus groups. Just me, my kitchen, and an unreasonable number of jars.\n\nGrowing up in these foothills, you get handed sweet tea in one hand and a church potluck plate in the other. If you're anything like me, you spend years thinking you have to pick a side: country or alternative, Southern or strange. Turns out, this dirt raised a whole quiet army of us: alt kids working the peach stand, emo kids who still say \"y'all,\" queer folks who never left because this is home too. Backroads, porch lights, and sweet tea still run through everything I make here, eyebrow-raising parts included. Y'allternative Living is for every one of us who got tired of choosing.\n\nWhat started as small batches of soaks and salves a little over a year ago has grown into a proper apothecary. Showing up face-to-face is part of the job, not an afterthought. I built this so people like us have handmade self-care made with them in mind. Creating honest goods was always the whole mission statement.",
     "bioImage": "assets/img/unisex-tshirt.jpg",
     "secondaryImage": "assets/img/beard-salve.jpg",
     "community": {
@@ -167,7 +167,7 @@
       "reviewsTitle": "Customer Reviews",
       "ugcEyebrow": "Community In Action",
       "ugcTitle": "How Y'all Use Our Apothecary",
-      "ugcText": "From bedtime rituals to farmers market hauls — see how our handmade salves & soaks fit into your daily life.",
+      "ugcText": "From bedtime rituals to farmers market hauls, see how our handmade salves & soaks fit into your daily life.",
       "faqEyebrow": "Got Questions?",
       "faqTitle": "Frequently Asked Questions",
       "faqText": "Everything you need to know about our handmade salves, soaks, shipping, and custom orders."
@@ -215,7 +215,7 @@
   "orders": {
     "eyebrow": "Apothecary Dispatch · Landrum, SC",
     "headline": "Your Orders",
-    "lede": "No account, no password. Type the email you ordered with and we'll send a link that opens every order placed with it — what you bought, where it is, and a button to order it all again.",
+    "lede": "No account, no password. Type the email you ordered with and we'll send a link that opens every order placed with it: what you bought, where it is, and a button to order it all again.",
     "emailLabel": "Email used at checkout:",
     "emailHint": "We'll email a one-time link to that address. It opens once and expires in 24 hours.",
     "buttonText": "Email me a link",

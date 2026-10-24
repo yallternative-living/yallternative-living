@@ -16,14 +16,14 @@
   - In Netlify Dashboard: **Sites** → `yallternative-living` → **Site configuration**.
   - Navigate to **Build & deploy** → **Continuous deployment** → **Build hooks**.
   - Click **Add build hook**:
-    - **Name**: `Daily Event Rollover`
-    - **Branch to build**: `main`
+    - Name: `Daily Event Rollover`
+    - Branch to build: `main`
   - Copy the generated webhook URL (`https://api.netlify.com/build_hooks/...`).
 - [ ] **Step 3: Save Secret in GitHub Repository**
   - In GitHub repository: **Settings** → **Secrets and variables** → **Actions**.
   - Click **New repository secret**:
-    - **Name**: `NETLIFY_BUILD_HOOK_URL`
-    - **Secret**: Paste the Netlify webhook URL from Step 2.
+    - Name: `NETLIFY_BUILD_HOOK_URL`
+    - Secret: Paste the Netlify webhook URL from Step 2.
 - [ ] **Step 4: Uncomment Schedule in GitHub Actions**
   - In `.github/workflows/daily-build-hook.yml`, uncomment lines 44–45:
     ```yaml

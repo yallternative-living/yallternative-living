@@ -156,7 +156,7 @@
       if (ledeEl) {
         ledeEl.textContent =
           "We couldn't confirm this order from here just now. If you just checked out, " +
-          "your receipt is in the confirmation email from Stripe \u2014 and you can look " +
+          "your receipt is in the confirmation email from Stripe, and you can look " +
           "the order up below with the reference on this page.";
       }
     }
@@ -174,7 +174,7 @@
       if (ledeEl) {
         ledeEl.textContent =
           "This page fills in right after a checkout finishes. If you just placed an order, " +
-          "your receipt is in the confirmation email from Stripe \u2014 and you can look the " +
+          "your receipt is in the confirmation email from Stripe, and you can look the " +
           "order up below with the reference from that email.";
       }
       /* .is-gone collapses the space the hidden card reserves (see the

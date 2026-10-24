@@ -3138,7 +3138,7 @@
                 " more to unlock " +
                 pct +
                 "% off</span>")
-          : '<span class="custom-box-empty-msg">Nothing picked yet &mdash; select at least ' +
+          : '<span class="custom-box-empty-msg">Nothing picked yet. Select at least ' +
             minItems +
             " items to unlock discount.</span>") +
         "</p>" +

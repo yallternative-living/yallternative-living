@@ -3937,7 +3937,7 @@
         return tr(
           "cart.promoLooksLikeGiftCard",
           null,
-          fallback || "That looks like a gift card — enter it in the gift card box instead."
+          fallback || "That looks like a gift card. Enter it in the gift card box instead."
         );
       case "gift_card_conflict":
         return promoGiftCardNotice();

@@ -1,12 +1,10 @@
-# Final readiness audit — 2026-09-08
+# Final readiness audit, 2026-09-08
 
 **Scope.** `main` at `482b047` (2026-09-06), which is also what production serves: `curl https://yallternativeliving.com/sw.js` and `git show origin/main:sw.js` carry the same `CACHE_NAME` (`yallternative-cache-vc752a3185648`), and the live `sitemap.xml` `<lastmod>` set matches the committed file exactly (31 × 2026-09-04, 1 × 2026-09-06).
 
 **Method.** Every repository quality gate was run in a clean checkout; the Puppeteer pool ran against the pre-installed Chromium. Production was probed non-destructively with `curl` and the committed live-audit script. Three independent read-only reviews were made of (1) the 2026-09-01 audit's open items against current code, (2) the money path in `workers/`, `cms-auth/` and `assets/js/cart.js`, and (3) deploy configuration, CI and documentation. Every finding below names a file and line; nothing was modified except the addition of this file.
 
 **Headline.** The site that is live today is the audited commit, all five 2026-09-01 criticals are verified fixed in code, the fast gates are green here and in CI, and the accessibility gate is at zero violations. Three defects remain in the gift-card money path that should be settled in Stripe test mode before launch, two owner-facing documents still tell the owner to put secrets in the wrong place, and the dashboard-side prerequisites cannot be verified from the repository. The recommended order is at the end.
-
----
 
 ## 1. Gate results
 
@@ -77,7 +75,7 @@ Resolved since: L-logo (50 KB, `<picture>` with AVIF/WebP), DI-11 (bundle varian
 
 | # | Item | Repo evidence |
 | --- | --- | --- |
-| 1 | D1 database created, id pasted | **Done** — `workers/wrangler.toml:212-215` |
+| 1 | D1 database created, id pasted | **Done**, `workers/wrangler.toml:212-215` |
 | 2 | Worker secrets `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY` (+ `MAGIC_LINK_SECRET`) set in Cloudflare | Unverifiable. No dated confirmation anywhere in the repo. |
 | 3 | Stripe webhook pointed at the Worker, subscribed to exactly `checkout.session.completed`, `checkout.session.expired`, `charge.refunded` | Unverifiable. Code handles all three. |
 | 4 | Resend domain shows Verified for `gifts@yallternativeliving.com` | Unverifiable. Without it gift-card emails fail silently (`workers/README.md:349`). |
@@ -142,14 +140,12 @@ Verified clean: `netlify.toml`, `_headers` and `vercel.json` security headers ar
 1. **Stripe test mode, one afternoon.** Place four test orders through the live `/api/checkout`: (a) plain card; (b) gift card with balance greater than subtotal plus a shipped item; (c) partial gift card + cash, then refund part of the cash in the Dashboard; (d) a purchased gift card. (b) and (c) decide the two High money findings; (d) proves the webhook, the secrets and the Resend domain in one go. Record the session ids in this file.
 2. **Fix what (b) and (c) show.** Cap the reservation at `totalCents` or reconcile the commit to `total_details.amount_discount`; change the refund restore to `max(0, refunded − cashPaid)`. Add a unit test for gift card + shipping and for partial cash refund in `scripts/worker-checkout.test.js` / the webhook suite. Gate card minting on `isFulfillable()` regardless.
 3. **Correct the two owner documents** (`SETUP-GUIDE.md`, `DEVELOPMENT.md`) so the secrets and the webhook URL point at Cloudflare. This is the document the owner will actually follow.
-4. **Decide `vercel.json`**: parity or deletion.
+4. Decide `vercel.json`: parity or deletion.
 5. **One sweep of the counts** in `README.md`, `AGENTS.md`, `TEST_INFRA.md`, `a11y-check.js:23` and the i18n-bot strings, and delete the stale "a11y gate is red" paragraph from `AGENTS.md`.
 6. **Confirm the dashboard items** in §3 and write the date next to each in `AGENTS.md` §2.7, the way the Netlify branch-deploy setting was recorded on 7 September.
 7. Optional, after launch: the still-open list in §3, the `core` filter additions, `npm ci`, and either fixing or deleting `live-production-audit.js`.
 
 Items 3 to 5 are doc-only or generated-file changes and cost no Netlify build under the `[build] ignore` rule, except `a11y-check.js:23` which is a comment.
-
----
 
 ## Remediation status (2026-09-08, same day)
 

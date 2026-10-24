@@ -1496,7 +1496,7 @@ window.YL_SEARCH_INDEX = {
         "Self-Care"
       ],
       "excerpt": "Struggling to turn your brain off or dealing with sore muscles? Here is the science (and folklore) behind why this duo works.",
-      "content": "We've all been there: staring at the ceiling, mentally sorting through every conversation we've had since 2012, while your legs feel restless and your shoulders are up around your ears. Modern life is noisy, and muscle tension is real. Why magnesium and arnica That's where magnesium and arnica come in. Magnesium is a mineral that plays a huge role in muscle relaxation and regulating the nervous system. When applied topically, it sinks straight in where you need it most. Combined with arnica —a mountain herb used for centuries to soothe bruising, aches, and swelling—it creates a powerful recovery balm. How to use it To use it, just massage a small amount into any of these before bed: - Your temples - The back of your neck - Sore muscles The act of massaging it in helps relax the muscles, while the lavender and chamomile scents cue your brain that it's time to rest. Sweet dreams, y'all!",
+      "content": "We've all been there: staring at the ceiling, mentally sorting through every conversation we've had since 2012, while your legs feel restless and your shoulders are up around your ears. Modern life is noisy, and muscle tension is real. That's where magnesium and arnica come in. Magnesium is a mineral that plays a huge role in muscle relaxation and regulating the nervous system. When applied topically, it sinks straight in where you need it most. Combined with arnica, a mountain herb used for centuries to soothe bruising, aches, and swelling, it creates a powerful recovery balm. To use it, just massage a small amount into your temples, the back of your neck, or sore muscles before bed. The act of massaging it in helps relax the muscles, while the lavender and chamomile scents cue your brain that it's time to rest. Sweet dreams, y'all!",
       "featuredProductId": "sleep-salve",
       "url": "journal/magnesium-salve-benefits.html"
     },
@@ -1513,27 +1513,12 @@ window.YL_SEARCH_INDEX = {
         "Behind the Scenes"
       ],
       "excerpt": "Is 'small batch' just a trendy buzzword, or does it actually make a difference for your skin? Let's talk about shelf life and real ingredients.",
-      "content": "If you look at the ingredients of a drugstore lotion, the first five are usually water, mineral oils, and a bunch of parabens and synthetic stabilizers designed to make it last on a warehouse shelf for three years. What 'small batch' actually means When we say 'small batch,' we mean that Savanna literally measures, stirs, and pours a few dozen jars at a time in her kitchen . Because we sell out quickly and make fresh batches every week, we don't have to load our skin products with harsh chemical preservatives. We use real, active plant oils, raw shea butter, and organic botanicals that actually feed your skin. What that means for you It means you get fresher, more potent self-care , and you're supporting a real person, not a corporate lab. Keep it real, y'all.",
+      "content": "If you look at the ingredients of a drugstore lotion, the first five are usually water, mineral oils, and a bunch of parabens and synthetic stabilizers designed to make it last on a warehouse shelf for three years. When we say 'small batch,' we mean that Savanna literally measures, stirs, and pours a few dozen jars at a time in her kitchen. Because we sell out quickly and make fresh batches every week, we don't have to load our skin products with harsh chemical preservatives. We use real, active plant oils, raw shea butter, and organic botanicals that actually feed your skin. It means you get fresher, more potent self-care, and you're supporting a real person, not a corporate lab. Keep it real, y'all.",
       "featuredProductId": "shea-butter",
       "url": "journal/small-batch-difference.html"
     }
   ],
   "events": [
-    {
-      "id": "rejects-market-2026-10-17",
-      "name": "Rejects Market",
-      "title": "Rejects Market",
-      "date": "2026-10-17",
-      "dateLabel": "October 17, 2026 · Saturday, 11am–5pm",
-      "endDate": null,
-      "type": "Alt Market",
-      "location": "Greer, SC",
-      "zip": "29651",
-      "note": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill — come find our table.",
-      "description": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill — come find our table.",
-      "isUpcoming": true,
-      "url": "events.html#rejects-market-2026-10-17"
-    },
     {
       "id": "foothills-fantasy-festival-2026-10-24",
       "name": "Foothills Fantasy Festival",
@@ -1559,10 +1544,25 @@ window.YL_SEARCH_INDEX = {
       "type": "Market",
       "location": "Landrum, SC",
       "zip": "29356",
-      "note": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
-      "description": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions — and take them all home.",
+      "note": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions and take them all home.",
+      "description": "A Y'allternative After Dark Apothecary Night: a cozy, witchy evening of blending, sipping and snacking while you make your own little self-care potions and take them all home.",
       "isUpcoming": true,
       "url": "events.html#potions-pour-decisions-2026-11-06"
+    },
+    {
+      "id": "rejects-market-2026-10-17",
+      "name": "Rejects Market",
+      "title": "Rejects Market",
+      "date": "2026-10-17",
+      "dateLabel": "October 17, 2026 · Saturday, 11am–5pm",
+      "endDate": null,
+      "type": "Alt Market",
+      "location": "Greer, SC",
+      "zip": "29651",
+      "note": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill. Come find our table.",
+      "description": "Alternative makers, oddities & small-batch self-care at The Venue at Locust Hill. Come find our table.",
+      "isUpcoming": false,
+      "url": "events.html#rejects-market-2026-10-17"
     },
     {
       "id": "gothic-punk-night-2026-10-16",
@@ -1649,8 +1649,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Arts Festival",
       "location": "Asheville, NC",
       "zip": "28801",
-      "note": "Free downtown arts & music festival — come find our table.",
-      "description": "Free downtown arts & music festival — come find our table.",
+      "note": "Free downtown arts & music festival. Come find our table.",
+      "description": "Free downtown arts & music festival. Come find our table.",
       "isUpcoming": false,
       "url": "events.html#boomtown-arts-heritage-avl-fest-2026-09-05"
     },
@@ -1694,8 +1694,8 @@ window.YL_SEARCH_INDEX = {
       "type": "Flea Market",
       "location": "Ladson, SC",
       "zip": "29456",
-      "note": "Two-day punk flea market — come find our table.",
-      "description": "Two-day punk flea market — come find our table.",
+      "note": "Two-day punk flea market. Come find our table.",
+      "description": "Two-day punk flea market. Come find our table.",
       "isUpcoming": false,
       "url": "events.html#summerville-punk-flea-market"
     },
