@@ -6,6 +6,17 @@
  */
 window.YL_SITE_REVIEWS = [
   {
+    "id": "etsy-2026-09-cassie",
+    "productId": "frankincense-salve",
+    "name": "Cassie (Etsy)",
+    "rating": 5,
+    "text": "I’ve had a bad eczema flare up on my hands for 11 months now. Like, so bad that it’s hard to sleep because of the pain and itchiness. This is the only product that has made an improvement for me. I still have some eczema on my hands, but this is the clearest they’ve been in the last almost a year.",
+    "date": "2026-09-08",
+    "featured": false,
+    "verifiedBuyer": true,
+    "ownerReply": "I am so happy that you've had some relief ❤️❤️"
+  },
+  {
     "id": "etsy-2026-06-eric",
     "productId": "hand-scrub",
     "name": "Eric (Etsy)",

@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-09-06T08:20:21Z",
+  "fetchedAt": "2026-10-25T17:55:00Z",
   "complete": true,
   "listings": [
     {
@@ -23,7 +23,7 @@
       "price": 16.00,
       "rating": {
         "value": 5.0,
-        "count": 5
+        "count": 6
       }
     },
     {

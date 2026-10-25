@@ -6299,7 +6299,12 @@
     if (ev && ev.zip) address.postalCode = ev.zip;
     var street = getEventStreetAddress(ev);
     if (street) address.streetAddress = street;
-    return { "@type": "Place", address: address };
+    var place = { "@type": "Place" };
+    if (ev && typeof ev.venue === "string" && ev.venue.trim()) {
+      place.name = ev.venue.trim();
+    }
+    place.address = address;
+    return place;
   }
 
   /* One Event JSON-LD object for one upcoming market -- see
@@ -6328,6 +6333,20 @@
       var end = buildEventDateTimeISO(ev.endDate);
       if (end) ld.endDate = end.iso;
     }
+    if (typeof ev.note === "string" && ev.note.trim()) {
+      ld.description = ev.note.trim();
+    }
+    var rawImg = typeof ev.image === "string" ? ev.image.trim() : "";
+    ld.image = /^https:\/\//i.test(rawImg)
+      ? rawImg
+      : rawImg
+        ? "https://yallternativeliving.com/" + rawImg.replace(/^\/+/, "")
+        : "https://yallternativeliving.com/assets/img/og-image.jpg";
+    ld.performer = {
+      "@type": "PerformingGroup",
+      name: "Y'allternative Living",
+      url: "https://yallternativeliving.com"
+    };
     /* A workshop is the shop's OWN ticketed night, not a market it vends at,
        so the two omissions above do not apply to it: it has an organizer
        (this shop), and an offer when tickets are on sale -- here on the site

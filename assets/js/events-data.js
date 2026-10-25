@@ -10,6 +10,7 @@ window.YL_EVENTS = {
       "id": "potions-pour-decisions-2026-11-06",
       "name": "Potions & Pour Decisions",
       "date": "2026-11-06",
+      "endDate": "2026-11-06",
       "dateLabel": "November 6, 2026 · Friday, 6:30pm",
       "location": "Landrum, SC",
       "zip": "29356",
@@ -35,6 +36,7 @@ window.YL_EVENTS = {
     {
       "id": "foothills-fantasy-festival-2026-10-24",
       "date": "2026-10-24",
+      "endDate": "2026-10-24",
       "dateLabel": "October 24, 2026 · Saturday, 11am–8pm",
       "name": "Foothills Fantasy Festival",
       "type": "Fantasy Festival",
@@ -48,6 +50,7 @@ window.YL_EVENTS = {
     {
       "id": "rejects-market-2026-10-17",
       "date": "2026-10-17",
+      "endDate": "2026-10-17",
       "dateLabel": "October 17, 2026 · Saturday, 11am–5pm",
       "name": "Rejects Market",
       "type": "Alt Market",

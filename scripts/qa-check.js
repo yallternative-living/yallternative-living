@@ -3901,6 +3901,25 @@ try {
       } else {
         ok(prod.id + ": No ungrounded aggregateRating fabricated");
       }
+
+      var prodReviewsInSite = SITE_REVIEWS.filter(function (r) {
+        return r && r.productId === prod.id && r.text && Number.isFinite(Number(r.rating));
+      });
+      if (prodReviewsInSite.length > 0) {
+        if (Array.isArray(item.review) && item.review.length > 0) {
+          ok(
+            prod.id +
+              ": shop.html ItemList entry carries " +
+              item.review.length +
+              " Review node(s) from site-reviews.json"
+          );
+        } else {
+          fail(
+            prod.id + ": shop.html ItemList entry missing review array despite real site reviews",
+            JSON.stringify(item.review || null)
+          );
+        }
+      }
     });
   }
 } catch (e) {

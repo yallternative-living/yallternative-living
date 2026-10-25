@@ -4148,8 +4148,17 @@ function buildSiteData() {
       productLd.aggregateRating = {
         "@type": "AggregateRating",
         ratingValue: p.rating.value,
-        reviewCount: p.rating.count
+        reviewCount: p.rating.count,
+        bestRating: "5",
+        worstRating: "1"
       };
+    }
+    const itemReviews = SITE_REVIEWS.filter(function (r) {
+      return r && r.productId === p.id;
+    });
+    const itemReviewNodes = generateProductReviewNodes(itemReviews);
+    if (itemReviewNodes.length) {
+      productLd.review = itemReviewNodes;
     }
     return {
       "@type": "ListItem",
@@ -4476,7 +4485,12 @@ function buildSiteData() {
     if (ev && ev.zip) address.postalCode = ev.zip;
     const street = getEventStreetAddress(ev);
     if (street) address.streetAddress = street;
-    return { "@type": "Place", address: address };
+    const place = { "@type": "Place" };
+    if (ev && typeof ev.venue === "string" && ev.venue.trim()) {
+      place.name = ev.venue.trim();
+    }
+    place.address = address;
+    return place;
   }
 
   function buildEventJsonLd(ev) {
@@ -4497,6 +4511,20 @@ function buildSiteData() {
       const end = buildEventDateTimeISO(ev.endDate);
       if (end) ld.endDate = end.iso;
     }
+    if (typeof ev.note === "string" && ev.note.trim()) {
+      ld.description = ev.note.trim();
+    }
+    const rawImg = typeof ev.image === "string" ? ev.image.trim() : "";
+    ld.image = /^https:\/\//i.test(rawImg)
+      ? rawImg
+      : rawImg
+        ? "https://yallternativeliving.com/" + rawImg.replace(/^\/+/, "")
+        : "https://yallternativeliving.com/assets/img/og-image.jpg";
+    ld.performer = {
+      "@type": "PerformingGroup",
+      name: "Y'allternative Living",
+      url: "https://yallternativeliving.com"
+    };
     /* A workshop is the shop's OWN ticketed night, not a market it vends at,
        so the two omissions above do not apply to it: it has an organizer
        (this shop), and an offer when tickets are on sale -- here on the site

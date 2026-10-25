@@ -1107,6 +1107,15 @@ singletons:
               hint: "The event's own page or an info page."
             }
           - { name: note, label: "Note", widget: text, required: false }
+          - {
+              name: image,
+              label: "Event image",
+              widget: image,
+              choose_url: false,
+              accept: "image/jpeg,image/png",
+              required: false,
+              hint: "Optional flyer or photo for Google search. Without one, the brand share image is used."
+            }
           # readonly: this id is the events.html anchor and search-result
           # link. Was ungenerated at build time (a blank id shipped
           # "events.html#undefined") until scripts/build-site-data.js's
@@ -1145,6 +1154,16 @@ singletons:
               date_format: "MM/DD/YYYY",
               time_format: false,
               hint: "Ticket sales close the day after. Moving the date before then keeps the tickets already sold; giving a workshop that is already over a new date starts a fresh one, with its count back at Tickets available."
+            }
+          - {
+              name: endDate,
+              label: "End date",
+              widget: datetime,
+              format: "YYYY-MM-DD",
+              date_format: "MM/DD/YYYY",
+              time_format: false,
+              required: false,
+              hint: "Set to the same day as Date for a one-day workshop, or the last day for a multi-day workshop."
             }
           - {
               name: dateLabel,

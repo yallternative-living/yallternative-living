@@ -760,6 +760,47 @@ eq(
   },
   "buildEventJsonLd builds a Place/PostalAddress from location + zip, no street (note doesn't start with one)"
 );
+eq(
+  ldWithTime.description,
+  "Pop-up market table with handmade salves, soaks & soaps.",
+  "buildEventJsonLd populates description from ev.note"
+);
+eq(
+  ldWithTime.image,
+  "https://yallternativeliving.com/assets/img/og-image.jpg",
+  "buildEventJsonLd defaults image to the canonical brand share image"
+);
+eq(
+  ldWithTime.performer,
+  {
+    "@type": "PerformingGroup",
+    name: "Y'allternative Living",
+    url: "https://yallternativeliving.com"
+  },
+  "buildEventJsonLd sets performer to Y'allternative Living"
+);
+eq(
+  main.buildEventJsonLd({
+    name: "Venue Named Market",
+    date: "2026-10-17",
+    location: "Landrum, SC",
+    venue: "Landrum Depot",
+    image: "assets/img/logo.png"
+  }).location.name,
+  "Landrum Depot",
+  "buildEventJsonLd populates location.name when ev.venue is provided"
+);
+eq(
+  main.buildEventJsonLd({
+    name: "Venue Named Market",
+    date: "2026-10-17",
+    location: "Landrum, SC",
+    venue: "Landrum Depot",
+    image: "assets/img/logo.png"
+  }).image,
+  "https://yallternativeliving.com/assets/img/logo.png",
+  "buildEventJsonLd resolves relative ev.image paths to absolute https URLs"
+);
 
 // A December date must resolve to EST (-05:00), not EDT.
 const wintertimeEvent = {

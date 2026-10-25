@@ -163,8 +163,20 @@ snapshot.listings.forEach(function (item) {
         (newRating.value !== oldRating.value || newRating.count !== oldRating.count));
 
     if (newRating && changed) {
-      ratingChanges.push({ name: product.name, from: oldRating, to: newRating });
+      ratingChanges.push({ id: product.id, name: product.name, from: oldRating, to: newRating });
       product.rating = newRating;
+      var perProductPath = path.join(ROOT, "assets/data/products", product.id + ".json");
+      if (fs.existsSync(perProductPath)) {
+        try {
+          var perProductObj = JSON.parse(fs.readFileSync(perProductPath, "utf8"));
+          perProductObj.rating = newRating;
+          fs.writeFileSync(perProductPath, JSON.stringify(perProductObj, null, 2) + "\n");
+        } catch (err) {
+          console.error(
+            "Warning: could not update " + perProductPath + ": " + (err && err.message)
+          );
+        }
+      }
     } else if (!newRating && oldRating) {
       // Etsy reviews don't just disappear -- if a snapshot claims 0 where we
       // currently show real reviews, that's almost certainly a bad/partial
