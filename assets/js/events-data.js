@@ -7,19 +7,6 @@
 window.YL_EVENTS = {
   "upcoming": [
     {
-      "id": "foothills-fantasy-festival-2026-10-24",
-      "date": "2026-10-24",
-      "dateLabel": "October 24, 2026 · Saturday, 11am–8pm",
-      "name": "Foothills Fantasy Festival",
-      "type": "Fantasy Festival",
-      "location": "Tryon, NC",
-      "zip": "28782",
-      "venue": "Rogers Park",
-      "address": "55 W Howard St",
-      "emoji": "✨",
-      "note": "Full-day fantasy festival in downtown Tryon with potions, bath soaks, salves & magic."
-    },
-    {
       "id": "potions-pour-decisions-2026-11-06",
       "name": "Potions & Pour Decisions",
       "date": "2026-11-06",
@@ -45,6 +32,19 @@ window.YL_EVENTS = {
     }
   ],
   "past": [
+    {
+      "id": "foothills-fantasy-festival-2026-10-24",
+      "date": "2026-10-24",
+      "dateLabel": "October 24, 2026 · Saturday, 11am–8pm",
+      "name": "Foothills Fantasy Festival",
+      "type": "Fantasy Festival",
+      "location": "Tryon, NC",
+      "venue": "Rogers Park",
+      "address": "55 W Howard St",
+      "zip": "28782",
+      "emoji": "✨",
+      "note": "Full-day fantasy festival in downtown Tryon with potions, bath soaks, salves & magic."
+    },
     {
       "id": "rejects-market-2026-10-17",
       "date": "2026-10-17",

@@ -110,6 +110,7 @@
           "@type": "Offer",
           "price": "30.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -127,7 +128,86 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+            "merchantReturnDays": 14,
+            "returnMethod": "https://schema.org/ReturnByMail",
+            "returnFees": "https://schema.org/ReturnShippingFees",
+            "itemCondition": "https://schema.org/NewCondition",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -162,6 +242,7 @@
           "@type": "Offer",
           "price": "31.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -179,7 +260,86 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+            "merchantReturnDays": 14,
+            "returnMethod": "https://schema.org/ReturnByMail",
+            "returnFees": "https://schema.org/ReturnShippingFees",
+            "itemCondition": "https://schema.org/NewCondition",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -216,6 +376,7 @@
           "highPrice": "20.00",
           "offerCount": 2,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -233,7 +394,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -268,6 +504,7 @@
           "@type": "Offer",
           "price": "8.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -285,7 +522,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -318,6 +630,7 @@
           "@type": "Offer",
           "price": "20.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -335,7 +648,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -373,6 +761,7 @@
           "@type": "Offer",
           "price": "14.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -390,7 +779,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -423,6 +887,7 @@
           "@type": "Offer",
           "price": "15.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -440,7 +905,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -475,6 +1015,7 @@
           "@type": "Offer",
           "price": "19.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -492,7 +1033,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -528,6 +1144,7 @@
           "highPrice": "23.00",
           "offerCount": 2,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -545,7 +1162,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -587,6 +1279,7 @@
           "highPrice": "16.00",
           "offerCount": 2,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -604,7 +1297,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -645,6 +1413,7 @@
           "highPrice": "18.00",
           "offerCount": 2,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -662,7 +1431,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -699,6 +1543,7 @@
           "highPrice": "18.00",
           "offerCount": 2,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -716,7 +1561,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -755,6 +1675,7 @@
           "@type": "Offer",
           "price": "8.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -772,7 +1693,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -812,6 +1808,7 @@
           "@type": "Offer",
           "price": "12.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",
@@ -829,7 +1826,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -864,6 +1936,7 @@
           "@type": "Offer",
           "price": "14.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/OutOfStock",
@@ -881,7 +1954,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -911,6 +2059,7 @@
           "@type": "Offer",
           "price": "18.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/OutOfStock",
@@ -928,7 +2077,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -960,6 +2184,7 @@
           "highPrice": "22.00",
           "offerCount": 2,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/OutOfStock",
@@ -977,7 +2202,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -1009,6 +2309,7 @@
           "highPrice": "24.00",
           "offerCount": 2,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/OutOfStock",
@@ -1026,7 +2327,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -1056,6 +2432,7 @@
           "@type": "Offer",
           "price": "16.00",
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/OutOfStock",
@@ -1073,7 +2450,82 @@
               "Yallternative Livin",
               "YallternativeLivinCO"
             ]
-          }
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "applicableCountry": "US",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnLink": "https://yallternativeliving.com/policies.html"
+          },
+          "shippingDetails": [
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "10.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            },
+            {
+              "@type": "OfferShippingDetails",
+              "shippingRate": {
+                "@type": "MonetaryAmount",
+                "value": "0.00",
+                "currency": "USD"
+              },
+              "shippingDestination": {
+                "@type": "DefinedRegion",
+                "addressCountry": "US"
+              },
+              "freeShippingThreshold": {
+                "@type": "DeliveryChargeSpecification",
+                "appliesToDeliveryCharge": {
+                  "@type": "MonetaryAmount",
+                  "value": "0.00",
+                  "currency": "USD"
+                },
+                "eligibleTransactionVolume": {
+                  "@type": "PriceSpecification",
+                  "price": "40.00",
+                  "priceCurrency": "USD"
+                }
+              },
+              "deliveryTime": {
+                "@type": "ShippingDeliveryTime",
+                "handlingTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 1,
+                  "maxValue": 3,
+                  "unitCode": "DAY"
+                },
+                "transitTime": {
+                  "@type": "QuantitativeValue",
+                  "minValue": 2,
+                  "maxValue": 5,
+                  "unitCode": "DAY"
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -1105,6 +2557,7 @@
           "highPrice": "500.00",
           "offerCount": 6,
           "priceCurrency": "USD",
+          "validFrom": "2026-01-01",
           "priceValidUntil": "2027-12-31",
           "itemCondition": "https://schema.org/NewCondition",
           "availability": "https://schema.org/InStock",

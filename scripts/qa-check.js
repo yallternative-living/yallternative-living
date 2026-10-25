@@ -3827,16 +3827,23 @@ try {
         expectedAvailability = "https://schema.org/OutOfStock";
       }
 
+      var isDigitalGiftCard = prod.id === "yallternative-gift-card";
+      var shopShippingOk = isDigitalGiftCard
+        ? !offers.shippingDetails && !offers.hasMerchantReturnPolicy
+        : Array.isArray(offers.shippingDetails) && !!offers.hasMerchantReturnPolicy;
+
       var offerValid =
         (isAggregate || isSingle) &&
         priceOk &&
         offers.priceCurrency === "USD" &&
+        typeof offers.validFrom === "string" &&
         offers.availability === expectedAvailability &&
         offers.itemCondition === "https://schema.org/NewCondition" &&
         offers.url === "https://yallternativeliving.com/products/" + prod.id + ".html" &&
         offers.seller &&
         offers.seller["@type"] === "Organization" &&
-        offers.seller.name === "Y'allternative Living";
+        offers.seller.name === "Y'allternative Living" &&
+        shopShippingOk;
 
       var itemValid =
         item["@type"] === "Product" &&

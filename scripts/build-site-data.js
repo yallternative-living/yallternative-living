@@ -3993,8 +3993,97 @@ function buildSiteData() {
        comingSoon/inStock/stock flags via schemaAvailability(), never from the
        image filename. */
     const availability = schemaAvailability(p);
+    const FINAL_SALE_CATS = ["salves", "body", "soaks", "ritual", "potions"];
+    const itemReturnPolicy =
+      FINAL_SALE_CATS.indexOf(p.category || "") !== -1
+        ? {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "US",
+            returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+            returnLink: DOMAIN + "/policies.html"
+          }
+        : {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "US",
+            returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+            merchantReturnDays: 14,
+            returnMethod: "https://schema.org/ReturnByMail",
+            returnFees: "https://schema.org/ReturnShippingFees",
+            itemCondition: "https://schema.org/NewCondition",
+            returnLink: DOMAIN + "/policies.html"
+          };
+    const itemShippingDetails = [
+      {
+        "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: "10.00",
+          currency: "USD"
+        },
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "US"
+        },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: {
+            "@type": "QuantitativeValue",
+            minValue: 1,
+            maxValue: 3,
+            unitCode: "DAY"
+          },
+          transitTime: {
+            "@type": "QuantitativeValue",
+            minValue: 2,
+            maxValue: 5,
+            unitCode: "DAY"
+          }
+        }
+      },
+      {
+        "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: "0.00",
+          currency: "USD"
+        },
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "US"
+        },
+        freeShippingThreshold: {
+          "@type": "DeliveryChargeSpecification",
+          appliesToDeliveryCharge: {
+            "@type": "MonetaryAmount",
+            value: "0.00",
+            currency: "USD"
+          },
+          eligibleTransactionVolume: {
+            "@type": "PriceSpecification",
+            price: "40.00",
+            priceCurrency: "USD"
+          }
+        },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: {
+            "@type": "QuantitativeValue",
+            minValue: 1,
+            maxValue: 3,
+            unitCode: "DAY"
+          },
+          transitTime: {
+            "@type": "QuantitativeValue",
+            minValue: 2,
+            maxValue: 5,
+            unitCode: "DAY"
+          }
+        }
+      }
+    ];
     const offerCommon = {
       priceCurrency: "USD",
+      validFrom: "2026-01-01",
       priceValidUntil: "2027-12-31",
       itemCondition: "https://schema.org/NewCondition",
       availability: availability,
@@ -4012,7 +4101,9 @@ function buildSiteData() {
           "Yallternative Livin",
           "YallternativeLivinCO"
         ]
-      }
+      },
+      hasMerchantReturnPolicy: itemReturnPolicy,
+      shippingDetails: itemShippingDetails
     };
     const offers =
       range.low === range.high
@@ -4026,6 +4117,10 @@ function buildSiteData() {
             },
             offerCommon
           );
+    if (p.id === "yallternative-gift-card") {
+      delete offers.shippingDetails;
+      delete offers.hasMerchantReturnPolicy;
+    }
     const productLd = {
       "@type": "Product",
       name: p.name,
@@ -6554,6 +6649,7 @@ function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
       highPrice: range.high.toFixed(2),
       priceCurrency: "USD",
       offerCount: range.offerCount,
+      validFrom: "2026-01-01",
       priceValidUntil: "2027-12-31",
       itemCondition: "https://schema.org/NewCondition",
       availability: availability,
@@ -6567,6 +6663,7 @@ function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
       "@type": "Offer",
       price: range.low.toFixed(2),
       priceCurrency: "USD",
+      validFrom: "2026-01-01",
       priceValidUntil: "2027-12-31",
       itemCondition: "https://schema.org/NewCondition",
       availability: availability,
