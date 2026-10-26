@@ -4738,7 +4738,7 @@
         return cardHTML(p, { eager: eagerFirst && i < EAGER_CARD_COUNT });
       })
       .join("");
-    wireReveal(container);
+    wireReveal(container, eagerFirst);
   }
 
   /* ---------- Customer Reviews Engine & Filter Helpers (reviews.html & shop.html) ---------- */

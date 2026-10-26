@@ -863,7 +863,7 @@ eq(
     "@type": "ListItem",
     position: 1,
     name: "Home",
-    item: "https://yallternativeliving.com/index.html"
+    item: "https://yallternativeliving.com/"
   },
   "Breadcrumb Tier 1 is Home"
 );

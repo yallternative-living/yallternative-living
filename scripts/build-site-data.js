@@ -4716,6 +4716,89 @@ function buildSiteData() {
     .map(function (x) {
       return x.ev;
     });
+
+  const upcomingMarkets = sortedUpcomingForLd.filter(function (ev) {
+    return !(ev && ev.kind === "workshop");
+  });
+  let upcomingEventsHtml = "";
+  if (upcomingMarkets.length) {
+    upcomingEventsHtml = upcomingMarkets
+      .map(function (ev) {
+        const idAttr = ev.id ? ' id="' + escapeHtml(ev.id) + '"' : "";
+        const cardCat =
+          '            <span class="card-cat">' +
+          escapeHtml(ev.type || "Pop-Up Market") +
+          "</span>\n";
+        const details = resolveEventDetails(ev);
+        const venue = details.venue;
+        const street = details.street;
+        const note = details.note;
+        let venueAddressHtml = "";
+        if (venue && street) {
+          venueAddressHtml =
+            '            <p class="event-venue-address">' +
+            '<span class="event-place">' +
+            escapeHtml(venue) +
+            '</span> <span class="event-addr-divider" aria-hidden="true">·</span> <span class="event-street">' +
+            escapeHtml(street) +
+            "</span></p>\n";
+        } else if (venue) {
+          venueAddressHtml =
+            '            <p class="event-venue-address"><span class="event-place">' +
+            escapeHtml(venue) +
+            "</span></p>\n";
+        } else if (street) {
+          venueAddressHtml =
+            '            <p class="event-venue-address"><span class="event-street">' +
+            escapeHtml(street) +
+            "</span></p>\n";
+        }
+        const cardNote = note
+          ? '            <p class="event-desc">' + escapeHtml(note) + "</p>\n"
+          : "";
+        const pickupParam = encodeURIComponent(ev.id || ev.name || "Pop-up Market");
+        return (
+          '        <article class="card event-card"' +
+          idAttr +
+          ">\n" +
+          '          <div class="card-body">\n' +
+          cardCat +
+          "            <h3>" +
+          escapeHtml(ev.name) +
+          "</h3>\n" +
+          '            <p class="event-date"><time datetime="' +
+          escapeHtml(ev.date || "") +
+          '"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> ' +
+          escapeHtml(ev.dateLabel) +
+          "</time></p>\n" +
+          (ev.location
+            ? '            <p class="event-location"><span class="event-venue-name"><svg class="yl-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg> ' +
+              escapeHtml(ev.location) +
+              "</span></p>\n"
+            : "") +
+          venueAddressHtml +
+          cardNote +
+          '            <div class="event-actions-row">\n' +
+          '              <div class="event-cta-main">\n' +
+          '                <a class="btn btn-primary btn-sm btn-block" href="shop.html?pickup_market=' +
+          pickupParam +
+          '#shop-catalog">Reserve / Pick Up at This Booth</a>\n' +
+          "              </div>\n" +
+          "            </div>\n" +
+          "          </div>\n" +
+          "        </article>"
+        );
+      })
+      .join("\n");
+  }
+  const upcomingEventsRe = /(<!-- UPCOMING_EVENTS:START -->)[\s\S]*?(<!-- UPCOMING_EVENTS:END -->)/;
+  if (upcomingEventsRe.test(eventsHtml)) {
+    eventsHtml = eventsHtml.replace(upcomingEventsRe, function (m, start, end) {
+      return (
+        start + (upcomingEventsHtml ? "\n" + upcomingEventsHtml + "\n        " : "\n        ") + end
+      );
+    });
+  }
   const eventLdObjects =
     SITE_CONFIG.enableEventJsonLd === false ? [] : buildEventsJsonLd(sortedUpcomingForLd);
   const eventLdBody = eventLdObjects.length
@@ -4851,6 +4934,79 @@ function buildSiteData() {
       );
     }
   }
+
+  /* ---------- 4d) shop.html static product grid pre-render ----------
+     Ensures Wave-1 crawlers (Googlebot initial HTML fetch, Bing, AI search
+     agents) see all 20 product cards, prices, descriptions, and canonical
+     links to products/<id>.html directly in #shopGrid, matching shop.html's
+     ItemList JSON-LD 1-for-1 before client-side JS hydration. */
+  (function prerenderShopCatalogGrid() {
+    let shopHtmlForGrid;
+    try {
+      shopHtmlForGrid = readText("shop.html", "shop page");
+    } catch (e) {
+      return;
+    }
+    const shopCatalogRe = /(<!-- SHOP_CATALOG:START -->)[\s\S]*?(<!-- SHOP_CATALOG:END -->)/;
+    if (!shopCatalogRe.test(shopHtmlForGrid)) return;
+    const cardsHtml = PRODUCTS.map(function (p, idx) {
+      const range = variantPriceRange(p);
+      const priceText =
+        range.low === range.high
+          ? formatMoney(range.low)
+          : formatMoney(range.low) + " &ndash; " + formatMoney(range.high);
+      const catLabel = CATEGORY_LABEL[p.category] || p.category || "";
+      const badge = p.comingSoon
+        ? '<span class="stock-badge coming-soon">Coming Soon</span>'
+        : isSoldOut(p)
+          ? '<span class="stock-badge sold-out">Sold Out</span>'
+          : "";
+      const mediaHtml = pictureFromManifest(p.image, MANIFEST, {
+        alt: p.name,
+        width: 600,
+        height: 510,
+        loading: idx < 4 ? "eager" : "lazy",
+        fetchpriority: idx < 4 ? "high" : undefined,
+        sizes: "(max-width: 600px) 90vw, (max-width: 980px) 45vw, 30vw"
+      });
+      return (
+        '        <article class="card" data-id="' +
+        escapeHtml(p.id) +
+        '" data-category="' +
+        escapeHtml(p.category || "") +
+        '">\n' +
+        '          <div class="card-media">' +
+        mediaHtml +
+        "</div>\n" +
+        '          <div class="card-body">\n' +
+        '            <span class="card-cat">' +
+        escapeHtml(catLabel) +
+        "</span>\n" +
+        '            <h3><a class="card-title-link" href="products/' +
+        escapeHtml(p.id) +
+        '.html">' +
+        escapeHtml(p.name) +
+        "</a></h3>\n" +
+        "            <p>" +
+        escapeHtml(p.blurb || "") +
+        "</p>\n" +
+        (badge ? "            " + badge + "\n" : "") +
+        '            <div class="card-foot">\n' +
+        '              <div class="card-foot-row">\n' +
+        '                <span class="price">' +
+        priceText +
+        "</span>\n" +
+        "              </div>\n" +
+        "            </div>\n" +
+        "          </div>\n" +
+        "        </article>"
+      );
+    }).join("\n");
+    const updatedShopGrid = shopHtmlForGrid.replace(shopCatalogRe, function (m, start, end) {
+      return start + "\n" + cardsHtml + "\n        " + end;
+    });
+    if (updatedShopGrid !== shopHtmlForGrid) writeFile("shop.html", updatedShopGrid);
+  })();
 
   /* Page copy is keyed by page name at the top of content.json, except the
      three legal pages, which /admin shows as one "Legal pages" block and so
@@ -6833,7 +6989,7 @@ function generateProductBreadcrumbJsonLd(product, domain, categoryLabel) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: dom + "/index.html"
+        item: dom + "/"
       },
       {
         "@type": "ListItem",
