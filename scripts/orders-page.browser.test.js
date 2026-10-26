@@ -442,7 +442,7 @@ async function main() {
     check("the points balance is shown", /40/.test(dom.loyalty), dom.loyalty);
     check(
       "NO ADDRESS ANYWHERE ON THE PAGE",
-      !/@/.test(dom.bodyText.replace(/y\.allternative\.living@gmail\.com/g, ""))
+      !/@/.test(dom.bodyText.replace(/(?:orders|hello)@yallternativeliving\.com/g, ""))
     );
     check("no page errors", list.pageErrors.length === 0, list.pageErrors.join(" | "));
 

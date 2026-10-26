@@ -846,7 +846,7 @@
         showFormFallback(
           form,
           "Our newsletter isn't connected yet -- you haven't been subscribed. Email us to be added: ",
-          "y.allternative.living@gmail.com"
+          "hello@yallternativeliving.com"
         );
         return;
       }
@@ -895,7 +895,7 @@
           showFormFallback(
             form,
             "That didn't go through -- you haven't been subscribed. Email us and we'll add you: ",
-            "y.allternative.living@gmail.com"
+            "hello@yallternativeliving.com"
           );
         });
     });
@@ -1039,7 +1039,7 @@
         showFormFallback(
           form,
           "Review submissions aren't connected yet -- this wasn't sent. Please email your review to ",
-          "y.allternative.living@gmail.com"
+          "hello@yallternativeliving.com"
         );
         return;
       }
@@ -1060,7 +1060,7 @@
             showFormFallback(
               form,
               "Review submission failed -- your review was not sent. Please email your review directly to ",
-              "y.allternative.living@gmail.com"
+              "hello@yallternativeliving.com"
             );
           }
         })
@@ -1068,7 +1068,7 @@
           showFormFallback(
             form,
             "Review submission failed -- your review was not sent. Please email your review directly to ",
-            "y.allternative.living@gmail.com"
+            "hello@yallternativeliving.com"
           );
         });
     });
@@ -1111,7 +1111,7 @@
         showFormFallback(
           form,
           "This form isn't connected yet -- your message wasn't sent. Please email us directly at ",
-          "y.allternative.living@gmail.com"
+          "hello@yallternativeliving.com"
         );
         return;
       }
@@ -1130,7 +1130,7 @@
             showFormFallback(
               form,
               "Message sending failed -- your message was not sent. Please email us directly at ",
-              "y.allternative.living@gmail.com"
+              "hello@yallternativeliving.com"
             );
           }
         })
@@ -1138,7 +1138,7 @@
           showFormFallback(
             form,
             "Message sending failed -- your message was not sent. Please email us directly at ",
-            "y.allternative.living@gmail.com"
+            "hello@yallternativeliving.com"
           );
         });
     });
@@ -3331,7 +3331,7 @@
       showFormFallback(
         state.form,
         "Restock alerts aren't connected yet -- you haven't been added to a list. Email us and we'll tell you when it lands: ",
-        "y.allternative.living@gmail.com"
+        "shop@yallternativeliving.com"
       );
       return;
     }
@@ -3377,7 +3377,7 @@
         showFormFallback(
           state.form,
           "That didn't go through. Please email us instead: ",
-          "y.allternative.living@gmail.com"
+          "shop@yallternativeliving.com"
         );
       });
   }
@@ -5486,7 +5486,7 @@
      have to retype it, and the reply window is stated up front. */
   function orderStatusMailtoHref(reference) {
     var subject = reference ? "Order status: " + reference : "Order status request";
-    return "mailto:y.allternative.living@gmail.com?subject=" + attrEsc(encodeURIComponent(subject));
+    return "mailto:orders@yallternativeliving.com?subject=" + attrEsc(encodeURIComponent(subject));
   }
 
   /* A 404 is an answer, not an outage: the Worker looked and nothing
@@ -5528,7 +5528,7 @@
       orderStatusMailtoHref(reference) +
       '">Email us about this order</a></p>' +
       '<p class="muted">Prefer to write it yourself? We\'re at ' +
-      '<a href="mailto:y.allternative.living@gmail.com">y.allternative.living@gmail.com</a>.</p>' +
+      '<a href="mailto:orders@yallternativeliving.com">orders@yallternativeliving.com</a>.</p>' +
       "</div>"
     );
   }
@@ -6440,7 +6440,7 @@
   function eventInviteOrganizerHTML() {
     return (
       '<p class="events-invite-organizer">Run a market, fair, or Pride event and want us at ' +
-      'your table? <a href="mailto:y.allternative.living@gmail.com?subject=' +
+      'your table? <a href="mailto:events@yallternativeliving.com?subject=' +
       encodeURIComponent("Invite Y'allternative Living to your market") +
       '">Invite us</a>.</p>'
     );

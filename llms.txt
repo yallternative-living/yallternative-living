@@ -49,6 +49,15 @@ Full structured catalog for AI shopping agents (every product, price, and slug):
 
 ## Other real links for this business
 
+- Email (general & customer care): mailto:hello@yallternativeliving.com
+- Email (orders, lookups & exchanges): mailto:orders@yallternativeliving.com
+- Email (customer support): mailto:help@yallternativeliving.com
+- Email (markets & pop-up invites): mailto:events@yallternativeliving.com
+- Email (wholesale, custom & bulk orders): mailto:wholesale@yallternativeliving.com
+- Email (press & collaborations): mailto:press@yallternativeliving.com
+- Email (MoCRA adverse-event reports): mailto:safety@yallternativeliving.com
+- Email (privacy & data requests): mailto:privacy@yallternativeliving.com
+- Email (security disclosure, RFC 9116): mailto:security@yallternativeliving.com
 - Etsy shop: https://www.etsy.com/shop/YallternativeLivinCO
 - Instagram: https://www.instagram.com/yallternativeliving
 - TikTok: https://www.tiktok.com/@yallternativeliving

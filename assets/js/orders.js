@@ -31,7 +31,7 @@
 
   var LINK_ENDPOINT = "/api/orders/request-link";
   var LIST_ENDPOINT = "/api/orders";
-  var CONTACT_EMAIL = "y.allternative.living@gmail.com";
+  var CONTACT_EMAIL = "orders@yallternativeliving.com";
 
   /**
    * Translates a dictionary key with variable substitution or fallback.

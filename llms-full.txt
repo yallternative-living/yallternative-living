@@ -13,6 +13,15 @@
 - **Website**: https://yallternativeliving.com/
 - **Shop / catalog**: https://yallternativeliving.com/shop.html
 - **Machine catalog (source of truth)**: https://yallternativeliving.com/assets/data/products.json
+- **Email (general)**: hello@yallternativeliving.com
+- **Email (orders & exchanges)**: orders@yallternativeliving.com
+- **Email (support)**: help@yallternativeliving.com
+- **Email (markets & events)**: events@yallternativeliving.com
+- **Email (wholesale & custom)**: wholesale@yallternativeliving.com
+- **Email (press & collaborations)**: press@yallternativeliving.com
+- **Email (MoCRA safety / reaction reports)**: safety@yallternativeliving.com
+- **Email (privacy requests)**: privacy@yallternativeliving.com
+- **Email (security disclosure)**: security@yallternativeliving.com
 - **Etsy shop**: https://www.etsy.com/shop/YallternativeLivinCO
 
 ## How to buy (for agents)

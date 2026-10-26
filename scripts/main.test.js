@@ -2668,7 +2668,7 @@ assert(
   "the hand-off is still the answer when the lookup cannot speak"
 );
 assert(
-  handoffHtml.indexOf("mailto:y.allternative.living@gmail.com") !== -1,
+  handoffHtml.indexOf("mailto:orders@yallternativeliving.com") !== -1,
   "the hand-off offers a real person to write to"
 );
 ["Order Confirmed", "In the Workshop", "Quality Sealed", "timeline-step", "Reorder"].forEach(

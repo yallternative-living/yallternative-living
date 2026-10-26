@@ -411,7 +411,7 @@ async function testHoneypot() {
     eq(body.filed, false, "…but it says plainly that nothing was filed");
     eq(body.reference, undefined, "…and mints no reference number to pretend with");
     assert(
-      typeof body.message === "string" && /y\.allternative\.living@gmail\.com/.test(body.message),
+      typeof body.message === "string" && /safety@yallternativeliving\.com/.test(body.message),
       "…and points the reporter at a human instead"
     );
     assert(

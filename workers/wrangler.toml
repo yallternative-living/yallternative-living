@@ -62,7 +62,9 @@ workers_dev = true
 preview_urls = false
 
 [vars]
-ORDER_NOTIFY_EMAIL = "y.allternative.living@gmail.com"   # where the per-order copy and "gift note to print" emails go (the shop mailbox)
+ORDER_NOTIFY_EMAIL = "orders@yallternativeliving.com"   # where the per-order copy and "gift note to print" emails go (the shop mailbox)
+RESTOCK_NOTIFY_EMAIL = "shop@yallternativeliving.com"   # where restock sign-up alerts go
+SAFETY_REPORT_EMAIL = "safety@yallternativeliving.com"  # where MoCRA adverse-event reports go
 # Used by the Worker's CORS check. checkout.js also hard-codes the apex and www
 # hosts in its ALLOWED_ORIGINS, so this is belt-and-braces for that same origin
 # rather than the only thing standing between the cart and a wildcard CORS
@@ -304,7 +306,9 @@ workers_dev = true
 preview_urls = false
 
 [env.staging.vars]
-ORDER_NOTIFY_EMAIL = "y.allternative.living@gmail.com"
+ORDER_NOTIFY_EMAIL = "orders@yallternativeliving.com"
+RESTOCK_NOTIFY_EMAIL = "shop@yallternativeliving.com"
+SAFETY_REPORT_EMAIL = "safety@yallternativeliving.com"
 # The preview site this Worker serves. Used for CORS and for reading the
 # catalogue, so it must be the origin the preview pages are actually served
 # from -- a Netlify branch deploy or deploy preview URL. Change per preview.

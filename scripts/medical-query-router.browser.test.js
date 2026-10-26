@@ -162,7 +162,7 @@ function check(cond, msg, detail) {
         const link = note ? note.querySelector("a") : null;
         const cards = Array.from(grid.querySelectorAll("article.card"));
         const social = document.querySelectorAll(
-          "#shopSocialFeed, #homeSocialFeed, .ugc-card, .ugc-section"
+          "#shopSocialFeed, #homeSocialFeed, .ugc-card, .ugc-section, #siteReviewsList"
         );
         const prev = Array.from(social).map((el) => el.style.display);
         social.forEach((el) => {
@@ -391,7 +391,7 @@ function check(cond, msg, detail) {
     await search("");
     const rendered = await page.evaluate((list) => {
       const social = document.querySelectorAll(
-        "#shopSocialFeed, #homeSocialFeed, .ugc-card, .ugc-section"
+        "#shopSocialFeed, #homeSocialFeed, .ugc-card, .ugc-section, #siteReviewsList"
       );
       const prev = Array.from(social).map((el) => el.style.display);
       social.forEach((el) => {

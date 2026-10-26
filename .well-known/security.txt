@@ -4,7 +4,7 @@
 # reports go to the same mailbox everything else does, and you will get a
 # human. There is no bounty programme.
 
-Contact: mailto:y.allternative.living@gmail.com
+Contact: mailto:security@yallternativeliving.com
 Contact: https://yallternativeliving.com/contact.html
 Expires: 2027-06-01T00:00:00.000Z
 Preferred-Languages: en

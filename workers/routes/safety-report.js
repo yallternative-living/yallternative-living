@@ -393,7 +393,7 @@ export async function handleSafetyReport(request, env, origin) {
         filed: false,
         message:
           "We could not file this report automatically and nothing was saved. " +
-          "Please email y.allternative.living@gmail.com and tell us what happened."
+          "Please email safety@yallternativeliving.com and tell us what happened."
       },
       200
     );

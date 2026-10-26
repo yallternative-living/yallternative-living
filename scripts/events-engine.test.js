@@ -893,7 +893,7 @@ console.log("\n9. Organizer invite + market-date email capture:");
 
 const inviteHtml = main.eventInviteOrganizerHTML();
 assert(
-  inviteHtml.indexOf('href="mailto:y.allternative.living@gmail.com') !== -1,
+  inviteHtml.indexOf('href="mailto:events@yallternativeliving.com') !== -1,
   "eventInviteOrganizerHTML links to the shop's real inbox"
 );
 assert(

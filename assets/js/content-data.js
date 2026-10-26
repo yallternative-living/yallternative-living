@@ -204,7 +204,7 @@ window.YL_CONTENT = {
     "heroTitle": "Let's Talk, Y'all",
     "heroIntro": "Got a custom order brewing, a wholesale question, or just want to tell us your dog's name? We're all ears. Pick whichever door's easiest and come on in.",
     "image": "assets/img/backroad-soak.jpg",
-    "email": "y.allternative.living@gmail.com",
+    "email": "hello@yallternativeliving.com",
     "namePlaceholder": "Your name or handle",
     "emailPlaceholder": "you@email.com",
     "messagePlaceholder": "Got a custom salve blend in mind, need 50 favors for your gay wedding, or checking market stock before Saturday?",

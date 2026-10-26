@@ -553,7 +553,7 @@ console.log("  ✓ Both the reference and the email are required and shape-check
     "404 does not claim the order system was unreachable -- it answered"
   );
   assert.ok(
-    missHtml.includes("mailto:y.allternative.living@gmail.com?subject="),
+    missHtml.includes("mailto:orders@yallternativeliving.com?subject="),
     "...with a pre-filled mail subject"
   );
   assert.strictEqual(
@@ -856,7 +856,7 @@ console.log("  ✓ Both the reference and the email are required and shape-check
   const gatedForm = mockDocument.getElementById("orderStatusPageForm");
   assert.strictEqual(gatedCard.hidden, true, "Lookup form is hidden when the switch is off");
   assert.ok(
-    gatedTimeline.innerHTML.includes("y.allternative.living@gmail.com"),
+    gatedTimeline.innerHTML.includes("orders@yallternativeliving.com"),
     "The contact route is shown in its place"
   );
   mockDocument.getElementById("orderQueryInput").value = "cs_live_abc123";

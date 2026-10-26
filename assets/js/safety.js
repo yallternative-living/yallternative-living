@@ -194,7 +194,7 @@
     }
     showFormError(
       "We could not file that report and nothing was saved. Please email " +
-        "y.allternative.living@gmail.com and tell us what happened."
+        "safety@yallternativeliving.com and tell us what happened."
     );
   }
 
@@ -219,7 +219,7 @@
     } else {
       showFormError(
         "We could not file that report. Please try again, or email " +
-          "y.allternative.living@gmail.com so it does not get lost."
+          "safety@yallternativeliving.com so it does not get lost."
       );
     }
     if (window.history && window.history.replaceState) {
@@ -282,13 +282,13 @@
             : "We could not file that report just now. Please try again in a moment. ";
         showFormError(
           lead +
-            "If it still will not go through, email y.allternative.living@gmail.com so it does not get lost."
+            "If it still will not go through, email safety@yallternativeliving.com so it does not get lost."
         );
       })
       .catch(function () {
         showFormError(
           "We could not reach the server. Check your connection and try again, or email " +
-            "y.allternative.living@gmail.com so it does not get lost."
+            "safety@yallternativeliving.com so it does not get lost."
         );
       })
       .then(function () {
