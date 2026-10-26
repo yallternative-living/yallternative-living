@@ -1557,14 +1557,23 @@ if (!shopLdMatch) {
       console.log(
         "  (no products currently carry aggregateRating -- fine if none have real reviews yet)"
       );
+    var siteReviewsRawForCount = JSON.parse(
+      fs.readFileSync(path.join(ROOT, "assets/data/site-reviews.json"), "utf8")
+    );
+    var siteReviewsArrForCount = Array.isArray(siteReviewsRawForCount)
+      ? siteReviewsRawForCount
+      : siteReviewsRawForCount.reviews || [];
     var productsWithDataRating = PRODUCTS.filter(function (p) {
-      return p.rating;
+      if (p.rating) return true;
+      return siteReviewsArrForCount.some(function (r) {
+        return r && r.productId === p.id && r.text && Number.isFinite(Number(r.rating));
+      });
     }).length;
     if (ratedCount === productsWithDataRating) {
       ok(
         "aggregateRating present for exactly the " +
           ratedCount +
-          " product(s) with real rating data -- none fabricated, none missing"
+          " product(s) with real rating or review data -- none fabricated, none missing"
       );
     } else {
       fail(
@@ -1572,7 +1581,7 @@ if (!shopLdMatch) {
         ratedCount +
           " in JSON-LD vs " +
           productsWithDataRating +
-          " products with rating data in products-data.js -- run npm run build-data"
+          " products with rating/review data in products-data.js + site-reviews.json -- run npm run build-data"
       );
     }
   } catch (e) {
@@ -3877,6 +3886,10 @@ try {
         );
       }
 
+      var prodReviewsInSite = SITE_REVIEWS.filter(function (r) {
+        return r && r.productId === prod.id && r.text && Number.isFinite(Number(r.rating));
+      });
+
       // Ratings must still be backed by real data wherever they appear.
       if (prod.rating) {
         var ar = item.aggregateRating;
@@ -3893,6 +3906,29 @@ try {
             JSON.stringify(ar) + " vs " + JSON.stringify(prod.rating)
           );
         }
+      } else if (prodReviewsInSite.length > 0) {
+        var arFromReviews = item.aggregateRating;
+        var expectedReviewAvg =
+          Math.round(
+            (prodReviewsInSite.reduce(function (s, r) {
+              return s + Number(r.rating);
+            }, 0) /
+              prodReviewsInSite.length) *
+              10
+          ) / 10;
+        if (
+          arFromReviews &&
+          arFromReviews["@type"] === "AggregateRating" &&
+          Number(arFromReviews.ratingValue) === expectedReviewAvg &&
+          Number(arFromReviews.reviewCount) === prodReviewsInSite.length
+        ) {
+          ok(prod.id + ": AggregateRating in shop.html matches site-reviews.json review data");
+        } else {
+          fail(
+            prod.id + ": AggregateRating mismatch for site-reviewed product in shop.html ItemList",
+            JSON.stringify(arFromReviews)
+          );
+        }
       } else if (item.aggregateRating !== undefined) {
         fail(
           prod.id + ": Fabricated aggregateRating on an unrated product",
@@ -3902,9 +3938,6 @@ try {
         ok(prod.id + ": No ungrounded aggregateRating fabricated");
       }
 
-      var prodReviewsInSite = SITE_REVIEWS.filter(function (r) {
-        return r && r.productId === prod.id && r.text && Number.isFinite(Number(r.rating));
-      });
       if (prodReviewsInSite.length > 0) {
         if (Array.isArray(item.review) && item.review.length > 0) {
           ok(

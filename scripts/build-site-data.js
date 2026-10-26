@@ -4009,6 +4009,11 @@ function buildSiteData() {
             merchantReturnDays: 14,
             returnMethod: "https://schema.org/ReturnByMail",
             returnFees: "https://schema.org/ReturnShippingFees",
+            returnShippingFeesAmount: {
+              "@type": "MonetaryAmount",
+              value: "10.00",
+              currency: "USD"
+            },
             itemCondition: "https://schema.org/NewCondition",
             returnLink: DOMAIN + "/policies.html"
           };
@@ -4139,11 +4144,14 @@ function buildSiteData() {
       offers: offers
     };
     // Only attach aggregateRating when this SPECIFIC product has its own real
-    // Etsy reviews (p.rating, set by hand from that product's own listing
-    // page -- never the shop-wide 4.9/32). Applying a shop-wide rating to every
-    // listing is against Google's structured-data guidelines and risks the
-    // whole page's rich results being disabled, so products with zero reviews
-    // of their own (see products-data.js) simply get no rating field at all.
+    // reviews (p.rating from products.json, or product-assigned reviews in
+    // site-reviews.json -- never the shop-wide 4.9/32). Google Search Console
+    // also requires aggregateRating whenever a Product emits review[]; products
+    // with zero reviews of their own get neither field.
+    const itemReviews = SITE_REVIEWS.filter(function (r) {
+      return r && r.productId === p.id;
+    });
+    const itemReviewNodes = generateProductReviewNodes(itemReviews);
     if (p.rating) {
       productLd.aggregateRating = {
         "@type": "AggregateRating",
@@ -4152,11 +4160,23 @@ function buildSiteData() {
         bestRating: "5",
         worstRating: "1"
       };
+    } else if (itemReviewNodes.length) {
+      const itemReviewAvg =
+        Math.round(
+          (itemReviewNodes.reduce(function (sum, n) {
+            return sum + Number(n.reviewRating.ratingValue);
+          }, 0) /
+            itemReviewNodes.length) *
+            10
+        ) / 10;
+      productLd.aggregateRating = {
+        "@type": "AggregateRating",
+        ratingValue: clampRating(itemReviewAvg, 5),
+        reviewCount: itemReviewNodes.length,
+        bestRating: "5",
+        worstRating: "1"
+      };
     }
-    const itemReviews = SITE_REVIEWS.filter(function (r) {
-      return r && r.productId === p.id;
-    });
-    const itemReviewNodes = generateProductReviewNodes(itemReviews);
     if (itemReviewNodes.length) {
       productLd.review = itemReviewNodes;
     }
@@ -6596,6 +6616,11 @@ function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
           merchantReturnDays: 14,
           returnMethod: "https://schema.org/ReturnByMail",
           returnFees: "https://schema.org/ReturnShippingFees",
+          returnShippingFeesAmount: {
+            "@type": "MonetaryAmount",
+            value: "10.00",
+            currency: "USD"
+          },
           itemCondition: "https://schema.org/NewCondition",
           returnLink: dom + "/policies.html"
         };
@@ -6744,6 +6769,8 @@ function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
     offers: offers
   };
 
+  const reviewNodes = generateProductReviewNodes(productReviews);
+
   if (product && product.rating) {
     const ratingValue =
       typeof product.rating === "number"
@@ -6768,9 +6795,24 @@ function generateProductJsonLd(product, domain, categoryLabel, productReviews) {
       bestRating: "5",
       worstRating: "1"
     };
+  } else if (reviewNodes.length) {
+    const reviewAvg =
+      Math.round(
+        (reviewNodes.reduce(function (sum, n) {
+          return sum + Number(n.reviewRating.ratingValue);
+        }, 0) /
+          reviewNodes.length) *
+          10
+      ) / 10;
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: clampRating(reviewAvg, 5),
+      reviewCount: reviewNodes.length,
+      bestRating: "5",
+      worstRating: "1"
+    };
   }
 
-  const reviewNodes = generateProductReviewNodes(productReviews);
   if (reviewNodes.length) jsonLd.review = reviewNodes;
 
   return jsonLd;

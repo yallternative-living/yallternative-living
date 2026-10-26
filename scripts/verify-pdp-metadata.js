@@ -244,9 +244,23 @@ productsData.products.forEach((product) => {
         assert(
           !!policy &&
             policy.returnPolicyCategory === "https://schema.org/MerchantReturnFiniteReturnWindow" &&
-            policy.merchantReturnDays === 14,
-          `${product.id}: exchangeable category "${product.category}" declares the real 14-day window`,
+            policy.merchantReturnDays === 14 &&
+            policy.returnFees === "https://schema.org/ReturnShippingFees" &&
+            !!policy.returnShippingFeesAmount &&
+            policy.returnShippingFeesAmount["@type"] === "MonetaryAmount" &&
+            policy.returnShippingFeesAmount.value === "10.00" &&
+            policy.returnShippingFeesAmount.currency === "USD",
+          `${product.id}: exchangeable category "${product.category}" declares the real 14-day window and $10 returnShippingFeesAmount`,
           JSON.stringify(policy || null)
+        );
+      }
+      if (Array.isArray(productLd.review) && productLd.review.length > 0) {
+        assert(
+          !!productLd.aggregateRating &&
+            productLd.aggregateRating["@type"] === "AggregateRating" &&
+            Number(productLd.aggregateRating.reviewCount) >= productLd.review.length,
+          `${product.id}: PDP Product with review[] also declares aggregateRating`,
+          JSON.stringify(productLd.aggregateRating || null)
         );
       }
     }

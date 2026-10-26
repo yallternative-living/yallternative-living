@@ -700,10 +700,15 @@ eq(
     merchantReturnDays: 14,
     returnMethod: "https://schema.org/ReturnByMail",
     returnFees: "https://schema.org/ReturnShippingFees",
+    returnShippingFeesAmount: {
+      "@type": "MonetaryAmount",
+      value: "10.00",
+      currency: "USD"
+    },
     itemCondition: "https://schema.org/NewCondition",
     returnLink: "https://yallternativeliving.com/policies.html"
   },
-  "apparel keeps the real 14-day exchange window policies.html actually offers"
+  "apparel keeps the real 14-day exchange window policies.html actually offers, with returnShippingFeesAmount"
 );
 assert(
   Array.isArray(singlePriceLd.offers.shippingDetails) &&
@@ -717,7 +722,28 @@ assert(
 eq(
   singlePriceLd.aggregateRating,
   undefined,
-  "generateProductJsonLd omits aggregateRating when product has no rating"
+  "generateProductJsonLd omits aggregateRating when product has no rating and no reviews"
+);
+
+const reviewOnlyLd = buildScript.generateProductJsonLd(
+  singlePriceProd,
+  "https://yallternativeliving.com",
+  "Salves",
+  [
+    { name: "Meg", rating: 5, text: "Great scrub!", date: "2026-03-01" },
+    { name: "CJ", rating: 5, text: "Smells amazing!", date: "2025-11-12" }
+  ]
+);
+eq(
+  reviewOnlyLd.aggregateRating,
+  {
+    "@type": "AggregateRating",
+    ratingValue: 5,
+    reviewCount: 2,
+    bestRating: "5",
+    worstRating: "1"
+  },
+  "generateProductJsonLd derives aggregateRating from productReviews when product.rating is unset"
 );
 
 // Variant-price product JSON-LD
