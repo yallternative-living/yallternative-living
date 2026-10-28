@@ -2740,13 +2740,6 @@ function buildSiteData() {
     if (!hasEtsyListing && !hasSiteReview) {
       unbackedRatings.push(p.id + " (" + p.name + ")");
     }
-    if (p.comingSoon && (hasEtsyListing || hasSiteReview)) {
-      console.warn(
-        "[build] Warning: '" +
-          p.id +
-          "' is marked coming soon but carries a rating -- check that is intended."
-      );
-    }
   });
   if (unbackedRatings.length) {
     console.error(
@@ -8766,17 +8759,16 @@ function renderProductPdpHtml(
           " left in this batch</span>\n"
         : "";
 
-  const ratingSummary =
-    reviewCount && !product.comingSoon
-      ? '        <a class="pdp-rating-summary" href="#pdpReviews"><span class="stars" aria-hidden="true">' +
-        starsHtml(reviewAvg) +
-        "</span> " +
-        reviewAvg.toFixed(1) +
-        " &middot; " +
-        reviewCount +
-        (reviewCount === 1 ? " review" : " reviews") +
-        "</a>\n"
-      : "";
+  const ratingSummary = reviewCount
+    ? '        <a class="pdp-rating-summary" href="#pdpReviews"><span class="stars" aria-hidden="true">' +
+      starsHtml(reviewAvg) +
+      "</span> " +
+      reviewAvg.toFixed(1) +
+      " &middot; " +
+      reviewCount +
+      (reviewCount === 1 ? " review" : " reviews") +
+      "</a>\n"
+    : "";
 
   const freshnessBadgeHtml = renderFreshnessBadgeHtml(product);
   const scentProfileHtml = renderScentProfileHtml(product);
@@ -8982,7 +8974,7 @@ function renderProductPdpHtml(
     "      </aside>\n" +
     "    </section>\n" +
     ritualSectionHtml +
-    renderPdpReviewsHtml(product, c.reviews, { suppressSummary: !!product.comingSoon }) +
+    renderPdpReviewsHtml(product, c.reviews) +
     renderRelatedProductsHtml(product, c.products, categoryLabelMap, manifest) +
     '    <section class="section-tight recently-viewed-section" id="pdpRecentlyViewedSection" aria-labelledby="pdpRecentlyViewedHeading" hidden>\n' +
     '      <div class="section-head">\n' +

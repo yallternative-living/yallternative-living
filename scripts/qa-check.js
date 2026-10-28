@@ -1195,10 +1195,10 @@ section("Coming-soon PDPs: no false shipping/checkout, no false 'no reviews', ra
       } else {
         fail(p.id + ": PDP drops " + missing.length + " of its own published reviews", "");
       }
-      if (html.indexOf('<p class="pdp-reviews-summary"><span class="stars"') === -1) {
-        ok(p.id + ": no averaged star rating advertised for an unreleased batch");
+      if (html.indexOf('<p class="pdp-reviews-summary"><span class="stars"') !== -1) {
+        ok(p.id + ": averaged star rating summary rendered from earlier-batch reviews");
       } else {
-        fail(p.id + ": pre-launch PDP advertises an averaged star rating", "");
+        fail(p.id + ": PDP with real reviews is missing its averaged star rating summary", "");
       }
     }
   });

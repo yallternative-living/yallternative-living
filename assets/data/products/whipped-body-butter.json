@@ -7,6 +7,10 @@
   "image": "assets/img/placeholder-coming-soon.svg",
   "blurb": "Whipped light and fluffy in a citrus-peach blend, with rainbow swirls that mean all of it: every color, every one of us. Melts in without the grease and keeps skin soft all day. Everybody's welcome, moisturized.",
   "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "rating": {
+    "value": 5,
+    "count": 2
+  },
   "ingredients": [
     "Shea Butter",
     "Mango Butter",
