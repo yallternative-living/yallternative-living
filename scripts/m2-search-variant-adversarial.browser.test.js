@@ -621,32 +621,32 @@ function recordFail(msg) {
       );
     }
 
-    // 4. Attack Vector: Enabled variant 'M' in same picker CAN be added cleanly
+    // 4. Attack Vector: Enabled variant 'L' in same picker (S and M are sold out, matching Etsy) CAN be added cleanly
     await page.evaluate(() => {
       const picker = document.getElementById("search-variant-picker-tank-top");
-      const mChip = Array.from(picker.querySelectorAll(".search-variant-chip")).find(
-        (c) => c.getAttribute("data-variant-label") === "M"
+      const lChip = Array.from(picker.querySelectorAll(".search-variant-chip")).find(
+        (c) => c.getAttribute("data-variant-label") === "L"
       );
-      if (mChip) mChip.click();
+      if (lChip) lChip.click();
     });
     await sleep(100);
 
-    let cartAfterM = await page.evaluate(() =>
+    let cartAfterL = await page.evaluate(() =>
       (function () {
         const p = JSON.parse(localStorage.getItem("yl-cart-v1") || "[]");
         return Array.isArray(p) ? p : Array.isArray(p.items) ? p.items : [];
       })()
     );
     if (
-      cartAfterM.length === 1 &&
-      cartAfterM[0].id === "tank-top" &&
-      cartAfterM[0].variantLabel === "M"
+      cartAfterL.length === 1 &&
+      cartAfterL[0].id === "tank-top" &&
+      cartAfterL[0].variantLabel === "L"
     ) {
       recordPass(
-        "Active in-stock variant 'M' adds to cart seamlessly alongside disabled 'S' option"
+        "Active in-stock variant 'L' adds to cart seamlessly alongside disabled 'S' option"
       );
     } else {
-      recordFail(`Failed to add in-stock variant 'M': ${JSON.stringify(cartAfterM)}`);
+      recordFail(`Failed to add in-stock variant 'L': ${JSON.stringify(cartAfterL)}`);
     }
 
     // =========================================================================

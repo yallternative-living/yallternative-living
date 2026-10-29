@@ -863,7 +863,10 @@ const EXPECT_TOP3 = {
   "linen spray": ["porch-sweep-spray", "cleansing-spray"],
   "clearing mist": ["cleansing-spray", "porch-sweep-spray"],
   "pillow spray": ["porch-sweep-spray", "cleansing-spray"],
-  ritual: ["protection-keychain", "cleansing-spray", "porch-sweep-spray"],
+  /* "ritual" shares its Tier 1 group with protection/banishing/spell, so the
+     Not Today, Satan spell bottle (tagged protection + banishing) earns its
+     place on this shelf; Porch Sweep now ranks fourth. */
+  ritual: ["protection-keychain", "cleansing-spray", "not-today-satan-spell-bottle"],
   vegan: ["bug-spray", "cleansing-spray", "hand-scrub"],
   "plant based": ["bug-spray"],
   bourbon: ["hand-scrub", "beard-salve"],

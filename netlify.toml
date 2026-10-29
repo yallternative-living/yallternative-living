@@ -347,6 +347,12 @@
   force = true
 
 [[redirects]]
+  from = "/products/hot-unbothered-spell-bottle"
+  to = "/products/hot-unbothered-spell-bottle.html"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/products/lavender-soak"
   to = "/products/lavender-soak.html"
   status = 301
@@ -355,6 +361,12 @@
 [[redirects]]
   from = "/products/miracle-balm"
   to = "/products/miracle-balm.html"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/products/not-today-satan-spell-bottle"
+  to = "/products/not-today-satan-spell-bottle.html"
   status = 301
   force = true
 

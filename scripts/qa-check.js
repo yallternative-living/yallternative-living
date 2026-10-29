@@ -5890,10 +5890,10 @@ section("Milestone 4: Self-Hosted Localization Suite & Static QA Invariants");
     var itemMatches = merchantFeedContent.match(/<item>/g) || [];
     if (
       merchantFeedContent.indexOf('xmlns:g="http://base.google.com/ns/1.0"') !== -1 &&
-      itemMatches.length === 19 &&
+      itemMatches.length === 21 &&
       merchantFeedContent.indexOf("yallternative-gift-card") === -1
     ) {
-      ok("merchant-feed.xml lists all 19 physical products and excludes the digital gift card");
+      ok("merchant-feed.xml lists all 21 physical products and excludes the digital gift card");
     } else {
       fail(
         "merchant-feed.xml",

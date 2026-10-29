@@ -4,6 +4,7 @@
   "featured": true,
   "category": "body",
   "price": 19,
+  "stock": 19,
   "image": "assets/img/shimmer-oil.jpg",
   "images": [
     "assets/img/shimmer-oil-alt1.jpg",

@@ -3,6 +3,7 @@
   "name": "Feral but FRESH Cream Deodorant",
   "category": "body",
   "price": 15,
+  "stock": 5,
   "image": "assets/img/cream-deodorant.jpg",
   "images": [
     "assets/img/cream-deodorant-alt1.jpg"

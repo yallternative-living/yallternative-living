@@ -3,6 +3,7 @@
   "name": "Lavender Epsom Salt Soak",
   "category": "soaks",
   "price": 10,
+  "stock": 8,
   "image": "assets/img/lavender-soak.jpg",
   "images": [
     "assets/img/lavender-soak-alt1.jpg",

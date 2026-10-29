@@ -13,7 +13,7 @@
   ],
   "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
   "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
-  "stock": 10,
+  "stock": 4,
   "ingredientsNote": "",
   "scent": "",
   "variants": {
@@ -26,7 +26,8 @@
       },
       {
         "label": "M",
-        "priceDelta": 0
+        "priceDelta": 0,
+        "soldOut": true
       },
       {
         "label": "L",

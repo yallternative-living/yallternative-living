@@ -1,0 +1,32 @@
+{
+  "id": "hot-unbothered-spell-bottle",
+  "name": "Hot & Unbothered Spell Bottle",
+  "comingSoon": true,
+  "category": "potions",
+  "price": 8,
+  "image": "assets/img/hot-unbothered-spell-bottle.jpg",
+  "blurb": "Lust, seduction, confidence. A mini spell bottle for awakening your inner temptress, embracing your sensuality, and radiating irresistible sexual energy. Unapologetically sexy, dangerously magnetic, and completely in control of your desires. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.",
+  "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "ingredients": ["Salts", "Dried Botanicals", "Glass", "Cork", "Wax"],
+  "ingredientsNote": "The exact salts and botanicals in this bottle will be listed here before it goes on sale.",
+  "tags": [],
+  "concerns": [],
+  "usageGuide": {
+    "howToApply": "Keep it where you will see it: an altar, a shelf, a windowsill or a nightstand. Handle with intention.",
+    "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
+    "patchTest": "Decorative spell bottle. Contains sealed salts and dried botanicals. Not for consumption or topical skin application."
+  },
+  "keywords": [
+    "spell bottle",
+    "spell jar",
+    "spellwork",
+    "confidence",
+    "self love",
+    "sensuality",
+    "alt gothic"
+  ],
+  "pairsWith": ["protection-keychain", "shimmer-oil"],
+  "scentProfile": null,
+  "ritualTitle": "The Hot & Unbothered Confidence Ritual",
+  "estimatedBatchDate": "To be announced"
+}

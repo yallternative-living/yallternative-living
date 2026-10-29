@@ -3,6 +3,7 @@
   "name": "Lavender Shea Body Butter",
   "category": "body",
   "price": 18,
+  "stock": 4,
   "image": "assets/img/shea-butter.jpg",
   "images": [
     "assets/img/shea-butter-alt1.jpg",

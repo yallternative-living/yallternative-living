@@ -4,6 +4,7 @@
   "featured": true,
   "category": "body",
   "price": 14,
+  "stock": 188,
   "image": "assets/img/beard-salve.jpg",
   "images": [
     "assets/img/beard-salve-alt1.jpg"

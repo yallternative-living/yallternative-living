@@ -3,6 +3,7 @@
   "name": "Bug Off B*tch Natural Bug Spray",
   "category": "body",
   "price": 12,
+  "stock": 18,
   "image": "assets/img/bug-spray.jpg",
   "images": [
     "assets/img/bug-spray-alt1.jpg",

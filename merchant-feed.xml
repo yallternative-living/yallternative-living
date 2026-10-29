@@ -471,5 +471,51 @@
         <g:max_transit_time>5</g:max_transit_time>
       </g:shipping>
     </item>
+    <item>
+      <g:id>not-today-satan-spell-bottle</g:id>
+      <g:title>Not Today, Satan Spell Bottle</g:title>
+      <g:description>Not Today, Satan Spell Bottle</g:description>
+      <g:link>https://yallternativeliving.com/products/not-today-satan-spell-bottle.html</g:link>
+      <g:image_link>https://yallternativeliving.com/assets/img/not-today-satan-spell-bottle.jpg</g:image_link>
+      <g:availability>out_of_stock</g:availability>
+      <g:price>8.00 USD</g:price>
+      <g:brand>Y'allternative Living</g:brand>
+      <g:mpn>not-today-satan-spell-bottle</g:mpn>
+      <g:identifier_exists>no</g:identifier_exists>
+      <g:condition>new</g:condition>
+      <g:product_type>Potions &amp; Spellwork</g:product_type>
+      <g:google_product_category>Health &amp; Beauty &gt; Personal Care &gt; Cosmetics &gt; Skin Care</g:google_product_category>
+      <g:shipping>
+        <g:country>US</g:country>
+        <g:price>10.00 USD</g:price>
+        <g:min_handling_time>1</g:min_handling_time>
+        <g:max_handling_time>3</g:max_handling_time>
+        <g:min_transit_time>2</g:min_transit_time>
+        <g:max_transit_time>5</g:max_transit_time>
+      </g:shipping>
+    </item>
+    <item>
+      <g:id>hot-unbothered-spell-bottle</g:id>
+      <g:title>Hot &amp; Unbothered Spell Bottle</g:title>
+      <g:description>Hot &amp; Unbothered Spell Bottle</g:description>
+      <g:link>https://yallternativeliving.com/products/hot-unbothered-spell-bottle.html</g:link>
+      <g:image_link>https://yallternativeliving.com/assets/img/hot-unbothered-spell-bottle.jpg</g:image_link>
+      <g:availability>out_of_stock</g:availability>
+      <g:price>8.00 USD</g:price>
+      <g:brand>Y'allternative Living</g:brand>
+      <g:mpn>hot-unbothered-spell-bottle</g:mpn>
+      <g:identifier_exists>no</g:identifier_exists>
+      <g:condition>new</g:condition>
+      <g:product_type>Potions &amp; Spellwork</g:product_type>
+      <g:google_product_category>Health &amp; Beauty &gt; Personal Care &gt; Cosmetics &gt; Skin Care</g:google_product_category>
+      <g:shipping>
+        <g:country>US</g:country>
+        <g:price>10.00 USD</g:price>
+        <g:min_handling_time>1</g:min_handling_time>
+        <g:max_handling_time>3</g:max_handling_time>
+        <g:min_transit_time>2</g:min_transit_time>
+        <g:max_transit_time>5</g:max_transit_time>
+      </g:shipping>
+    </item>
   </channel>
 </rss>

@@ -3,6 +3,7 @@
   "name": "Bourbon Vanilla Hand Scrub",
   "category": "body",
   "price": 12,
+  "stock": 26,
   "image": "assets/img/hand-scrub.jpg",
   "images": [
     "assets/img/hand-scrub-alt1.jpg",

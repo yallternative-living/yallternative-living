@@ -489,8 +489,14 @@ async function runAllTests() {
     "Attack 11G: quantity clamped to 1"
   );
 
-  // Attack 11H: Huge qty clamping
+  // Attack 11H: Huge qty clamping. A tracked stock count clamps first (sleep
+  // salve carries Etsy's real count), so this attack runs against an untracked
+  // copy to reach the MAX_QTY_PER_ITEM ceiling it is here to pin.
+  const sleepSalve = catalogData.products.find((p) => p.id === "sleep-salve");
+  const sleepSalveStock = sleepSalve.stock;
+  delete sleepSalve.stock;
   const attack11H = await runWorkerCheckout([{ id: "sleep-salve", qty: 9999 }]);
+  sleepSalve.stock = sleepSalveStock;
   eq(attack11H.res.status, 200, "Attack 11H: huge qty clamped to MAX_QTY_PER_ITEM");
   eq(
     attack11H.capturedStripeBody.get("line_items[0][quantity]"),

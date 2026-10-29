@@ -1,0 +1,32 @@
+{
+  "id": "not-today-satan-spell-bottle",
+  "name": "Not Today, Satan Spell Bottle",
+  "comingSoon": true,
+  "category": "potions",
+  "price": 8,
+  "image": "assets/img/not-today-satan-spell-bottle.jpg",
+  "blurb": "Protection, banishing, boundaries. A mini spell bottle for keeping the bad vibes away, protecting your peace, and telling unwanted energy to kindly f*ck off. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.",
+  "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+  "ingredients": ["Salts", "Dried Botanicals", "Glass", "Cork", "Wax"],
+  "ingredientsNote": "The exact salts and botanicals in this bottle will be listed here before it goes on sale.",
+  "tags": [],
+  "concerns": [],
+  "usageGuide": {
+    "howToApply": "Keep it where you will see it: an altar, a shelf, a windowsill or a nightstand. Handle with intention.",
+    "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
+    "patchTest": "Decorative spell bottle. Contains sealed salts and dried botanicals. Not for consumption or topical skin application."
+  },
+  "keywords": [
+    "spell bottle",
+    "spell jar",
+    "spellwork",
+    "protection",
+    "banishing",
+    "boundaries",
+    "alt gothic"
+  ],
+  "pairsWith": ["protection-keychain", "porch-sweep-spray"],
+  "scentProfile": null,
+  "ritualTitle": "The Not Today, Satan Boundary Ritual",
+  "estimatedBatchDate": "To be announced"
+}

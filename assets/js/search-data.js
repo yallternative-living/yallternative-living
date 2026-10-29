@@ -49,7 +49,8 @@ window.YL_SEARCH_INDEX = {
           },
           {
             "label": "M",
-            "priceDelta": 0
+            "priceDelta": 0,
+            "soldOut": true
           },
           {
             "label": "L",
@@ -109,7 +110,8 @@ window.YL_SEARCH_INDEX = {
           },
           {
             "label": "M",
-            "priceDelta": 0
+            "priceDelta": 0,
+            "soldOut": true
           },
           {
             "label": "L",
@@ -1126,6 +1128,94 @@ window.YL_SEARCH_INDEX = {
       "ritualTitle": "The Southern Threshold Protection Ritual",
       "url": "products/porch-sweep-spray.html",
       "shopUrl": "shop.html#porch-sweep-spray"
+    },
+    {
+      "id": "not-today-satan-spell-bottle",
+      "name": "Not Today, Satan Spell Bottle",
+      "category": "potions",
+      "categoryLabel": "Potions & Spellwork",
+      "price": 8,
+      "originalPrice": null,
+      "formattedPrice": "$8",
+      "image": "assets/img/not-today-satan-spell-bottle.jpg",
+      "inStock": true,
+      "comingSoon": true,
+      "estimatedBatchDate": "To be announced",
+      "featured": false,
+      "blurb": "Protection, banishing, boundaries. A mini spell bottle for keeping the bad vibes away, protecting your peace, and telling unwanted energy to kindly f*ck off. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.",
+      "ingredients": [
+        "Salts",
+        "Dried Botanicals",
+        "Glass",
+        "Cork",
+        "Wax"
+      ],
+      "ingredientsLabel": "Materials",
+      "scent": "",
+      "tags": [],
+      "concerns": [],
+      "keywords": [
+        "spell bottle",
+        "spell jar",
+        "spellwork",
+        "protection",
+        "banishing",
+        "boundaries",
+        "alt gothic"
+      ],
+      "autoKeywords": [],
+      "variants": null,
+      "pairsWith": [
+        "protection-keychain",
+        "porch-sweep-spray"
+      ],
+      "ritualTitle": "The Not Today, Satan Boundary Ritual",
+      "url": "products/not-today-satan-spell-bottle.html",
+      "shopUrl": "shop.html#not-today-satan-spell-bottle"
+    },
+    {
+      "id": "hot-unbothered-spell-bottle",
+      "name": "Hot & Unbothered Spell Bottle",
+      "category": "potions",
+      "categoryLabel": "Potions & Spellwork",
+      "price": 8,
+      "originalPrice": null,
+      "formattedPrice": "$8",
+      "image": "assets/img/hot-unbothered-spell-bottle.jpg",
+      "inStock": true,
+      "comingSoon": true,
+      "estimatedBatchDate": "To be announced",
+      "featured": false,
+      "blurb": "Lust, seduction, confidence. A mini spell bottle for awakening your inner temptress, embracing your sensuality, and radiating irresistible sexual energy. Unapologetically sexy, dangerously magnetic, and completely in control of your desires. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.",
+      "ingredients": [
+        "Salts",
+        "Dried Botanicals",
+        "Glass",
+        "Cork",
+        "Wax"
+      ],
+      "ingredientsLabel": "Materials",
+      "scent": "",
+      "tags": [],
+      "concerns": [],
+      "keywords": [
+        "spell bottle",
+        "spell jar",
+        "spellwork",
+        "confidence",
+        "self love",
+        "sensuality",
+        "alt gothic"
+      ],
+      "autoKeywords": [],
+      "variants": null,
+      "pairsWith": [
+        "protection-keychain",
+        "shimmer-oil"
+      ],
+      "ritualTitle": "The Hot & Unbothered Confidence Ritual",
+      "url": "products/hot-unbothered-spell-bottle.html",
+      "shopUrl": "shop.html#hot-unbothered-spell-bottle"
     },
     {
       "id": "yallternative-gift-card",

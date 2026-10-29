@@ -46,7 +46,7 @@ yourself.
 - Exchanges within 14 days for eligible items; opened body-care products are final sale.
 - Full policy: https://yallternativeliving.com/policies.html
 
-## Products (20)
+## Products (22)
 
 ### Y'allternative Living Tank Top
 - **ID / slug**: `tank-top`
@@ -228,6 +228,24 @@ yourself.
 - **Availability**: Pre-order / coming soon
 - **Description**: Named for the old Southern habit of sweeping the porch at dusk to clear out the day's trouble. Lemongrass, palo santo, and black tourmaline-infused water in a 4 oz amber bottle. Mist your space after an argument, a bad day, or just because the vibes are off.
 - **Product page**: https://yallternativeliving.com/products/porch-sweep-spray.html
+- **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
+
+### Not Today, Satan Spell Bottle
+- **ID / slug**: `not-today-satan-spell-bottle`
+- **Price**: $8 USD
+- **Category**: Potions & Spellwork
+- **Availability**: Pre-order / coming soon
+- **Description**: Protection, banishing, boundaries. A mini spell bottle for keeping the bad vibes away, protecting your peace, and telling unwanted energy to kindly f*ck off. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.
+- **Product page**: https://yallternativeliving.com/products/not-today-satan-spell-bottle.html
+- **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
+
+### Hot & Unbothered Spell Bottle
+- **ID / slug**: `hot-unbothered-spell-bottle`
+- **Price**: $8 USD
+- **Category**: Potions & Spellwork
+- **Availability**: Pre-order / coming soon
+- **Description**: Lust, seduction, confidence. A mini spell bottle for awakening your inner temptress, embracing your sensuality, and radiating irresistible sexual energy. Unapologetically sexy, dangerously magnetic, and completely in control of your desires. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.
+- **Product page**: https://yallternativeliving.com/products/hot-unbothered-spell-bottle.html
 - **Also on Etsy**: https://www.etsy.com/shop/YallternativeLivinCO
 
 ### Digital Gift Card

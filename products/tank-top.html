@@ -266,6 +266,7 @@
             $<span class="pdp-price-value">30</span>
           </span>
         </div>
+        <span class="stock-badge low-stock">Only 4 left in this batch</span>
         <div class="pdp-dispatch" id="pdpDispatch"></div>
         <p class="pdp-blurb">Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.</p>
         <fieldset class="pdp-variant-group variant-group" data-base-price="30.00">
@@ -274,12 +275,12 @@
             <input type="radio" name="pdpVariant" id="pdpVariant0" value="S" data-delta="0" disabled>
             <span>S <small>sold out</small></span>
           </label>
-          <label class="pdp-variant-option" for="pdpVariant1">
-            <input type="radio" name="pdpVariant" id="pdpVariant1" value="M" data-delta="0" checked>
-            <span>M</span>
+          <label class="pdp-variant-option is-sold-out" for="pdpVariant1">
+            <input type="radio" name="pdpVariant" id="pdpVariant1" value="M" data-delta="0" disabled>
+            <span>M <small>sold out</small></span>
           </label>
           <label class="pdp-variant-option" for="pdpVariant2">
-            <input type="radio" name="pdpVariant" id="pdpVariant2" value="L" data-delta="0">
+            <input type="radio" name="pdpVariant" id="pdpVariant2" value="L" data-delta="0" checked>
             <span>L</span>
           </label>
           <label class="pdp-variant-option" for="pdpVariant3">
@@ -290,10 +291,10 @@
         <div class="pdp-actions">
           <div class="pdp-qty" role="group" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="-1" aria-label="Decrease quantity">&minus;</button>
-            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="10" value="1" aria-label="Quantity">
+            <input type="number" class="pdp-qty-input" id="pdpQty" name="quantity" inputmode="numeric" min="1" max="4" value="1" aria-label="Quantity">
             <button type="button" class="pdp-qty-btn" data-qty-step="1" aria-label="Increase quantity">+</button>
           </div>
-          <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart" data-item-id="tank-top" data-item-name="Y&#39;allternative Living Tank Top" data-item-price="30.00" data-item-image="/assets/img/tank-top.jpg" data-item-categories="Apparel" data-item-custom1-name="Size" data-item-custom1-options="M[+0.00]|L[+0.00]|1X[+0.00]" data-item-custom1-value="M" data-item-max-quantity="10" data-item-quantity="1">Add to Cart</button>
+          <button type="button" class="btn btn-primary btn-lg pdp-cta-btn yl-add-item" id="pdpAddToCart" data-item-id="tank-top" data-item-name="Y&#39;allternative Living Tank Top" data-item-price="30.00" data-item-image="/assets/img/tank-top.jpg" data-item-categories="Apparel" data-item-custom1-name="Size" data-item-custom1-options="L[+0.00]|1X[+0.00]" data-item-custom1-value="L" data-item-max-quantity="4" data-item-quantity="1">Add to Cart</button>
           <button type="button" class="wish-btn pdp-wish-btn" data-id="tank-top" aria-pressed="false" data-i18n-tpl-aria-label="tpl.saveForLater" data-i18n-vars="{&quot;product&quot;:&quot;Y&#39;allternative Living Tank Top&quot;}" aria-label="Save Y&#39;allternative Living Tank Top for later"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
         </div>
         <p class="pdp-express muted">Apple Pay, Google Pay, Link and all major cards at checkout, handled by Stripe. Your card never touches our servers.</p>
@@ -425,12 +426,12 @@
         <div class="pdp-sticky-variant-wrap">
           <select class="pdp-sticky-variant-select variant-select" id="pdpStickyVariantSelect" name="pdp_sticky_variant" data-base-price="30.00" aria-label="Select variant">
             <option value="S" data-delta="0" disabled aria-disabled="true">S — sold out</option>
-            <option value="M" data-delta="0" selected>M</option>
-            <option value="L" data-delta="0">L</option>
+            <option value="M" data-delta="0" disabled aria-disabled="true">M — sold out</option>
+            <option value="L" data-delta="0" selected>L</option>
             <option value="1X" data-delta="0">1X</option>
           </select>
         </div>
-        <button type="button" class="btn btn-primary btn-sm pdp-sticky-add-btn yl-add-item" data-item-id="tank-top" data-item-name="Y&#39;allternative Living Tank Top" data-item-price="30.00" data-item-image="assets/img/tank-top.jpg" data-item-categories="Apparel" data-item-custom1-name="Size" data-item-custom1-options="M[+0.00]|L[+0.00]|1X[+0.00]" data-item-custom1-value="M" data-item-max-quantity="10">Add to Cart</button>
+        <button type="button" class="btn btn-primary btn-sm pdp-sticky-add-btn yl-add-item" data-item-id="tank-top" data-item-name="Y&#39;allternative Living Tank Top" data-item-price="30.00" data-item-image="assets/img/tank-top.jpg" data-item-categories="Apparel" data-item-custom1-name="Size" data-item-custom1-options="L[+0.00]|1X[+0.00]" data-item-custom1-value="L" data-item-max-quantity="4">Add to Cart</button>
       </div>
     </div>
   </main>

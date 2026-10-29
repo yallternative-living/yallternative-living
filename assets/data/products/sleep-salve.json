@@ -3,6 +3,7 @@
   "name": "Hush Y'all Magnesium Arnica Sleep Salve",
   "category": "salves",
   "price": 20,
+  "stock": 3,
   "image": "assets/img/sleep-salve.jpg",
   "images": [
     "assets/img/sleep-salve-alt1.jpg"

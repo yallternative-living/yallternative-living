@@ -1852,5 +1852,61 @@ window.YL_IMAGES = {
         }
       ]
     }
+  },
+  "assets/img/hot-unbothered-spell-bottle.jpg": {
+    key: "assets/img/hot-unbothered-spell-bottle.jpg",
+    width: 600,
+    height: 510,
+    size: 63340,
+    variants: {
+      avif: [
+        {
+          width: 480,
+          file: "assets/img/hot-unbothered-spell-bottle-480.avif"
+        },
+        {
+          width: 600,
+          file: "assets/img/hot-unbothered-spell-bottle.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 480,
+          file: "assets/img/hot-unbothered-spell-bottle-480.webp"
+        },
+        {
+          width: 600,
+          file: "assets/img/hot-unbothered-spell-bottle.webp"
+        }
+      ]
+    }
+  },
+  "assets/img/not-today-satan-spell-bottle.jpg": {
+    key: "assets/img/not-today-satan-spell-bottle.jpg",
+    width: 600,
+    height: 510,
+    size: 74079,
+    variants: {
+      avif: [
+        {
+          width: 480,
+          file: "assets/img/not-today-satan-spell-bottle-480.avif"
+        },
+        {
+          width: 600,
+          file: "assets/img/not-today-satan-spell-bottle.avif"
+        }
+      ],
+      webp: [
+        {
+          width: 480,
+          file: "assets/img/not-today-satan-spell-bottle-480.webp"
+        },
+        {
+          width: 600,
+          file: "assets/img/not-today-satan-spell-bottle.webp"
+        }
+      ]
+    }
   }
 };

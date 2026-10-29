@@ -4,6 +4,7 @@
   "featured": true,
   "category": "potions",
   "price": 8,
+  "stock": 9,
   "image": "assets/img/protection-keychain.jpg",
   "images": [
     "assets/img/protection-keychain-alt1.jpg",

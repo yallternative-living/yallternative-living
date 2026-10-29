@@ -21,7 +21,7 @@ window.YL_PRODUCTS = {
       ],
       "blurb": "Same rainbow stag, same crescent moon, cut for the hottest days of the year. Soft triblend racerback built to be worn hard and washed easy. Original artwork, not something pulled off a mass-print catalog.",
       "etsyUrl": "https://www.etsy.com/listing/4341507933/yallternative-living-tank-top",
-      "stock": 10,
+      "stock": 4,
       "ingredientsNote": "",
       "scent": "",
       "variants": {
@@ -34,7 +34,8 @@ window.YL_PRODUCTS = {
           },
           {
             "label": "M",
-            "priceDelta": 0
+            "priceDelta": 0,
+            "soldOut": true
           },
           {
             "label": "L",
@@ -85,7 +86,7 @@ window.YL_PRODUCTS = {
       ],
       "blurb": "The shirt that started the whole shop: a rainbow stag under a crescent moon, screen-printed on soft cotton cut to actually fit everybody. Original artwork, zero mass-production. Wear it to the market, wear it to Pride, wear it everywhere in between.",
       "etsyUrl": "https://www.etsy.com/listing/4341518675/yallternative-living-unisex-t-shirt",
-      "stock": 20,
+      "stock": 8,
       "ingredientsNote": "",
       "scent": "",
       "variants": {
@@ -97,7 +98,8 @@ window.YL_PRODUCTS = {
           },
           {
             "label": "M",
-            "priceDelta": 0
+            "priceDelta": 0,
+            "soldOut": true
           },
           {
             "label": "L",
@@ -153,7 +155,7 @@ window.YL_PRODUCTS = {
         "value": 5,
         "count": 6
       },
-      "stock": null,
+      "stock": 173,
       "ingredients": [
         "Beeswax",
         "Shea Butter",
@@ -223,7 +225,7 @@ window.YL_PRODUCTS = {
       "image": "assets/img/miracle-balm.jpg",
       "blurb": "No essential oils, no fragrance, nothing to react to. Just a rich little .5 oz balm for lips, cuticles, and anywhere skin needs backup. Gentle enough for the whole family, kids included.",
       "etsyUrl": "https://www.etsy.com/listing/4466572716/yallternative-miracle-balm-multi-use",
-      "stock": null,
+      "stock": 185,
       "ingredients": [
         "Beeswax (Cera alba)",
         "Shea Butter (Butyrospermum parkii)",
@@ -279,6 +281,7 @@ window.YL_PRODUCTS = {
       "name": "Hush Y'all Magnesium Arnica Sleep Salve",
       "category": "salves",
       "price": 20,
+      "stock": 3,
       "image": "assets/img/sleep-salve.jpg",
       "images": [
         "assets/img/sleep-salve-alt1.jpg"
@@ -338,6 +341,7 @@ window.YL_PRODUCTS = {
       "featured": true,
       "category": "body",
       "price": 14,
+      "stock": 188,
       "image": "assets/img/beard-salve.jpg",
       "images": [
         "assets/img/beard-salve-alt1.jpg"
@@ -394,6 +398,7 @@ window.YL_PRODUCTS = {
       "name": "Feral but FRESH Cream Deodorant",
       "category": "body",
       "price": 15,
+      "stock": 5,
       "image": "assets/img/cream-deodorant.jpg",
       "images": [
         "assets/img/cream-deodorant-alt1.jpg"
@@ -453,6 +458,7 @@ window.YL_PRODUCTS = {
       "featured": true,
       "category": "body",
       "price": 19,
+      "stock": 19,
       "image": "assets/img/shimmer-oil.jpg",
       "images": [
         "assets/img/shimmer-oil-alt1.jpg",
@@ -532,6 +538,7 @@ window.YL_PRODUCTS = {
       "name": "Lavender Shea Body Butter",
       "category": "body",
       "price": 18,
+      "stock": 4,
       "image": "assets/img/shea-butter.jpg",
       "images": [
         "assets/img/shea-butter-alt1.jpg",
@@ -606,6 +613,7 @@ window.YL_PRODUCTS = {
       "name": "Bourbon Vanilla Hand Scrub",
       "category": "body",
       "price": 12,
+      "stock": 26,
       "image": "assets/img/hand-scrub.jpg",
       "images": [
         "assets/img/hand-scrub-alt1.jpg",
@@ -688,6 +696,7 @@ window.YL_PRODUCTS = {
       "name": "Lavender Epsom Salt Soak",
       "category": "soaks",
       "price": 10,
+      "stock": 8,
       "image": "assets/img/lavender-soak.jpg",
       "images": [
         "assets/img/lavender-soak-alt1.jpg",
@@ -756,6 +765,7 @@ window.YL_PRODUCTS = {
       "featured": true,
       "category": "soaks",
       "price": 10,
+      "stock": 16,
       "image": "assets/img/backroad-soak.jpg",
       "images": [
         "assets/img/backroad-soak-alt1.jpg",
@@ -829,6 +839,7 @@ window.YL_PRODUCTS = {
       "featured": true,
       "category": "potions",
       "price": 8,
+      "stock": 9,
       "image": "assets/img/protection-keychain.jpg",
       "images": [
         "assets/img/protection-keychain-alt1.jpg",
@@ -903,6 +914,7 @@ window.YL_PRODUCTS = {
       "name": "Bug Off B*tch Natural Bug Spray",
       "category": "body",
       "price": 12,
+      "stock": 18,
       "image": "assets/img/bug-spray.jpg",
       "images": [
         "assets/img/bug-spray-alt1.jpg",
@@ -1270,6 +1282,88 @@ window.YL_PRODUCTS = {
         "bug-spray"
       ],
       "estimatedBatchDate": "Late October 2026"
+    },
+    {
+      "id": "not-today-satan-spell-bottle",
+      "name": "Not Today, Satan Spell Bottle",
+      "comingSoon": true,
+      "category": "potions",
+      "price": 8,
+      "image": "assets/img/not-today-satan-spell-bottle.jpg",
+      "blurb": "Protection, banishing, boundaries. A mini spell bottle for keeping the bad vibes away, protecting your peace, and telling unwanted energy to kindly f*ck off. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.",
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "ingredients": [
+        "Salts",
+        "Dried Botanicals",
+        "Glass",
+        "Cork",
+        "Wax"
+      ],
+      "ingredientsNote": "The exact salts and botanicals in this bottle will be listed here before it goes on sale.",
+      "tags": [],
+      "concerns": [],
+      "usageGuide": {
+        "howToApply": "Keep it where you will see it: an altar, a shelf, a windowsill or a nightstand. Handle with intention.",
+        "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
+        "patchTest": "Decorative spell bottle. Contains sealed salts and dried botanicals. Not for consumption or topical skin application."
+      },
+      "keywords": [
+        "spell bottle",
+        "spell jar",
+        "spellwork",
+        "protection",
+        "banishing",
+        "boundaries",
+        "alt gothic"
+      ],
+      "pairsWith": [
+        "protection-keychain",
+        "porch-sweep-spray"
+      ],
+      "scentProfile": null,
+      "ritualTitle": "The Not Today, Satan Boundary Ritual",
+      "estimatedBatchDate": "To be announced"
+    },
+    {
+      "id": "hot-unbothered-spell-bottle",
+      "name": "Hot & Unbothered Spell Bottle",
+      "comingSoon": true,
+      "category": "potions",
+      "price": 8,
+      "image": "assets/img/hot-unbothered-spell-bottle.jpg",
+      "blurb": "Lust, seduction, confidence. A mini spell bottle for awakening your inner temptress, embracing your sensuality, and radiating irresistible sexual energy. Unapologetically sexy, dangerously magnetic, and completely in control of your desires. Handcrafted with salts and botanicals chosen for their traditional spiritual symbolism, then corked and sealed in wax.",
+      "etsyUrl": "https://www.etsy.com/shop/YallternativeLivinCO",
+      "ingredients": [
+        "Salts",
+        "Dried Botanicals",
+        "Glass",
+        "Cork",
+        "Wax"
+      ],
+      "ingredientsNote": "The exact salts and botanicals in this bottle will be listed here before it goes on sale.",
+      "tags": [],
+      "concerns": [],
+      "usageGuide": {
+        "howToApply": "Keep it where you will see it: an altar, a shelf, a windowsill or a nightstand. Handle with intention.",
+        "storage": "Keep dry and avoid dropping onto hard surfaces to protect the sealed glass vial.",
+        "patchTest": "Decorative spell bottle. Contains sealed salts and dried botanicals. Not for consumption or topical skin application."
+      },
+      "keywords": [
+        "spell bottle",
+        "spell jar",
+        "spellwork",
+        "confidence",
+        "self love",
+        "sensuality",
+        "alt gothic"
+      ],
+      "pairsWith": [
+        "protection-keychain",
+        "shimmer-oil"
+      ],
+      "scentProfile": null,
+      "ritualTitle": "The Hot & Unbothered Confidence Ritual",
+      "estimatedBatchDate": "To be announced"
     },
     {
       "id": "yallternative-gift-card",

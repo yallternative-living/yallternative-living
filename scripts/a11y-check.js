@@ -204,10 +204,15 @@ const INCOMPLETE_BASELINE = {
   "products/frankincense-salve.html [light]": 27,
   "products/hand-scrub.html [dark]": 24,
   "products/hand-scrub.html [light]": 24,
+  /* Coming-soon PDP: same template and the same 16 nodes as porch-sweep-spray. */
+  "products/hot-unbothered-spell-bottle.html [dark]": 16,
+  "products/hot-unbothered-spell-bottle.html [light]": 16,
   "products/lavender-soak.html [dark]": 19,
   "products/lavender-soak.html [light]": 19,
   "products/miracle-balm.html [dark]": 19,
   "products/miracle-balm.html [light]": 19,
+  "products/not-today-satan-spell-bottle.html [dark]": 16,
+  "products/not-today-satan-spell-bottle.html [light]": 16,
   "products/porch-sweep-spray.html [dark]": 16,
   "products/porch-sweep-spray.html [light]": 16,
   "products/protection-keychain.html [dark]": 22,
@@ -218,27 +223,28 @@ const INCOMPLETE_BASELINE = {
   "products/shimmer-oil.html [light]": 17,
   "products/sleep-salve.html [dark]": 22,
   "products/sleep-salve.html [light]": 22,
-  "products/sugar-scrub.html [dark]": 19,
-  "products/sugar-scrub.html [light]": 19,
+  "products/sugar-scrub.html [dark]": 21,
+  "products/sugar-scrub.html [light]": 21,
   "products/tank-top.html [dark]": 17,
   "products/tank-top.html [light]": 17,
   "products/unisex-tshirt.html [dark]": 17,
   "products/unisex-tshirt.html [light]": 17,
-  "products/whipped-body-butter.html [dark]": 18,
-  "products/whipped-body-butter.html [light]": 18,
+  "products/whipped-body-butter.html [dark]": 20,
+  "products/whipped-body-butter.html [light]": 20,
   "products/yallternative-gift-card.html [dark]": 16,
   "products/yallternative-gift-card.html [light]": 16,
   "reviews.html [dark]": 40,
   "reviews.html [light]": 40,
   "safety.html [dark]": 13,
   "safety.html [light]": 13,
-  /* shop.html: scales with UGC cards: 107 base chrome + 1 per rendered card */
+  /* shop.html: scales with UGC cards: 111 base chrome + 1 per rendered card.
+     107 -> 111 when the two coming-soon spell-bottle cards joined the grid. */
   "shop.html [dark]": {
-    base: 107,
+    base: 111,
     perElement: [{ selector: ".ugc-card", allowance: 1 }]
   },
   "shop.html [light]": {
-    base: 107,
+    base: 111,
     perElement: [{ selector: ".ugc-card", allowance: 1 }]
   },
   "terms.html [dark]": 19,
@@ -384,11 +390,11 @@ const INTERACTIVE_INCOMPLETE_BASELINE = {
     perElement: [{ selector: ".ugc-card", allowance: 1 }]
   },
   "shop.html [dark] {mobile @390}": {
-    base: 112,
+    base: 114,
     perElement: [{ selector: ".ugc-card", allowance: 1 }]
   },
   "shop.html [light] {mobile @390}": {
-    base: 112,
+    base: 114,
     perElement: [{ selector: ".ugc-card", allowance: 1 }]
   },
   /* With a drawer open the counts COLLAPSE, and that is expected rather than
