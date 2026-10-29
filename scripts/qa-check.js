@@ -6287,6 +6287,104 @@ section("Form hygiene: all interactive form controls carry name attributes");
   }
 })();
 
+/* ---------- Every review[] in JSON-LD carries an aggregateRating ----------
+   Google's rule, quoted from the Rich Results Test: "Multiple reviews without
+   aggregateRating object". It is a critical issue and it drops the whole
+   Product from review snippets. The 2026-10-25 builds (aef8341, 2a67a85)
+   shipped it for the sugar scrub and the whipped body butter on shop.html:
+   both were coming soon, so the generator kept their earlier-batch review[]
+   and withheld the aggregateRating. Every other rating check here compared
+   counts against products.json and site-reviews.json, and they agreed with
+   the generator, so the board stayed green. This one asks Google's question
+   directly, of every node in every shipped page, whatever emitted it. */
+section("JSON-LD: every node with review[] also carries aggregateRating");
+(function () {
+  var ldPages = PAGES.concat(generatedPages("products"), generatedPages("journal"));
+  var ldBlockRe = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
+  var blockCount = 0;
+  var reviewedNodes = 0;
+  var missing = [];
+
+  function visit(node, where) {
+    if (Array.isArray(node)) {
+      node.forEach(function (child) {
+        visit(child, where);
+      });
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    if (node.review !== undefined) {
+      reviewedNodes++;
+      var reviewCount = Array.isArray(node.review) ? node.review.length : 1;
+      var ar = node.aggregateRating;
+      if (!ar || ar["@type"] !== "AggregateRating") {
+        missing.push(
+          where +
+            ": " +
+            (node["@type"] || "?") +
+            " '" +
+            (node.name || "?") +
+            "' has " +
+            reviewCount +
+            " review(s) and no aggregateRating"
+        );
+      }
+    }
+    Object.keys(node).forEach(function (k) {
+      if (k !== "review") visit(node[k], where);
+    });
+  }
+
+  ldPages.forEach(function (rel) {
+    var html = fs.readFileSync(path.join(ROOT, rel), "utf8");
+    var m;
+    ldBlockRe.lastIndex = 0;
+    while ((m = ldBlockRe.exec(html))) {
+      blockCount++;
+      try {
+        visit(JSON.parse(m[1]), rel);
+      } catch (e) {
+        fail(rel + ": JSON-LD block does not parse", e.message);
+      }
+    }
+  });
+
+  // An absent subject is a failure, not an exemption: if the scan found no
+  // pages, no blocks, or no reviewed nodes while products do carry their own
+  // reviews, it examined nothing and must not report green.
+  var productsWithOwnReviews = PRODUCTS.filter(function (p) {
+    return SITE_REVIEWS.some(function (r) {
+      return r && r.productId === p.id;
+    });
+  }).length;
+  if (!ldPages.length || !blockCount) {
+    fail(
+      "JSON-LD review scan",
+      ldPages.length + " pages, " + blockCount + " JSON-LD blocks -- nothing to check"
+    );
+  } else if (productsWithOwnReviews && !reviewedNodes) {
+    fail(
+      "JSON-LD review scan",
+      productsWithOwnReviews +
+        " products have their own reviews but no JSON-LD node carries review[]"
+    );
+  } else if (missing.length) {
+    missing.forEach(function (msg) {
+      fail("review[] without aggregateRating", msg);
+    });
+  } else {
+    ok(
+      "all " +
+        reviewedNodes +
+        " JSON-LD nodes with review[] carry aggregateRating (" +
+        blockCount +
+        " blocks across " +
+        ldPages.length +
+        " pages)"
+    );
+  }
+})();
+
 /* ---------- Summary ---------- */
 console.log("\n" + "=".repeat(50));
 console.log(passCount + " checks passed, " + failures.length + " failed.");
